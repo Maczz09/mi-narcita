@@ -32,14 +32,19 @@ export function useFocusTrap(
     const focusable = getFocusableElements(container);
     focusable[0]?.focus();
 
-    // Marcar hermanos en cada nivel del árbol como inert (aísla SR + teclado)
+    // Marcar hermanos en cada nivel del árbol como inert (aísla SR + teclado).
+    // Excluir elementos .scrim y [data-scrim]: son parte del propio overlay
+    // (backdrop del drawer/modal) y deben seguir recibiendo clicks para cerrar.
     const inertTargets: Element[] = [];
     let node: Element | null = container;
     while (node && node !== document.body) {
       const parent: HTMLElement | null = node.parentElement;
       if (parent) {
         for (const sibling of Array.from<Element>(parent.children)) {
-          if (sibling !== node && !sibling.hasAttribute('inert')) {
+          const isScrim =
+            sibling.classList.contains('scrim') ||
+            sibling.hasAttribute('data-scrim');
+          if (sibling !== node && !sibling.hasAttribute('inert') && !isScrim) {
             sibling.setAttribute('inert', '');
             inertTargets.push(sibling);
           }
