@@ -4,12 +4,19 @@ import axios from 'axios';
 
 // Mocks de borde (igual que app.service.spec.ts): axios para la cuenta remota y
 // el decorador de circuit-breaker como passthrough.
-jest.mock('axios', () => ({
-  default: { get: jest.fn(), post: jest.fn() },
-}));
+jest.mock('axios', () => {
+  const mockGet = jest.fn();
+  const mockPost = jest.fn();
+  return {
+    __esModule: true,
+    default: { get: mockGet, post: mockPost },
+    get: mockGet,
+    post: mockPost,
+  };
+});
 
-jest.mock('@org/resiliencia', async () => {
-  const actual = await jest.importActual('@org/resiliencia');
+jest.mock('@org/resiliencia', () => {
+  const actual = jest.requireActual('@org/resiliencia') as any;
   return {
     ...actual,
     CircuitBreakerOptions: () => (_t: any, _k: string, d: PropertyDescriptor) => d,
@@ -52,28 +59,28 @@ function mov(overrides: Record<string, any> = {}) {
   };
 }
 
-function createMockPrisma(overrides: Record<string, any> = {}) {
+function createMockPrisma(overrides: Record<string, any> = {}): any {
   const prisma: any = {
     $connect: async () => {},
     $disconnect: async () => {},
     checkAndRecordIdempotencyKey: async () => true,
-    turnoCaja: { findFirst: jest.fn(), findUnique: jest.fn(), create: jest.fn(), update: jest.fn() },
-    movimientoCaja: { create: jest.fn(), findMany: jest.fn() },
-    arqueoCaja: { create: jest.fn() },
-    cierreCaja: { create: jest.fn() },
-    transaccion: { create: jest.fn(), findMany: jest.fn(), aggregate: jest.fn() },
-    cuentaAbierta: { findUnique: jest.fn(), upsert: jest.fn(), update: jest.fn() },
-    outboxEvent: { create: jest.fn() },
-    $executeRaw: jest.fn(),
+    turnoCaja: { findFirst: jest.fn<any>(), findUnique: jest.fn<any>(), create: jest.fn<any>(), update: jest.fn<any>() },
+    movimientoCaja: { create: jest.fn<any>(), findMany: jest.fn<any>() },
+    arqueoCaja: { create: jest.fn<any>() },
+    cierreCaja: { create: jest.fn<any>() },
+    transaccion: { create: jest.fn<any>(), findMany: jest.fn<any>(), aggregate: jest.fn<any>() },
+    cuentaAbierta: { findUnique: jest.fn<any>(), upsert: jest.fn<any>(), update: jest.fn<any>() },
+    outboxEvent: { create: jest.fn<any>() },
+    $executeRaw: jest.fn<any>(),
     ...overrides,
   };
-  prisma.$transaction = jest.fn(async (cb: any) => cb(prisma));
+  prisma.$transaction = jest.fn<any>(async (cb: any) => cb(prisma));
   return prisma;
 }
 
 describe('AppService — Caja (turnos, movimientos, arqueo, cierre)', () => {
   let service: AppService;
-  let prisma: ReturnType<typeof createMockPrisma>;
+  let prisma: any;
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -88,12 +95,12 @@ describe('AppService — Caja (turnos, movimientos, arqueo, cierre)', () => {
   describe('obtenerTurnoActivo', () => {
     it('devuelve null cuando no hay turno abierto', async () => {
       prisma.turnoCaja.findFirst.mockResolvedValue(null);
-      expect(await service.obtenerTurnoActivo('u-001')).toBeNull();
+      expect(await service.obtenerTurnoActivo()).toBeNull();
     });
 
     it('mapea el turno abierto cuando existe', async () => {
       prisma.turnoCaja.findFirst.mockResolvedValue({ ...baseTurno });
-      const turno = await service.obtenerTurnoActivo('u-001');
+      const turno = await service.obtenerTurnoActivo();
       expect(turno?.id).toBe('turno-001');
       expect(turno?.estado).toBe('ABIERTA');
     });
@@ -102,7 +109,7 @@ describe('AppService — Caja (turnos, movimientos, arqueo, cierre)', () => {
   describe('obtenerResumenTurnoActivo', () => {
     it('devuelve un resumen vacío si no hay turno', async () => {
       prisma.turnoCaja.findFirst.mockResolvedValue(null);
-      const resumen = await service.obtenerResumenTurnoActivo('u-001');
+      const resumen = await service.obtenerResumenTurnoActivo();
       expect(resumen.turno).toBeNull();
       expect(resumen.totalVentas).toBe(0);
       expect(resumen.porMetodo).toMatchObject({ EFECTIVO: 0, TARJETA: 0 });
@@ -116,7 +123,7 @@ describe('AppService — Caja (turnos, movimientos, arqueo, cierre)', () => {
         arqueos: [],
         cierre: null,
       });
-      const resumen = await service.obtenerResumenTurnoActivo('u-001');
+      const resumen = await service.obtenerResumenTurnoActivo();
       expect(resumen.turno?.id).toBe('turno-001');
       expect(resumen.totalVentas).toBe(50);
     });

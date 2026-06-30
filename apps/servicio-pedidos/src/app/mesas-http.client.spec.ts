@@ -6,6 +6,13 @@ import { NotFoundException, ServiceUnavailableException, InternalServerErrorExce
 import axios from 'axios';
 
 jest.mock('axios');
+jest.mock('@org/resiliencia', () => {
+  const actual = jest.requireActual('@org/resiliencia') as any;
+  return {
+    ...actual,
+    CircuitBreakerOptions: () => (_target: any, _key: string, descriptor: PropertyDescriptor) => descriptor,
+  };
+});
 const mockedAxios = axios as jest.Mocked<typeof axios>;
 
 describe('MesasHttpClient', () => {

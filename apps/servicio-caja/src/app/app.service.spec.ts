@@ -2,15 +2,19 @@
 import { describe, it, expect, beforeEach, jest } from '@jest/globals';
 import axios from 'axios';
 
-jest.mock('axios', () => ({
-  default: {
-    get: jest.fn(),
-    post: jest.fn(),
-  },
-}));
+jest.mock('axios', () => {
+  const mockGet = jest.fn();
+  const mockPost = jest.fn();
+  return {
+    __esModule: true,
+    default: { get: mockGet, post: mockPost },
+    get: mockGet,
+    post: mockPost,
+  };
+});
 
-jest.mock('@org/resiliencia', async () => {
-  const actual = await jest.importActual('@org/resiliencia');
+jest.mock('@org/resiliencia', () => {
+  const actual = jest.requireActual('@org/resiliencia') as any;
   return {
     ...actual,
     CircuitBreakerOptions: () => (_target: any, _key: string, descriptor: PropertyDescriptor) => descriptor,
@@ -20,40 +24,40 @@ jest.mock('@org/resiliencia', async () => {
 import { AppService } from './app.service';
 import { CuentasHttpClient } from './cuentas-http.client';
 
-function createMockPrismaService() {
-  const mock = {
+function createMockPrismaService(): any {
+  const mock: any = {
     $connect: () => Promise.resolve(),
     $disconnect: () => Promise.resolve(),
-    $transaction: jest.fn((cb: (m: unknown) => unknown) => cb(mock)),
+    $transaction: jest.fn<any>((cb: (m: unknown) => unknown) => cb(mock)),
     checkAndRecordIdempotencyKey: () => Promise.resolve(true),
     transaccion: {
-      create: jest.fn(),
-      findMany: jest.fn(),
-      aggregate: jest.fn(),
+      create: jest.fn<any>(),
+      findMany: jest.fn<any>(),
+      aggregate: jest.fn<any>(),
     },
     outboxEvent: {
-      create: jest.fn(),
+      create: jest.fn<any>(),
     },
     cuentaAbierta: {
-      findUnique: jest.fn(),
-      upsert: jest.fn(),
-      update: jest.fn(),
+      findUnique: jest.fn<any>(),
+      upsert: jest.fn<any>(),
+      update: jest.fn<any>(),
     },
     turnoCaja: {
-      findFirst: jest.fn(),
-      create: jest.fn(),
+      findFirst: jest.fn<any>(),
+      create: jest.fn<any>(),
     },
     movimientoCaja: {
-      create: jest.fn(),
+      create: jest.fn<any>(),
     },
-    $executeRaw: jest.fn(),
+    $executeRaw: jest.fn<any>(),
   };
   return mock;
 }
 
 describe('AppService — Caja', () => {
   let service: AppService;
-  let mockPrisma: ReturnType<typeof createMockPrismaService>;
+  let mockPrisma: any;
   let mockTokenService: { generateServiceToken: ReturnType<typeof jest.fn> };
 
   beforeEach(() => {

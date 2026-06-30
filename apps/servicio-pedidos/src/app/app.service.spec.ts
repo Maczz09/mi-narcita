@@ -1,11 +1,11 @@
 /* eslint-disable */
-import { describe, it, expect, beforeEach, afterEach, jest } from '@jest/globals';
+import { describe, it, expect, beforeEach, afterEach } from '@jest/globals';
 import axios from 'axios';
 
 // T-33: neutralizar el breaker en los specs del servicio (igual que en caja);
 // el comportamiento del breaker se prueba aparte en http-clients.breaker.spec.ts.
 jest.mock('@org/resiliencia', async () => {
-  const actual = await jest.importActual('@org/resiliencia');
+  const actual = jest.requireActual('@org/resiliencia') as any;
   return {
     ...actual,
     CircuitBreakerOptions: () => (_target: any, _key: string, descriptor: PropertyDescriptor) => descriptor,
@@ -143,7 +143,8 @@ describe('AppService — Pedidos', () => {
         cuentaId: 'cuenta-1',
         mesaId: 'mesa-1',
         monto: 100,
-        metodoPago: 'EFECTIVO'
+        metodo: 'EFECTIVO',
+        transaccionId: 'tx-1'
       });
 
       expect(mockPrisma.pedido.updateMany).toHaveBeenCalledWith({
@@ -168,21 +169,21 @@ describe('AppService — Pedidos', () => {
         .mockResolvedValueOnce({ count: 1 })
         .mockResolvedValueOnce({ count: 0 });
 
-      await service.procesarPagoRecibido({ cuentaId: 'c-001', mesaId: 'm-1', monto: 100, metodoPago: 'EFECTIVO' });
-      await expect(service.procesarPagoRecibido({ cuentaId: 'c-001', mesaId: 'm-empty', monto: 100, metodoPago: 'EFECTIVO' })).resolves.not.toThrow();
+      await service.procesarPagoRecibido({ cuentaId: 'c-001', mesaId: 'm-1', monto: 100, metodo: 'EFECTIVO', transaccionId: 'tx-1' });
+      await expect(service.procesarPagoRecibido({ cuentaId: 'c-001', mesaId: 'm-empty', monto: 100, metodo: 'EFECTIVO', transaccionId: 'tx-2' })).resolves.not.toThrow();
       expect(mockPrisma.pedido.updateMany).toHaveBeenCalledTimes(2);
     });
 
     it('es idempotente si atrapa error P2002 de base de datos', async () => {
       mockPrisma.$transaction.mockRejectedValueOnce({ code: 'P2002' });
-      await expect(service.procesarPagoRecibido({ cuentaId: 'c-1', mesaId: 'm-1', monto: 1, metodoPago: 'EF' })).resolves.toBeUndefined();
+      await expect(service.procesarPagoRecibido({ cuentaId: 'c-1', mesaId: 'm-1', monto: 1, metodo: 'EF', transaccionId: 'tx-3' })).resolves.toBeUndefined();
     });
 
     it('re-lanza error si no es P2002', async () => {
       const err = new Error('test db crash');
       (err as any).code = 'P500';
       mockPrisma.$transaction.mockRejectedValueOnce(err);
-      await expect(service.procesarPagoRecibido({ cuentaId: 'c-1', mesaId: 'm-1', monto: 1, metodoPago: 'EF' })).rejects.toThrow('test db crash');
+      await expect(service.procesarPagoRecibido({ cuentaId: 'c-1', mesaId: 'm-1', monto: 1, metodo: 'EF', transaccionId: 'tx-4' })).rejects.toThrow('test db crash');
     });
   });
 

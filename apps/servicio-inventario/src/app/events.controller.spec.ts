@@ -35,7 +35,7 @@ describe('EventsController (Inventario)', () => {
     const pedido = {
       id: 'pedido-1',
       mesaId: 'mesa-1',
-      items: [{ productoId: 'p-1', cantidad: 2, precioUnitario: 10, nombre: 'Test' }],
+      items: [{ id: 'i-001', productoId: 'p-1', cantidad: 2, precioUnitario: 10, nombre: 'Test' }],
       total: 20,
       estado: PedidoEstado.Pendiente,
       createdAt: new Date().toISOString(),

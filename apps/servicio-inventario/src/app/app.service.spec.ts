@@ -4,34 +4,34 @@ import { AppService } from './app.service';
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { PedidoEstado } from '@org/contracts';
 
-function createMockPrismaService(overrides: Record<string, unknown> = {}) {
+function createMockPrismaService(overrides: Record<string, unknown> = {}): any {
   const mock: Record<string, unknown> = {
     $connect: async () => {},
     $disconnect: async () => {},
     checkAndRecordIdempotencyKey: (_key: string) => Promise.resolve(true),
     producto: {
-      findUnique: jest.fn(),
-      findMany: jest.fn(),
-      create: jest.fn(),
-      update: jest.fn(),
-      updateMany: jest.fn(),
+      findUnique: jest.fn<any>(),
+      findMany: jest.fn<any>(),
+      create: jest.fn<any>(),
+      update: jest.fn<any>(),
+      updateMany: jest.fn<any>(),
     },
     categoria: {
-      findMany: jest.fn(),
-      findUnique: jest.fn(),
-      create: jest.fn(),
+      findMany: jest.fn<any>(),
+      findUnique: jest.fn<any>(),
+      create: jest.fn<any>(),
     },
     outboxEvent: {
-      create: jest.fn().mockResolvedValue({}),
+      create: jest.fn<any>().mockResolvedValue({}),
     },
     idempotencyKey: {
-      create: jest.fn().mockResolvedValue({}),
+      create: jest.fn<any>().mockResolvedValue({}),
     },
-    $executeRaw: jest.fn(),
+    $executeRaw: jest.fn<any>(),
     ...overrides,
   };
-  mock.$transaction = jest.fn((cb: unknown) => Promise.resolve((cb as (arg: unknown) => unknown)(mock)));
-  return mock as any;
+  mock.$transaction = jest.fn<any>((cb: unknown) => Promise.resolve((cb as (arg: unknown) => unknown)(mock)));
+  return mock;
 }
 
 function pedidoDto(id: string, items: Array<Record<string, unknown>>) {
@@ -66,7 +66,7 @@ const productoBase = {
 
 describe('AppService — Inventario (comprehensive)', () => {
   let service: AppService;
-  let mockPrisma: ReturnType<typeof createMockPrismaService>;
+  let mockPrisma: any;
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -526,7 +526,7 @@ describe('AppService — Inventario (comprehensive)', () => {
 
     it('relanza errores no-P2002', async () => {
       const err = new Error('DB down');
-      (mockPrisma.$transaction as jest.Mock).mockRejectedValue(err);
+      (mockPrisma.$transaction as any).mockRejectedValue(err);
       await expect(
         service.procesarPedidoCreado(pedidoDto('ped-err', [{ productoId: 'p-1', cantidad: 1 }])),
       ).rejects.toThrow('DB down');

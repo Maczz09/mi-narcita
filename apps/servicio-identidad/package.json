@@ -1,66 +1,61 @@
 {
-  "name": "@org/servicio-identidad",
-  "version": "0.0.1",
-  "private": true,
-  "nx": {
-    "name": "servicio-identidad",
-    "targets": {
-      "build": {
-        "executor": "nx:run-commands",
-        "outputs": [
-          "{workspaceRoot}/dist/apps/servicio-identidad"
-        ],
-        "options": {
-          "command": "tsc -p apps/servicio-identidad/tsconfig.app.json && npx tsc-alias -p apps/servicio-identidad/tsconfig.app.json && node -e \"const fs=require('fs'); if(fs.existsSync('apps/servicio-identidad/src/generated')) fs.cpSync('apps/servicio-identidad/src/generated', 'dist/apps/servicio-identidad/apps/servicio-identidad/src/generated', {recursive: true})\""
-        },
-        "configurations": {
-          "production": {},
-          "development": {}
-        }
-      },
-      "serve": {
-        "executor": "nx:run-commands",
-        "dependsOn": [
-          "build"
-        ],
-        "options": {
-          "command": "node dist/apps/servicio-identidad/apps/servicio-identidad/src/main.js"
-        },
-        "continuous": true
-      },
-      "test": {
-        "executor": "@nx/jest:jest",
-        "outputs": [
-          "{projectRoot}/test-output/jest/coverage"
-        ],
-        "options": {
-          "jestConfig": "apps/servicio-identidad/jest.config.cts"
-        }
-      }
-    },
-    "tags": [
-      "backend",
-      "service",
-      "identidad"
-    ]
-  },
-  "dependencies": {
-    "@nestjs/common": "^11.0.0",
-    "@nestjs/core": "^11.0.0",
-    "@nestjs/jwt": "^11.0.0",
-    "@nestjs/passport": "^11.0.0",
-    "@nestjs/platform-express": "^11.0.0",
-    "@org/shared-prisma": "*",
-    "bcrypt": "^6.0.0",
-    "passport": "^0.7.0",
-    "passport-jwt": "^4.0.1",
-    "reflect-metadata": "^0.1.13",
-    "rxjs": "^7.8.0",
-    "tslib": "^2.3.0"
-  },
-  "devDependencies": {
-    "@nestjs/testing": "^11.0.0",
-    "@types/bcrypt": "^5.0.2",
-    "@types/passport-jwt": "^4.0.1"
-  }
+    "name":  "@org/servicio-identidad",
+    "version":  "0.0.1",
+    "private":  true,
+    "nx":  {
+               "name":  "servicio-identidad",
+               "targets":  {
+                               "build":  {
+                                             "executor":  "nx:run-commands",
+                                             "outputs":  [
+                                                             "{workspaceRoot}/dist/apps/servicio-identidad"
+                                                         ],
+                                             "options":  {
+                                                             "command":  "tsc -p apps/servicio-identidad/tsconfig.app.json \u0026\u0026 npx tsc-alias -p apps/servicio-identidad/tsconfig.app.json \u0026\u0026 node -e \"const fs=require(\u0027fs\u0027); if(fs.existsSync(\u0027apps/servicio-identidad/src/generated\u0027)) fs.cpSync(\u0027apps/servicio-identidad/src/generated\u0027, \u0027dist/apps/servicio-identidad/apps/servicio-identidad/src/generated\u0027, {recursive: true})\""
+                                                         },
+                                             "configurations":  {
+                                                                    "production":  {
+
+                                                                                   },
+                                                                    "development":  {
+
+                                                                                    }
+                                                                }
+                                         },
+                               "serve":  {
+                                             "executor":  "nx:run-commands",
+                                             "dependsOn":  [
+                                                               "build"
+                                                           ],
+                                             "options":  {
+                                                             "command":  "node dist/apps/servicio-identidad/apps/servicio-identidad/src/main.js"
+                                                         },
+                                             "continuous":  true
+                                         }
+                           },
+               "tags":  [
+                            "backend",
+                            "service",
+                            "identidad"
+                        ]
+           },
+    "dependencies":  {
+                         "@nestjs/common":  "^11.0.0",
+                         "@nestjs/core":  "^11.0.0",
+                         "@nestjs/jwt":  "^11.0.0",
+                         "@nestjs/passport":  "^11.0.0",
+                         "@nestjs/platform-express":  "^11.0.0",
+                         "@org/shared-prisma":  "*",
+                         "bcrypt":  "^6.0.0",
+                         "passport":  "^0.7.0",
+                         "passport-jwt":  "^4.0.1",
+                         "reflect-metadata":  "^0.1.13",
+                         "rxjs":  "^7.8.0",
+                         "tslib":  "^2.3.0"
+                     },
+    "devDependencies":  {
+                            "@nestjs/testing":  "^11.0.0",
+                            "@types/bcrypt":  "^5.0.2",
+                            "@types/passport-jwt":  "^4.0.1"
+                        }
 }

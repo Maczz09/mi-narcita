@@ -43,8 +43,8 @@ describe('AppController (Inventario)', () => {
   });
 
   it('getData debe devolver hello', () => {
-    jest.spyOn(appService, 'getHello').mockReturnValue({ message: 'Hello API' });
-    expect(appController.getData()).toEqual({ message: 'Hello API' });
+    jest.spyOn(appService, 'getHello').mockReturnValue({ message: 'Hello API', service: 'inventario' });
+    expect(appController.getData()).toEqual({ message: 'Hello API', service: 'inventario' });
   });
 
   it('listarCategorias debe llamar a appService.listarCategorias', async () => {
