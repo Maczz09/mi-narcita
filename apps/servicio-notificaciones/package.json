@@ -27,6 +27,15 @@
           "command": "node dist/apps/servicio-notificaciones/apps/servicio-notificaciones/src/main.js"
         },
         "continuous": true
+      },
+      "test": {
+        "executor": "@nx/vitest:vitest",
+        "outputs": [
+          "{projectRoot}/coverage"
+        ],
+        "options": {
+          "vitestConfig": "apps/servicio-notificaciones/vitest.config.ts"
+        }
       }
     },
     "tags": [

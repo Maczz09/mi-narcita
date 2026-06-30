@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, jest, beforeEach } from '@jest/globals';
 import { ReservasService } from './reservas.service';
 import { ReservaEstado, RoutingKeys } from '@org/contracts';
 
@@ -6,16 +6,16 @@ import { PrismaService } from '../prisma/prisma.service';
 
 type MockPrismaService = {
   reserva: {
-    findMany: ReturnType<typeof vi.fn>;
-    findUnique: ReturnType<typeof vi.fn>;
-    create: ReturnType<typeof vi.fn>;
-    update: ReturnType<typeof vi.fn>;
-    count: ReturnType<typeof vi.fn>;
+    findMany: ReturnType<typeof jest.fn>;
+    findUnique: ReturnType<typeof jest.fn>;
+    create: ReturnType<typeof jest.fn>;
+    update: ReturnType<typeof jest.fn>;
+    count: ReturnType<typeof jest.fn>;
   };
   outboxEvent: {
-    create: ReturnType<typeof vi.fn>;
+    create: ReturnType<typeof jest.fn>;
   };
-  $transaction: ReturnType<typeof vi.fn>;
+  $transaction: ReturnType<typeof jest.fn>;
 };
 
 function createMockPrismaService(overrides: Record<string, unknown> = {}) {
@@ -43,17 +43,17 @@ describe('ReservasService — Reservas', () => {
   beforeEach(() => {
     mockPrisma = createMockPrismaService({
       reserva: {
-        findMany: vi.fn(),
-        findUnique: vi.fn(),
-        create: vi.fn(),
-        update: vi.fn(),
-        count: vi.fn(),
+        findMany: jest.fn(),
+        findUnique: jest.fn(),
+        create: jest.fn(),
+        update: jest.fn(),
+        count: jest.fn(),
       },
       outboxEvent: {
-        create: vi.fn(),
+        create: jest.fn(),
       },
     });
-    mockPrisma.$transaction = vi.fn((callback: unknown) => Promise.resolve((callback as (arg: unknown) => unknown)(mockPrisma)));
+    mockPrisma.$transaction = jest.fn((callback: unknown) => Promise.resolve((callback as (arg: unknown) => unknown)(mockPrisma)));
     service = new ReservasService(mockPrisma as unknown as PrismaService);
   });
 

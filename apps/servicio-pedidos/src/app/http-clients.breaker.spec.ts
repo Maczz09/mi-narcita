@@ -1,6 +1,5 @@
 /* eslint-disable */
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach } from '@jest/globals';
 import axios from 'axios';
 import { NotFoundException, ServiceUnavailableException } from '@nestjs/common';
 import { CIRCUIT_BREAKER_REGISTRY } from '@org/resiliencia';
@@ -13,7 +12,7 @@ import { InventarioHttpClient } from './inventario-http.client';
  * errores (404→NotFound) se conserva y los 4xx no abren el circuito.
  */
 
-const tokenService = { generateServiceToken: vi.fn().mockReturnValue('service-token') } as any;
+const tokenService = { generateServiceToken: jest.fn().mockReturnValue('service-token') } as any;
 
 function limpiarBreakers() {
   for (const [name, breaker] of CIRCUIT_BREAKER_REGISTRY) {
@@ -24,18 +23,18 @@ function limpiarBreakers() {
 
 describe('Clientes HTTP de pedidos — circuit breaker (P-55)', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    jest.clearAllMocks();
     limpiarBreakers();
   });
 
   afterEach(() => {
-    vi.restoreAllMocks();
+    jest.restoreAllMocks();
     limpiarBreakers();
   });
 
   it('mesas: abre el circuito tras N fallos 5xx/red y responde 503 sin tocar la red', async () => {
     const client = new MesasHttpClient(tokenService);
-    const getSpy = vi
+    const getSpy = jest
       .spyOn(axios, 'get')
       .mockRejectedValue(Object.assign(new Error('conexión rechazada'), { code: 'ECONNREFUSED' }));
 
@@ -55,7 +54,7 @@ describe('Clientes HTTP de pedidos — circuit breaker (P-55)', () => {
 
   it('mesas: un 404 se mapea a NotFound y NO abre el circuito', async () => {
     const client = new MesasHttpClient(tokenService);
-    vi.spyOn(axios, 'get').mockRejectedValue(
+    jest.spyOn(axios, 'get').mockRejectedValue(
       Object.assign(new Error('not found'), { response: { status: 404 } }),
     );
 
@@ -69,7 +68,7 @@ describe('Clientes HTTP de pedidos — circuit breaker (P-55)', () => {
 
   it('inventario: abre el circuito tras N fallos y responde 503 sin tocar la red', async () => {
     const client = new InventarioHttpClient(tokenService);
-    const postSpy = vi
+    const postSpy = jest
       .spyOn(axios, 'post')
       .mockRejectedValue(Object.assign(new Error('timeout'), { code: 'ECONNABORTED' }));
 
@@ -87,7 +86,7 @@ describe('Clientes HTTP de pedidos — circuit breaker (P-55)', () => {
 
   it('mesas: respuesta exitosa atraviesa el breaker y devuelve la mesa remota', async () => {
     const client = new MesasHttpClient(tokenService);
-    vi.spyOn(axios, 'get').mockResolvedValue({ data: { id: 'mesa-1', numero: 4 } });
+    jest.spyOn(axios, 'get').mockResolvedValue({ data: { id: 'mesa-1', numero: 4 } });
 
     await expect(client.obtenerMesa('mesa-1')).resolves.toEqual({ id: 'mesa-1', numero: 4 });
   });

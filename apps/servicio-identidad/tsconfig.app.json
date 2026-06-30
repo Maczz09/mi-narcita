@@ -15,7 +15,12 @@
     "emitDeclarationOnly": false,
     "composite": false
   },
-  "exclude": ["jest.config.ts", "src/**/*.spec.ts", "src/**/*.test.ts"],
+  "exclude": [
+    "jest.config.ts",
+    "src/**/*.spec.ts",
+    "src/**/*.test.ts",
+    "jest.config.cts"
+  ],
   "include": ["src/**/*.ts", "../../libs/contracts/src/**/*.ts"],
   "nx": {
     "sync": {

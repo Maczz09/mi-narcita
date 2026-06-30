@@ -1,10 +1,9 @@
-import { describe, expect, it, vi } from 'vitest';
 import { AuthController } from './auth.controller';
 
 function createResponse() {
   return {
-    cookie: vi.fn(),
-    clearCookie: vi.fn(),
+    cookie: jest.fn(),
+    clearCookie: jest.fn(),
   };
 }
 
@@ -20,11 +19,11 @@ describe('AuthController', () => {
 
   it('login delega en AuthService y configura cookies access/refresh/CSRF', async () => {
     const authService = {
-      login: vi.fn().mockResolvedValue({
+      login: jest.fn().mockResolvedValue({
         access_token: 'jwt-token',
         usuario: { id: 'user-1', email: 'admin@test.com', rol: 'ADMIN' },
       }),
-      issueRefreshToken: vi.fn().mockResolvedValue({ token: 'refresh-1', expiresAt: new Date() }),
+      issueRefreshToken: jest.fn().mockResolvedValue({ token: 'refresh-1', expiresAt: new Date() }),
     };
     const response = createResponse();
     const controller = new AuthController(authService as never);
@@ -56,7 +55,7 @@ describe('AuthController', () => {
 
   it('refresh rota el token y devuelve un nuevo access', async () => {
     const authService = {
-      rotateRefreshToken: vi.fn().mockResolvedValue({
+      rotateRefreshToken: jest.fn().mockResolvedValue({
         access_token: 'new-access',
         refresh: { token: 'refresh-2', expiresAt: new Date() },
         usuario: { id: 'user-1' },
@@ -86,7 +85,7 @@ describe('AuthController', () => {
 
   it('logout revoca el refresh y limpia las tres cookies', async () => {
     const response = createResponse();
-    const authService = { revokeRefreshTokenByRaw: vi.fn().mockResolvedValue(undefined) };
+    const authService = { revokeRefreshTokenByRaw: jest.fn().mockResolvedValue(undefined) };
     const controller = new AuthController(authService as never);
 
     await expect(
@@ -104,14 +103,14 @@ describe('AuthController', () => {
 
   it('delega endpoints protegidos y publicos al servicio', async () => {
     const authService = {
-      obtenerPerfil: vi.fn().mockResolvedValue({ id: 'user-1' }),
-      crearUsuario: vi.fn().mockResolvedValue({ id: 'new-user' }),
-      listarUsuarios: vi.fn().mockResolvedValue({ items: [], total: 0 }),
-      cambiarRol: vi.fn().mockResolvedValue({ id: 'user-1', rol: 'ADMIN' }),
+      obtenerPerfil: jest.fn().mockResolvedValue({ id: 'user-1' }),
+      crearUsuario: jest.fn().mockResolvedValue({ id: 'new-user' }),
+      listarUsuarios: jest.fn().mockResolvedValue({ items: [], total: 0 }),
+      cambiarRol: jest.fn().mockResolvedValue({ id: 'user-1', rol: 'ADMIN' }),
     };
     const controller = new AuthController(authService as never);
 
-    expect(await controller.me({ user: { sub: 'user-1' } })).toEqual({ id: 'user-1' });
+    expect(await controller.me({ user: { sub: 'user-1' } } as any)).toEqual({ id: 'user-1' });
     expect(await controller.crearUsuario({ email: 'a@test.com' } as never)).toEqual({
       id: 'new-user',
     });
@@ -120,7 +119,7 @@ describe('AuthController', () => {
       total: 0,
     });
     expect(
-      await controller.cambiarRol('user-1', { rol: 'ADMIN' } as never, { user: { sub: 'admin-1' } }),
+      await controller.cambiarRol('user-1', { rol: 'ADMIN' } as never, { user: { sub: 'admin-1' } } as any),
     ).toEqual({
       id: 'user-1',
       rol: 'ADMIN',

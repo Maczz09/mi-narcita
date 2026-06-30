@@ -1,13 +1,22 @@
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { useOnlineStatus } from './useOnlineStatus';
 
 describe('useOnlineStatus', () => {
-  it('should return true by default', () => {
+  beforeEach(() => {
+    vi.stubGlobal('navigator', { onLine: true });
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('returns true initially if navigator.onLine is true', () => {
     const { result } = renderHook(() => useOnlineStatus());
     expect(result.current).toBe(true);
   });
 
-  it('should update on offline and online events', () => {
+  it('updates state when offline and online events are fired', () => {
     const { result } = renderHook(() => useOnlineStatus());
     
     act(() => {

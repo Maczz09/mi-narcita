@@ -1,73 +1,79 @@
 import React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react';
+import { vi } from 'vitest';
 import '@testing-library/jest-dom';
 import { Comandero } from './Comandero';
 
-jest.mock('../../hooks/queries/useInventarioQuery', () => ({
+vi.mock('../../hooks/queries/useInventarioQuery', () => ({
   useInventarioQuery: () => ({
-    data: { items: [], nextCursor: null },
-    isLoading: false,
-    fetchNextPage: jest.fn(),
-    isFetchingNextPage: false,
+    productos: [],
+    categorias: [],
+    loading: false,
+    loadingMore: false,
+    fetchMore: vi.fn(),
   })
 }));
 
-jest.mock('../../hooks/queries/useMesasQuery', () => ({
+vi.mock('../../hooks/queries/useMesasQuery', () => ({
   useMesasQuery: () => ({
-    data: []
+    mesas: []
   })
 }));
 
-jest.mock('../../hooks/queries/usePedidosQuery', () => ({
+vi.mock('../../hooks/queries/usePedidosQuery', () => ({
   usePedidosQuery: () => ({
-    crear: { mutateAsync: jest.fn(), isPending: false }
+    crear: { mutateAsync: vi.fn(), isPending: false }
   })
 }));
 
-jest.mock('../../hooks/useFocusTrap', () => ({
+vi.mock('../../hooks/useFocusTrap', () => ({
   useFocusTrap: () => ({ current: null })
 }));
 
-jest.mock('../../hooks/useComanda', () => ({
+vi.mock('../../hooks/useComanda', () => ({
   useComanda: () => ({
-    cart: [],
+    lines: [],
     canal: 'SALON',
     mesaId: '1',
     cliente: '',
-    nota: '',
-    add: jest.fn(),
-    del: jest.fn(),
-    upd: jest.fn(),
-    setCanal: jest.fn(),
-    setMesa: jest.fn(),
-    setCliente: jest.fn(),
-    setNota: jest.fn(),
-    valid: true,
-    total: 0,
-    reset: jest.fn()
-  })
+    totalItems: 0,
+    subtotal: 0,
+    igv: 0,
+    saving: false,
+    puedeEnviar: false,
+    ctxValido: true,
+    vaciar: vi.fn(),
+    incLine: vi.fn(),
+    delLine: vi.fn(),
+    toggleNote: vi.fn(),
+    setNota: vi.fn(),
+    setCanal: vi.fn(),
+    setMesa: vi.fn(),
+    setCliente: vi.fn(),
+    enviar: vi.fn(),
+    reset: vi.fn(),
+  }),
 }));
 
-jest.mock('../ui/ToastProvider', () => ({
-  useToast: () => ({ show: jest.fn() })
+vi.mock('../ui/ToastProvider', () => ({
+  useToast: () => ({ show: vi.fn() })
 }));
 
 describe('Comandero', () => {
   it('debe renderizar el título de Nuevo pedido', () => {
-    render(<Comandero onClose={jest.fn()} />);
+    render(<Comandero onClose={vi.fn()} />);
     expect(screen.getByText('Nuevo pedido')).toBeInTheDocument();
   });
 
   it('debe permitir cambiar de canal', () => {
-    render(<Comandero onClose={jest.fn()} />);
+    render(<Comandero onClose={vi.fn()} />);
     const btnDelivery = screen.getByText('Delivery');
     fireEvent.click(btnDelivery);
     expect(btnDelivery).toBeInTheDocument();
   });
 
   it('debe mostrar estado de carga vacío', () => {
-    // Si no hay productos, mostrará "Sin resultados"
-    render(<Comandero onClose={jest.fn()} />);
+    render(<Comandero onClose={vi.fn()} />);
     expect(screen.getByText('Sin resultados')).toBeInTheDocument();
   });
 });

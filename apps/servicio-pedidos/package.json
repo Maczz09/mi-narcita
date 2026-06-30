@@ -27,6 +27,15 @@
           "command": "node dist/apps/servicio-pedidos/apps/servicio-pedidos/src/main.js"
         },
         "continuous": true
+      },
+      "test": {
+        "executor": "@nx/jest:jest",
+        "outputs": [
+          "{projectRoot}/test-output/jest/coverage"
+        ],
+        "options": {
+          "jestConfig": "apps/servicio-pedidos/jest.config.cts"
+        }
       }
     },
     "tags": [

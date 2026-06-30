@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-argument, @typescript-eslint/require-await, @typescript-eslint/no-unused-vars, @typescript-eslint/no-unnecessary-type-assertion */
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach } from '@jest/globals';
 import { PedidosSagaService } from './pedidos-saga.service';
 import { PedidoEstado } from '@org/contracts';
 
@@ -10,29 +10,29 @@ function createMockPrismaService(overrides: Record<string, any> = {}) {
   const prisma: any = {
     $connect: async () => {},
     $disconnect: async () => {},
-    $executeRaw: vi.fn().mockResolvedValue(1),
+    $executeRaw: jest.fn().mockResolvedValue(1),
     pedido: {
-      create: vi.fn(),
-      findUnique: vi.fn(),
-      findMany: vi.fn(),
-      update: vi.fn(),
-      updateMany: vi.fn().mockResolvedValue({ count: 1 }),
+      create: jest.fn(),
+      findUnique: jest.fn(),
+      findMany: jest.fn(),
+      update: jest.fn(),
+      updateMany: jest.fn().mockResolvedValue({ count: 1 }),
     },
     pedidoItem: {
-      update: vi.fn(),
-      updateMany: vi.fn(),
-      findMany: vi.fn(),
+      update: jest.fn(),
+      updateMany: jest.fn(),
+      findMany: jest.fn(),
     },
     idempotencyKey: {
-      create: vi.fn().mockResolvedValue({}),
+      create: jest.fn().mockResolvedValue({}),
     },
     outboxEvent: {
-      create: vi.fn().mockResolvedValue({}),
-      createMany: vi.fn().mockResolvedValue({ count: 2 }),
+      create: jest.fn().mockResolvedValue({}),
+      createMany: jest.fn().mockResolvedValue({ count: 2 }),
     },
     ...overrides,
   };
-  prisma.$transaction = vi.fn(async (cb: any) => cb(prisma));
+  prisma.$transaction = jest.fn(async (cb: any) => cb(prisma));
   return prisma;
 }
 
@@ -52,19 +52,19 @@ describe('PedidosSagaService — Pedidos', () => {
   let mockPrisma: ReturnType<typeof createMockPrismaService>;
 
   beforeEach(() => {
-    vi.clearAllMocks();
+    jest.clearAllMocks();
     mockPrisma = createMockPrismaService();
     service = new PedidosSagaService(mockPrisma);
   });
 
   afterEach(() => {
-    vi.restoreAllMocks();
+    jest.restoreAllMocks();
   });
 
   describe('actualizarEstado — guard de transiciones', () => {
     it('permite el avance comercial LISTO → ENTREGADO', async () => {
-      vi.spyOn(mockPrisma.pedido, 'findUnique').mockResolvedValue({ ...basePedido, estado: PedidoEstado.Listo } as never);
-      const updateSpy = vi.spyOn(mockPrisma.pedido, 'updateMany').mockResolvedValue({ count: 1 } as never);
+      jest.spyOn(mockPrisma.pedido, 'findUnique').mockResolvedValue({ ...basePedido, estado: PedidoEstado.Listo } as never);
+      const updateSpy = jest.spyOn(mockPrisma.pedido, 'updateMany').mockResolvedValue({ count: 1 } as never);
 
       await service.actualizarEstado('p-001', { estado: PedidoEstado.Entregado });
 
@@ -75,8 +75,8 @@ describe('PedidosSagaService — Pedidos', () => {
     });
 
     it('rechaza una transición inválida (PAGADO → EN_PREPARACION)', async () => {
-      vi.spyOn(mockPrisma.pedido, 'findUnique').mockResolvedValue({ ...basePedido, estado: PedidoEstado.Pagado } as never);
-      const updateSpy = vi.spyOn(mockPrisma.pedido, 'updateMany');
+      jest.spyOn(mockPrisma.pedido, 'findUnique').mockResolvedValue({ ...basePedido, estado: PedidoEstado.Pagado } as never);
+      const updateSpy = jest.spyOn(mockPrisma.pedido, 'updateMany');
 
       await expect(
         service.actualizarEstado('p-001', { estado: PedidoEstado.EnPreparacion }),
@@ -89,8 +89,8 @@ describe('PedidosSagaService — Pedidos', () => {
     const itemBase = { id: 'i-1', pedidoId: 'p-001', nombre: 'Plato', cantidad: 1, precioUnitario: 10, area: 'COCINA', notas: null };
 
     it('sube el pedido a EN_PREPARACION cuando arranca el primer ítem', async () => {
-      vi.spyOn(mockPrisma.pedidoItem, 'update').mockResolvedValue({ id: 'i-1', pedidoId: 'p-001' } as never);
-      vi.spyOn(mockPrisma.pedido, 'findUnique').mockResolvedValue({
+      jest.spyOn(mockPrisma.pedidoItem, 'update').mockResolvedValue({ id: 'i-1', pedidoId: 'p-001' } as never);
+      jest.spyOn(mockPrisma.pedido, 'findUnique').mockResolvedValue({
         ...basePedido,
         estado: PedidoEstado.Pendiente,
         items: [
@@ -98,7 +98,7 @@ describe('PedidosSagaService — Pedidos', () => {
           { ...itemBase, id: 'i-2', estado: PedidoEstado.Pendiente },
         ],
       } as never);
-      const updateSpy = vi.spyOn(mockPrisma.pedido, 'update').mockResolvedValue({
+      const updateSpy = jest.spyOn(mockPrisma.pedido, 'update').mockResolvedValue({
         ...basePedido, estado: PedidoEstado.EnPreparacion, items: [],
       } as never);
 
@@ -110,8 +110,8 @@ describe('PedidosSagaService — Pedidos', () => {
     });
 
     it('marca el pedido LISTO y emite pedido.listo cuando todos los ítems están listos', async () => {
-      vi.spyOn(mockPrisma.pedidoItem, 'update').mockResolvedValue({ id: 'i-2', pedidoId: 'p-001' } as never);
-      vi.spyOn(mockPrisma.pedido, 'findUnique').mockResolvedValue({
+      jest.spyOn(mockPrisma.pedidoItem, 'update').mockResolvedValue({ id: 'i-2', pedidoId: 'p-001' } as never);
+      jest.spyOn(mockPrisma.pedido, 'findUnique').mockResolvedValue({
         ...basePedido,
         estado: PedidoEstado.EnPreparacion,
         items: [
@@ -119,7 +119,7 @@ describe('PedidosSagaService — Pedidos', () => {
           { ...itemBase, id: 'i-2', estado: PedidoEstado.Listo },
         ],
       } as never);
-      vi.spyOn(mockPrisma.pedido, 'update').mockResolvedValue({
+      jest.spyOn(mockPrisma.pedido, 'update').mockResolvedValue({
         ...basePedido, estado: PedidoEstado.Listo, items: [],
       } as never);
 
@@ -130,13 +130,13 @@ describe('PedidosSagaService — Pedidos', () => {
     });
 
     it('no pisa un estado comercial (ENTREGADO) al tocar un ítem', async () => {
-      vi.spyOn(mockPrisma.pedidoItem, 'update').mockResolvedValue({ id: 'i-1', pedidoId: 'p-001' } as never);
-      vi.spyOn(mockPrisma.pedido, 'findUnique').mockResolvedValue({
+      jest.spyOn(mockPrisma.pedidoItem, 'update').mockResolvedValue({ id: 'i-1', pedidoId: 'p-001' } as never);
+      jest.spyOn(mockPrisma.pedido, 'findUnique').mockResolvedValue({
         ...basePedido,
         estado: PedidoEstado.Entregado,
         items: [{ ...itemBase, id: 'i-1', estado: PedidoEstado.Listo }],
       } as never);
-      const updateSpy = vi.spyOn(mockPrisma.pedido, 'update');
+      const updateSpy = jest.spyOn(mockPrisma.pedido, 'update');
 
       await service.actualizarEstadoItem('i-1', { estado: PedidoEstado.Listo });
 
@@ -160,9 +160,9 @@ describe('PedidosSagaService — Pedidos', () => {
         ],
       };
       const prisma = createMockPrismaService({
-        pedidoItem: { updateMany: vi.fn().mockResolvedValue({ count: 1 }) },
+        pedidoItem: { updateMany: jest.fn().mockResolvedValue({ count: 1 }) },
         pedido: {
-          findUnique: vi.fn().mockResolvedValue({
+          findUnique: jest.fn().mockResolvedValue({
             id: 'ped-1', mesaId: 'm-1', numeroMesa: 3, estado: PedidoEstado.Pendiente,
             total: 30, createdAt: new Date(), updatedAt: new Date(),
             items: [
@@ -170,10 +170,10 @@ describe('PedidosSagaService — Pedidos', () => {
               itemRechazado({ id: 'it-2', productoId: 'prod-b', nombre: 'B', estado: 'PENDIENTE', precioUnitario: 20 }),
             ],
           }),
-          update: vi.fn().mockResolvedValue(pedidoActualizado),
+          update: jest.fn().mockResolvedValue(pedidoActualizado),
         },
-        outboxEvent: { create: vi.fn().mockResolvedValue({}) },
-        idempotencyKey: { create: vi.fn().mockResolvedValue({}) },
+        outboxEvent: { create: jest.fn().mockResolvedValue({}) },
+        idempotencyKey: { create: jest.fn().mockResolvedValue({}) },
       });
       const svc = new PedidosSagaService(prisma as never);
 
@@ -196,19 +196,19 @@ describe('PedidosSagaService — Pedidos', () => {
     it('pasa el pedido entero a RECHAZADO_SIN_STOCK cuando todos los ítems quedan rechazados', async () => {
       const items = [itemRechazado()];
       const prisma = createMockPrismaService({
-        pedidoItem: { updateMany: vi.fn().mockResolvedValue({ count: 1 }) },
+        pedidoItem: { updateMany: jest.fn().mockResolvedValue({ count: 1 }) },
         pedido: {
-          findUnique: vi.fn().mockResolvedValue({
+          findUnique: jest.fn().mockResolvedValue({
             id: 'ped-2', mesaId: 'm-1', numeroMesa: 3, estado: PedidoEstado.Pendiente,
             total: 10, createdAt: new Date(), items,
           }),
-          update: vi.fn().mockResolvedValue({
+          update: jest.fn().mockResolvedValue({
             id: 'ped-2', mesaId: 'm-1', numeroMesa: 3, estado: PedidoEstado.RechazadoSinStock,
             total: 0, createdAt: new Date(), updatedAt: new Date(), items,
           }),
         },
-        outboxEvent: { create: vi.fn().mockResolvedValue({}) },
-        idempotencyKey: { create: vi.fn().mockResolvedValue({}) },
+        outboxEvent: { create: jest.fn().mockResolvedValue({}) },
+        idempotencyKey: { create: jest.fn().mockResolvedValue({}) },
       });
       const svc = new PedidosSagaService(prisma as never);
 
@@ -224,10 +224,10 @@ describe('PedidosSagaService — Pedidos', () => {
 
     it('es idempotente: una clave duplicada (P2002) no propaga ni re-marca', async () => {
       const prisma = createMockPrismaService({
-        idempotencyKey: { create: vi.fn().mockRejectedValue({ code: 'P2002' }) },
-        pedidoItem: { updateMany: vi.fn() },
-        pedido: { findUnique: vi.fn(), update: vi.fn() },
-        outboxEvent: { create: vi.fn() },
+        idempotencyKey: { create: jest.fn().mockRejectedValue({ code: 'P2002' }) },
+        pedidoItem: { updateMany: jest.fn() },
+        pedido: { findUnique: jest.fn(), update: jest.fn() },
+        outboxEvent: { create: jest.fn() },
       });
       const svc = new PedidosSagaService(prisma as never);
 
@@ -240,8 +240,8 @@ describe('PedidosSagaService — Pedidos', () => {
 
     it('hace early return y loguea si el pedido no se encuentra', async () => {
       const prisma = createMockPrismaService({
-        pedidoItem: { updateMany: vi.fn().mockResolvedValue({ count: 1 }) },
-        pedido: { findUnique: vi.fn().mockResolvedValue(null), update: vi.fn() },
+        pedidoItem: { updateMany: jest.fn().mockResolvedValue({ count: 1 }) },
+        pedido: { findUnique: jest.fn().mockResolvedValue(null), update: jest.fn() },
       });
       const svc = new PedidosSagaService(prisma as never);
       
@@ -255,7 +255,7 @@ describe('PedidosSagaService — Pedidos', () => {
       const errorMock = new Error('Database crash');
       (errorMock as any).code = 'P5000';
       const prisma = createMockPrismaService({
-        idempotencyKey: { create: vi.fn().mockRejectedValue(errorMock) }
+        idempotencyKey: { create: jest.fn().mockRejectedValue(errorMock) }
       });
       const svc = new PedidosSagaService(prisma as never);
 

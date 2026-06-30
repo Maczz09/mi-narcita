@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-argument, @typescript-eslint/require-await, @typescript-eslint/no-unused-vars, @typescript-eslint/no-unnecessary-type-assertion */
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+
 import * as bcrypt from 'bcrypt';
 import { AuthService } from './auth.service';
 import { JwtService } from '@nestjs/jwt';
@@ -10,46 +10,46 @@ import {
 } from '@nestjs/common';
 import { RolUsuario } from '@org/contracts';
 
-vi.mock('bcrypt', () => ({
+jest.mock('bcrypt', () => ({
   default: {
-    compare: vi.fn().mockResolvedValue(true),
-    hash: vi.fn().mockResolvedValue('hashed_password'),
-    hashSync: vi.fn().mockReturnValue('dummy_hash'),
-    getRounds: vi.fn().mockReturnValue(12),
+    compare: jest.fn().mockResolvedValue(true),
+    hash: jest.fn().mockResolvedValue('hashed_password'),
+    hashSync: jest.fn().mockReturnValue('dummy_hash'),
+    getRounds: jest.fn().mockReturnValue(12),
   },
-  compare: vi.fn().mockResolvedValue(true),
-  hash: vi.fn().mockResolvedValue('hashed_password'),
-  hashSync: vi.fn().mockReturnValue('dummy_hash'),
-  getRounds: vi.fn().mockReturnValue(12),
+  compare: jest.fn().mockResolvedValue(true),
+  hash: jest.fn().mockResolvedValue('hashed_password'),
+  hashSync: jest.fn().mockReturnValue('dummy_hash'),
+  getRounds: jest.fn().mockReturnValue(12),
 }));
 
 import { PrismaService } from '../prisma/prisma.service';
 
 function createMockPrismaService(overrides: Record<string, unknown> = {}) {
   const mock = {
-    $connect: vi.fn().mockResolvedValue(undefined),
-    $disconnect: vi.fn().mockResolvedValue(undefined),
-    $transaction: vi.fn().mockImplementation((fn: (p: unknown) => Promise<unknown>) => fn(mock)),
+    $connect: jest.fn().mockResolvedValue(undefined),
+    $disconnect: jest.fn().mockResolvedValue(undefined),
+    $transaction: jest.fn().mockImplementation((fn: (p: unknown) => Promise<unknown>) => fn(mock)),
     // T-31: el lock de admins devuelve filas (no agregado) y se cuenta en aplicación
-    $queryRaw: vi.fn().mockResolvedValue([{ id: 'u-001' }, { id: 'u-002' }]),
+    $queryRaw: jest.fn().mockResolvedValue([{ id: 'u-001' }, { id: 'u-002' }]),
     usuario: {
-      findUnique: vi.fn(),
-      findMany: vi.fn(),
-      update: vi.fn(),
-      create: vi.fn(),
+      findUnique: jest.fn(),
+      findMany: jest.fn(),
+      update: jest.fn(),
+      create: jest.fn(),
     },
     refreshToken: {
-      findUnique: vi.fn(),
-      create: vi.fn(),
-      update: vi.fn(),
-      updateMany: vi.fn(),
+      findUnique: jest.fn(),
+      create: jest.fn(),
+      update: jest.fn(),
+      updateMany: jest.fn(),
     },
     auditoriaLog: {
-      create: vi.fn(),
-      findMany: vi.fn(),
+      create: jest.fn(),
+      findMany: jest.fn(),
     },
     outboxEvent: {
-      create: vi.fn().mockResolvedValue({}),
+      create: jest.fn().mockResolvedValue({}),
     },
     ...overrides,
   };
@@ -58,16 +58,14 @@ function createMockPrismaService(overrides: Record<string, unknown> = {}) {
 
 function createMockJwtService() {
   return {
-    sign: vi.fn().mockReturnValue('fake-access-token'),
+    sign: jest.fn().mockReturnValue('fake-access-token'),
     verify: vi
       .fn()
       .mockReturnValue({ sub: 'u-001', email: 'admin@test.com', rol: 'ADMIN' }),
   };
 }
 
-function createMockPublisher() {
-  return { publish: vi.fn().mockResolvedValue(undefined) };
-}
+
 
 describe('AuthService — Identidad', () => {
   let service: AuthService;
@@ -88,7 +86,7 @@ describe('AuthService — Identidad', () => {
   };
 
   beforeEach(() => {
-    vi.clearAllMocks();
+    jest.clearAllMocks();
     mockPrisma = createMockPrismaService();
     mockJwt = createMockJwtService();
 
@@ -102,7 +100,7 @@ describe('AuthService — Identidad', () => {
       mockPrisma.usuario.update.mockResolvedValue({ ...usuarioBase, rol: 'MESERO' });
       mockPrisma.auditoriaLog.create.mockResolvedValue({});
 
-      const result = await service.cambiarRol('u-001', { rol: RolUsuario.MESERO }, 'u-002');
+      const result = await service.cambiarRol('u-001', { rol: RolUsuario.Mesero }, 'u-002');
       expect(result.rol).toBe('MESERO');
       // T-31: la degradación corre dentro de una transacción (lock + update + auditoría)
       expect(mockPrisma.$transaction).toHaveBeenCalledTimes(1);
@@ -113,7 +111,7 @@ describe('AuthService — Identidad', () => {
       mockPrisma.usuario.findUnique.mockResolvedValue(null);
       // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
       await expect(
-        service.cambiarRol('inexistente', { rol: RolUsuario.MESERO }, 'u-002'),
+        service.cambiarRol('inexistente', { rol: RolUsuario.Mesero }, 'u-002'),
       ).rejects.toThrow(NotFoundException);
     });
 
@@ -123,7 +121,7 @@ describe('AuthService — Identidad', () => {
 
       // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
       await expect(
-        service.cambiarRol('u-001', { rol: RolUsuario.MESERO }, 'u-002'),
+        service.cambiarRol('u-001', { rol: RolUsuario.Mesero }, 'u-002'),
       ).rejects.toThrow(ConflictException);
     });
 
@@ -132,7 +130,7 @@ describe('AuthService — Identidad', () => {
 
       // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
       await expect(
-        service.cambiarRol('u-001', { rol: RolUsuario.MESERO }, 'u-001'),
+        service.cambiarRol('u-001', { rol: RolUsuario.Mesero }, 'u-001'),
       ).rejects.toThrow(ConflictException);
     });
 
@@ -157,7 +155,7 @@ describe('AuthService — Identidad', () => {
     });
 
     it('incrementa failedLoginAttempts en password incorrecta', async () => {
-      vi.mocked(bcrypt.compare).mockResolvedValueOnce(false);
+      (jest.mocked(bcrypt.compare) as any).mockResolvedValueOnce(false);
       mockPrisma.usuario.findUnique.mockResolvedValue({ ...usuarioBase, failedLoginAttempts: 0 });
       mockPrisma.usuario.update.mockResolvedValue({});
 
@@ -170,7 +168,7 @@ describe('AuthService — Identidad', () => {
     });
 
     it('fija lockedUntil al alcanzar MAX_FAILED_ATTEMPTS', async () => {
-      vi.mocked(bcrypt.compare).mockResolvedValueOnce(false);
+      (jest.mocked(bcrypt.compare) as any).mockResolvedValueOnce(false);
       mockPrisma.usuario.findUnique.mockResolvedValue({
         ...usuarioBase,
         failedLoginAttempts: 4, // el próximo fallo es el 5.º → lockout
@@ -186,7 +184,7 @@ describe('AuthService — Identidad', () => {
     });
 
     it('resetea contadores en login exitoso', async () => {
-      vi.mocked(bcrypt.compare).mockResolvedValueOnce(true);
+      (jest.mocked(bcrypt.compare) as any).mockResolvedValueOnce(true);
       mockPrisma.usuario.findUnique.mockResolvedValue({
         ...usuarioBase,
         failedLoginAttempts: 3,
@@ -197,9 +195,9 @@ describe('AuthService — Identidad', () => {
       await service.login({ email: 'admin@nachopps.com', password: 'ok' });
 
       const resetCall = mockPrisma.usuario.update.mock.calls.find(
-        (c: [{ data: { failedLoginAttempts: number } }]) => c[0].data.failedLoginAttempts === 0,
+        (c: any) => c[0].data.failedLoginAttempts === 0,
       );
-      expect(resetCall[0].data).toMatchObject({ failedLoginAttempts: 0, lockedUntil: null });
+      expect(resetCall?.[0]?.data).toMatchObject({ failedLoginAttempts: 0, lockedUntil: null });
     });
   });
 
@@ -239,9 +237,9 @@ describe('AuthService — Identidad', () => {
 
   describe('login — T-05 re-hash perezoso', () => {
     it('re-hashea cuando el costo almacenado es menor a 12', async () => {
-      vi.mocked(bcrypt.compare).mockResolvedValueOnce(true);
-      vi.mocked(bcrypt.getRounds).mockReturnValueOnce(10);
-      vi.mocked(bcrypt.hash).mockResolvedValueOnce('hash-costo-12' as never);
+      (jest.mocked(bcrypt.compare) as any).mockResolvedValueOnce(true);
+      jest.mocked(bcrypt.getRounds).mockReturnValueOnce(10);
+      jest.mocked(bcrypt.hash).mockResolvedValueOnce('hash-costo-12' as never);
       mockPrisma.usuario.findUnique.mockResolvedValue({ ...usuarioBase });
       mockPrisma.usuario.update.mockResolvedValue({});
       mockPrisma.auditoriaLog.create.mockResolvedValue({});
@@ -252,14 +250,14 @@ describe('AuthService — Identidad', () => {
       // el hash dejaría una credencial que ya no coincide con la contraseña.
       expect(bcrypt.hash).toHaveBeenCalledWith('ok', 12);
       const rehashCall = mockPrisma.usuario.update.mock.calls.find(
-        (c: [{ data: { password: string } }]) => c[0].data.password === 'hash-costo-12',
+        (c: any) => c[0].data.password === 'hash-costo-12',
       );
       expect(rehashCall).toBeTruthy();
     });
 
     it('no re-hashea cuando el costo ya es 12', async () => {
-      vi.mocked(bcrypt.compare).mockResolvedValueOnce(true);
-      vi.mocked(bcrypt.getRounds).mockReturnValueOnce(12);
+      (jest.mocked(bcrypt.compare) as any).mockResolvedValueOnce(true);
+      jest.mocked(bcrypt.getRounds).mockReturnValueOnce(12);
       mockPrisma.usuario.findUnique.mockResolvedValue({ ...usuarioBase });
       mockPrisma.usuario.update.mockResolvedValue({});
       mockPrisma.auditoriaLog.create.mockResolvedValue({});
@@ -301,7 +299,7 @@ describe('AuthService — Identidad', () => {
         nombre: 'Nuevo',
         email: 'nuevo@test.com',
         password: '123456',
-        rol: RolUsuario.MESERO,
+        rol: RolUsuario.Mesero,
       });
 
       expect(result.email).toBe('nuevo@test.com');
@@ -316,7 +314,7 @@ describe('AuthService — Identidad', () => {
           nombre: 'Duplicado',
           email: 'admin@nachopps.com',
           password: '123456',
-          rol: RolUsuario.MESERO,
+          rol: RolUsuario.Mesero,
         }),
       ).rejects.toThrow(ConflictException);
     });

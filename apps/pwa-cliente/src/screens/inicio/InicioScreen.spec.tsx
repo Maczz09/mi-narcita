@@ -1,14 +1,15 @@
 import React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react';
+import { vi } from 'vitest';
 import '@testing-library/jest-dom';
 import { InicioScreen } from './InicioScreen';
 
 // Mock dependencias
-jest.mock('react-router-dom', () => ({
-  useNavigate: () => jest.fn(),
+vi.mock('react-router-dom', () => ({
+  useNavigate: () => vi.fn(),
 }));
 
-jest.mock('../../hooks/useInicioData', () => ({
+vi.mock('../../hooks/useInicioData', () => ({
   useInicioData: () => ({
     totalVentas: 1500,
     cuentas: 10,
@@ -26,7 +27,7 @@ jest.mock('../../hooks/useInicioData', () => ({
     STOCK_BAJO: 10,
     reservasProx: [],
     actividad: [
-      { id: '1', ts: new Date().toISOString(), type: 'new_order', text: 'Nueva orden', user: 'Admin' }
+      { key: '1', at: new Date().toISOString(), t: 'Nueva orden', d: 'desc', ic: 'Check', c: 'black' }
     ],
     atencionCount: 0,
   }),

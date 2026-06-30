@@ -1,4 +1,3 @@
-import { describe, expect, it } from 'vitest';
 import { JwtStrategy } from './jwt.strategy';
 
 describe('JwtStrategy de identidad', () => {
@@ -29,7 +28,7 @@ describe('JwtStrategy de identidad', () => {
         rol: 'ADMIN',
         nombre: 'Admin',
         extra: 'ignored',
-      }),
+      } as any),
     ).toEqual({
       sub: 'user-1',
       email: 'admin@test.com',

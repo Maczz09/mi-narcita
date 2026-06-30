@@ -1,19 +1,19 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, jest, beforeEach } from '@jest/globals';
 import { AppService } from './app.service';
 import { PrismaService } from '../prisma/prisma.service';
 
 describe('AppService — Reportes', () => {
   const prisma = {
     ventaDiaria: {
-      upsert: vi.fn(),
-      findMany: vi.fn(),
+      upsert: jest.fn() as any,
+      findMany: jest.fn() as any,
     },
   };
 
   let service: AppService;
 
   beforeEach(() => {
-    vi.clearAllMocks();
+    jest.clearAllMocks();
     service = new AppService(prisma as unknown as PrismaService);
   });
 
@@ -40,8 +40,8 @@ describe('AppService — Reportes', () => {
   });
 
   it('resume ingresos, horas y top productos del dia', async () => {
-    vi.useFakeTimers();
-    vi.setSystemTime(new Date('2026-01-02T15:00:00.000Z'));
+    jest.useFakeTimers();
+    jest.setSystemTime(new Date('2026-01-02T15:00:00.000Z'));
     prisma.ventaDiaria.findMany.mockResolvedValue([
       {
         total: 80,
@@ -78,7 +78,7 @@ describe('AppService — Reportes', () => {
       ingresos: 60,
     });
 
-    vi.useRealTimers();
+    jest.useRealTimers();
   });
 
   describe('reportes ricos (plan 6.3)', () => {

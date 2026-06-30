@@ -27,6 +27,15 @@
           "command": "node dist/apps/servicio-mesas/apps/servicio-mesas/src/main.js"
         },
         "continuous": true
+      },
+      "test": {
+        "executor": "@nx/jest:jest",
+        "outputs": [
+          "{projectRoot}/test-output/jest/coverage"
+        ],
+        "options": {
+          "jestConfig": "apps/servicio-mesas/jest.config.cts"
+        }
       }
     },
     "tags": [

@@ -1,16 +1,16 @@
 /* eslint-disable */
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, jest } from '@jest/globals';
 import axios from 'axios';
 
-vi.mock('axios', () => ({
+jest.mock('axios', () => ({
   default: {
-    get: vi.fn(),
-    post: vi.fn(),
+    get: jest.fn(),
+    post: jest.fn(),
   },
 }));
 
-vi.mock('@org/resiliencia', async () => {
-  const actual = await vi.importActual('@org/resiliencia');
+jest.mock('@org/resiliencia', async () => {
+  const actual = await jest.importActual('@org/resiliencia');
   return {
     ...actual,
     CircuitBreakerOptions: () => (_target: any, _key: string, descriptor: PropertyDescriptor) => descriptor,
@@ -24,29 +24,29 @@ function createMockPrismaService() {
   const mock = {
     $connect: () => Promise.resolve(),
     $disconnect: () => Promise.resolve(),
-    $transaction: vi.fn((cb: (m: unknown) => unknown) => cb(mock)),
+    $transaction: jest.fn((cb: (m: unknown) => unknown) => cb(mock)),
     checkAndRecordIdempotencyKey: () => Promise.resolve(true),
     transaccion: {
-      create: vi.fn(),
-      findMany: vi.fn(),
-      aggregate: vi.fn(),
+      create: jest.fn(),
+      findMany: jest.fn(),
+      aggregate: jest.fn(),
     },
     outboxEvent: {
-      create: vi.fn(),
+      create: jest.fn(),
     },
     cuentaAbierta: {
-      findUnique: vi.fn(),
-      upsert: vi.fn(),
-      update: vi.fn(),
+      findUnique: jest.fn(),
+      upsert: jest.fn(),
+      update: jest.fn(),
     },
     turnoCaja: {
-      findFirst: vi.fn(),
-      create: vi.fn(),
+      findFirst: jest.fn(),
+      create: jest.fn(),
     },
     movimientoCaja: {
-      create: vi.fn(),
+      create: jest.fn(),
     },
-    $executeRaw: vi.fn(),
+    $executeRaw: jest.fn(),
   };
   return mock;
 }
@@ -54,11 +54,11 @@ function createMockPrismaService() {
 describe('AppService — Caja', () => {
   let service: AppService;
   let mockPrisma: ReturnType<typeof createMockPrismaService>;
-  let mockTokenService: { generateServiceToken: ReturnType<typeof vi.fn> };
+  let mockTokenService: { generateServiceToken: ReturnType<typeof jest.fn> };
 
   beforeEach(() => {
-    vi.clearAllMocks();
-    mockTokenService = { generateServiceToken: vi.fn().mockReturnValue('mock-service-token') };
+    jest.clearAllMocks();
+    mockTokenService = { generateServiceToken: jest.fn().mockReturnValue('mock-service-token') };
 
     mockPrisma = createMockPrismaService();
 
@@ -86,8 +86,8 @@ describe('AppService — Caja', () => {
 
     it('debe registrar un pago y publicar evento', async () => {
       mockPrisma.turnoCaja.findFirst.mockResolvedValue(turnoAbierto);
-      vi.mocked(axios.get).mockResolvedValue({ data: { id: 'c-001', mesaId: 'm-001', total: 50, estado: 'ABIERTA' } });
-      vi.mocked(axios.post).mockResolvedValue({ data: { ticket: { id: 'tk-001', total: 50 } } });
+      jest.mocked(axios.get).mockResolvedValue({ data: { id: 'c-001', mesaId: 'm-001', total: 50, estado: 'ABIERTA' } });
+      jest.mocked(axios.post).mockResolvedValue({ data: { ticket: { id: 'tk-001', total: 50 } } });
       mockPrisma.cuentaAbierta.upsert.mockResolvedValue({ cuentaId: 'c-001', mesaId: 'm-001', total: 50, estado: 'ABIERTA' });
       mockPrisma.cuentaAbierta.update.mockResolvedValue({});
       mockPrisma.transaccion.aggregate.mockResolvedValue({ _sum: { monto: 0 } });
@@ -139,8 +139,8 @@ describe('AppService — Caja', () => {
 
     it('debe consultar cuenta remota antes de abrir la transacción con lock', async () => {
       mockPrisma.turnoCaja.findFirst.mockResolvedValue(turnoAbierto);
-      vi.mocked(axios.get).mockResolvedValue({ data: { id: 'c-001', mesaId: 'm-001', total: 50, estado: 'ABIERTA' } });
-      vi.mocked(axios.post).mockResolvedValue({ data: { ticket: { id: 'tk-001', total: 50 } } });
+      jest.mocked(axios.get).mockResolvedValue({ data: { id: 'c-001', mesaId: 'm-001', total: 50, estado: 'ABIERTA' } });
+      jest.mocked(axios.post).mockResolvedValue({ data: { ticket: { id: 'tk-001', total: 50 } } });
       mockPrisma.cuentaAbierta.upsert.mockResolvedValue({ cuentaId: 'c-001', mesaId: 'm-001', total: 50, estado: 'ABIERTA' });
       mockPrisma.cuentaAbierta.update.mockResolvedValue({});
       mockPrisma.transaccion.aggregate.mockResolvedValue({ _sum: { monto: 0 } });
@@ -164,14 +164,14 @@ describe('AppService — Caja', () => {
         metodo: 'EFECTIVO',
       });
 
-      expect(vi.mocked(axios.get).mock.invocationCallOrder[0]).toBeLessThan(
+      expect(jest.mocked(axios.get).mock.invocationCallOrder[0]).toBeLessThan(
         mockPrisma.$transaction.mock.invocationCallOrder[0],
       );
     });
 
     it('debe rechazar si el monto no cubre el total exacto de la cuenta', async () => {
       mockPrisma.turnoCaja.findFirst.mockResolvedValue(turnoAbierto);
-      vi.mocked(axios.get).mockResolvedValue({ data: { id: 'c-001', mesaId: 'm-001', total: 50, estado: 'ABIERTA' } });
+      jest.mocked(axios.get).mockResolvedValue({ data: { id: 'c-001', mesaId: 'm-001', total: 50, estado: 'ABIERTA' } });
 
       await expect(
         service.registrarPago({ cuentaId: 'c-001', montoRecibido: 60, metodo: 'EFECTIVO' })

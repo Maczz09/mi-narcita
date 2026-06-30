@@ -1,25 +1,25 @@
 /* eslint-disable */
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, jest } from '@jest/globals';
 import { AppController } from './app.controller';
 
 // El controller es delegación pura sobre AppService: cada endpoint reenvía sus
 // argumentos al método de servicio correspondiente (y el usuario actual cuando aplica).
 describe('AppController — Caja', () => {
-  let service: Record<string, ReturnType<typeof vi.fn>>;
+  let service: Record<string, ReturnType<typeof jest.fn>>;
   let controller: AppController;
 
   beforeEach(() => {
     service = {
-      registrarPago: vi.fn().mockResolvedValue({ ok: true }),
-      listarTransacciones: vi.fn().mockResolvedValue({ data: [] }),
-      abrirTurno: vi.fn().mockResolvedValue({ id: 'turno-1' }),
-      obtenerTurnoActivo: vi.fn().mockResolvedValue(null),
-      obtenerResumenTurnoActivo: vi.fn().mockResolvedValue({ turno: null }),
-      obtenerResumenTurno: vi.fn().mockResolvedValue({ turno: { id: 't-1' } }),
-      listarMovimientosTurno: vi.fn().mockResolvedValue({ data: [] }),
-      crearMovimiento: vi.fn().mockResolvedValue({ id: 'mov-1' }),
-      registrarArqueo: vi.fn().mockResolvedValue({ id: 'arq-1' }),
-      cerrarTurno: vi.fn().mockResolvedValue({ turno: { estado: 'CERRADA' } }),
+      registrarPago: jest.fn().mockResolvedValue({ ok: true }),
+      listarTransacciones: jest.fn().mockResolvedValue({ data: [] }),
+      abrirTurno: jest.fn().mockResolvedValue({ id: 'turno-1' }),
+      obtenerTurnoActivo: jest.fn().mockResolvedValue(null),
+      obtenerResumenTurnoActivo: jest.fn().mockResolvedValue({ turno: null }),
+      obtenerResumenTurno: jest.fn().mockResolvedValue({ turno: { id: 't-1' } }),
+      listarMovimientosTurno: jest.fn().mockResolvedValue({ data: [] }),
+      crearMovimiento: jest.fn().mockResolvedValue({ id: 'mov-1' }),
+      registrarArqueo: jest.fn().mockResolvedValue({ id: 'arq-1' }),
+      cerrarTurno: jest.fn().mockResolvedValue({ turno: { estado: 'CERRADA' } }),
     };
     controller = new AppController(service as any);
   });

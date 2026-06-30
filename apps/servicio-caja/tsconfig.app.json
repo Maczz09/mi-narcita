@@ -21,7 +21,12 @@
     "../../libs/observabilidad/**/*.ts",
     "../../libs/shared-auth/**/*.ts"
   ],
-  "exclude": ["jest.config.ts", "src/**/*.spec.ts", "src/**/*.test.ts"],
+  "exclude": [
+    "jest.config.ts",
+    "src/**/*.spec.ts",
+    "src/**/*.test.ts",
+    "jest.config.cts"
+  ],
   "nx": {
     "sync": {
       "ignoredDependencies": [

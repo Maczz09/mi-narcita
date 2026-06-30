@@ -1,38 +1,84 @@
 /* eslint-disable */
-import { describe, expect, it, vi } from 'vitest';
+import { Test, TestingModule } from '@nestjs/testing';
 import { EventsController } from './events.controller';
+import { PrismaService } from '../prisma/prisma.service';
 
-describe('EventsController - Caja', () => {
-  it('cuenta.abierta recibe payload directo y sincroniza caja', async () => {
-    const prisma = {
+describe('EventsController (Caja)', () => {
+  let eventsController: EventsController;
+  let mockPrisma: {
+    cuentaAbierta: {
+      upsert: jest.Mock;
+      update: jest.Mock;
+    };
+  };
+
+  beforeEach(async () => {
+    mockPrisma = {
       cuentaAbierta: {
-        upsert: vi.fn().mockResolvedValue({}),
+        upsert: jest.fn().mockResolvedValue({}),
+        update: jest.fn().mockResolvedValue({}),
       },
     };
-    const controller = new EventsController(prisma as any);
 
-    await controller.handleCuentaAbierta({ cuentaId: 'cuenta-1', mesaId: 'mesa-1' });
+    const app: TestingModule = await Test.createTestingModule({
+      controllers: [EventsController],
+      providers: [
+        {
+          provide: PrismaService,
+          useValue: mockPrisma,
+        },
+      ],
+    }).compile();
 
-    expect(prisma.cuentaAbierta.upsert).toHaveBeenCalledWith({
-      where: { cuentaId: 'cuenta-1' },
-      create: { cuentaId: 'cuenta-1', mesaId: 'mesa-1', total: 0, estado: 'ABIERTA' },
-      update: { estado: 'ABIERTA', mesaId: 'mesa-1' },
+    eventsController = app.get<EventsController>(EventsController);
+  });
+
+  it('debe estar definido', () => {
+    expect(eventsController).toBeDefined();
+  });
+
+  describe('handleCuentaAbierta', () => {
+    it('debe upsert la cuenta local con estado ABIERTA', async () => {
+      await eventsController.handleCuentaAbierta({ cuentaId: 'c-1', mesaId: 'm-1' });
+
+      expect(mockPrisma.cuentaAbierta.upsert).toHaveBeenCalledWith({
+        where: { cuentaId: 'c-1' },
+        create: { cuentaId: 'c-1', mesaId: 'm-1', total: 0, estado: 'ABIERTA' },
+        update: { estado: 'ABIERTA', mesaId: 'm-1' },
+      });
+    });
+
+    it('debe llamar con cuentaId y mesaId correctos', async () => {
+      await eventsController.handleCuentaAbierta({ cuentaId: 'cuenta-999', mesaId: 'mesa-42' });
+      expect(mockPrisma.cuentaAbierta.upsert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { cuentaId: 'cuenta-999' },
+        }),
+      );
     });
   });
 
-  it('cuenta.cerrada recibe payload directo y sincroniza caja', async () => {
-    const prisma = {
-      cuentaAbierta: {
-        update: vi.fn().mockResolvedValue({}),
-      },
-    };
-    const controller = new EventsController(prisma as any);
+  describe('handleCuentaCerrada', () => {
+    it('debe actualizar el estado a CERRADA con el total', async () => {
+      await eventsController.handleCuentaCerrada({
+        cuentaId: 'c-1',
+        mesaId: 'm-1',
+        total: 150,
+        items: [],
+      });
 
-    await controller.handleCuentaCerrada({ cuentaId: 'cuenta-1', mesaId: 'mesa-1', total: 120 });
+      expect(mockPrisma.cuentaAbierta.update).toHaveBeenCalledWith({
+        where: { cuentaId: 'c-1' },
+        data: { estado: 'CERRADA', total: 150 },
+      });
+    });
 
-    expect(prisma.cuentaAbierta.update).toHaveBeenCalledWith({
-      where: { cuentaId: 'cuenta-1' },
-      data: { estado: 'CERRADA', total: 120 },
+    it('no debe lanzar error si la cuenta no existe en la proyección local (catch silencioso)', async () => {
+      mockPrisma.cuentaAbierta.update.mockRejectedValue(new Error('Record not found'));
+
+      await expect(
+        eventsController.handleCuentaCerrada({ cuentaId: 'no-existe', mesaId: 'm-1', total: 50, items: [] }),
+      ).resolves.not.toThrow();
     });
   });
 });

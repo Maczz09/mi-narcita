@@ -1,15 +1,15 @@
 /* eslint-disable */
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, jest } from '@jest/globals';
 import axios from 'axios';
 
 // Mocks de borde (igual que app.service.spec.ts): axios para la cuenta remota y
 // el decorador de circuit-breaker como passthrough.
-vi.mock('axios', () => ({
-  default: { get: vi.fn(), post: vi.fn() },
+jest.mock('axios', () => ({
+  default: { get: jest.fn(), post: jest.fn() },
 }));
 
-vi.mock('@org/resiliencia', async () => {
-  const actual = await vi.importActual('@org/resiliencia');
+jest.mock('@org/resiliencia', async () => {
+  const actual = await jest.importActual('@org/resiliencia');
   return {
     ...actual,
     CircuitBreakerOptions: () => (_t: any, _k: string, d: PropertyDescriptor) => d,
@@ -57,17 +57,17 @@ function createMockPrisma(overrides: Record<string, any> = {}) {
     $connect: async () => {},
     $disconnect: async () => {},
     checkAndRecordIdempotencyKey: async () => true,
-    turnoCaja: { findFirst: vi.fn(), findUnique: vi.fn(), create: vi.fn(), update: vi.fn() },
-    movimientoCaja: { create: vi.fn(), findMany: vi.fn() },
-    arqueoCaja: { create: vi.fn() },
-    cierreCaja: { create: vi.fn() },
-    transaccion: { create: vi.fn(), findMany: vi.fn(), aggregate: vi.fn() },
-    cuentaAbierta: { findUnique: vi.fn(), upsert: vi.fn(), update: vi.fn() },
-    outboxEvent: { create: vi.fn() },
-    $executeRaw: vi.fn(),
+    turnoCaja: { findFirst: jest.fn(), findUnique: jest.fn(), create: jest.fn(), update: jest.fn() },
+    movimientoCaja: { create: jest.fn(), findMany: jest.fn() },
+    arqueoCaja: { create: jest.fn() },
+    cierreCaja: { create: jest.fn() },
+    transaccion: { create: jest.fn(), findMany: jest.fn(), aggregate: jest.fn() },
+    cuentaAbierta: { findUnique: jest.fn(), upsert: jest.fn(), update: jest.fn() },
+    outboxEvent: { create: jest.fn() },
+    $executeRaw: jest.fn(),
     ...overrides,
   };
-  prisma.$transaction = vi.fn(async (cb: any) => cb(prisma));
+  prisma.$transaction = jest.fn(async (cb: any) => cb(prisma));
   return prisma;
 }
 
@@ -76,12 +76,12 @@ describe('AppService — Caja (turnos, movimientos, arqueo, cierre)', () => {
   let prisma: ReturnType<typeof createMockPrisma>;
 
   beforeEach(() => {
-    vi.clearAllMocks();
+    jest.clearAllMocks();
     prisma = createMockPrisma();
     process.env['CUENTAS_SERVICE_URL'] = 'http://localhost:3005/api';
     service = new AppService(
       prisma as any,
-      new CuentasHttpClient({ generateServiceToken: vi.fn().mockReturnValue('tok') } as any),
+      new CuentasHttpClient({ generateServiceToken: jest.fn().mockReturnValue('tok') } as any),
     );
   });
 
@@ -261,7 +261,7 @@ describe('AppService — Caja (turnos, movimientos, arqueo, cierre)', () => {
 
     it('traduce un 404 de la cuenta remota a NotFound', async () => {
       prisma.turnoCaja.findFirst.mockResolvedValue({ ...baseTurno });
-      vi.mocked(axios.get).mockRejectedValue({ response: { status: 404 } });
+      jest.mocked(axios.get).mockRejectedValue({ response: { status: 404 } });
       await expect(
         service.registrarPago({ cuentaId: 'c-404', montoRecibido: 50, metodo: 'EFECTIVO' } as any),
       ).rejects.toThrow('no encontrada');
@@ -269,7 +269,7 @@ describe('AppService — Caja (turnos, movimientos, arqueo, cierre)', () => {
 
     it('traduce un fallo de red en ServiceUnavailable', async () => {
       prisma.turnoCaja.findFirst.mockResolvedValue({ ...baseTurno });
-      vi.mocked(axios.get).mockRejectedValue({ code: 'ECONNREFUSED' });
+      jest.mocked(axios.get).mockRejectedValue({ code: 'ECONNREFUSED' });
       await expect(
         service.registrarPago({ cuentaId: 'c-001', montoRecibido: 50, metodo: 'EFECTIVO' } as any),
       ).rejects.toThrow('No se pudo obtener la cuenta');
@@ -277,7 +277,7 @@ describe('AppService — Caja (turnos, movimientos, arqueo, cierre)', () => {
 
     it('rechaza un segundo pago sobre una cuenta que ya pagó (idempotencia de negocio)', async () => {
       prisma.turnoCaja.findFirst.mockResolvedValue({ ...baseTurno });
-      vi.mocked(axios.get).mockResolvedValue({ data: { id: 'c-001', mesaId: 'm-001', total: 50, estado: 'ABIERTA' } });
+      jest.mocked(axios.get).mockResolvedValue({ data: { id: 'c-001', mesaId: 'm-001', total: 50, estado: 'ABIERTA' } });
       prisma.cuentaAbierta.upsert.mockResolvedValue({ cuentaId: 'c-001', mesaId: 'm-001', total: 50, estado: 'ABIERTA' });
       prisma.transaccion.aggregate.mockResolvedValue({ _sum: { monto: 50 } });
 
@@ -288,7 +288,7 @@ describe('AppService — Caja (turnos, movimientos, arqueo, cierre)', () => {
 
     it('rechaza el pago si la cuenta ya no está ABIERTA', async () => {
       prisma.turnoCaja.findFirst.mockResolvedValue({ ...baseTurno });
-      vi.mocked(axios.get).mockResolvedValue({ data: { id: 'c-001', mesaId: 'm-001', total: 50, estado: 'CERRADA' } });
+      jest.mocked(axios.get).mockResolvedValue({ data: { id: 'c-001', mesaId: 'm-001', total: 50, estado: 'CERRADA' } });
       prisma.cuentaAbierta.upsert.mockResolvedValue({ cuentaId: 'c-001', mesaId: 'm-001', total: 50, estado: 'CERRADA' });
 
       await expect(

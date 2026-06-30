@@ -1,12 +1,11 @@
 /* eslint-disable */
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, jest } from '@jest/globals';
 import axios from 'axios';
 
 // T-33: neutralizar el breaker en los specs del servicio (igual que en caja);
 // el comportamiento del breaker se prueba aparte en http-clients.breaker.spec.ts.
-vi.mock('@org/resiliencia', async () => {
-  const actual = await vi.importActual('@org/resiliencia');
+jest.mock('@org/resiliencia', async () => {
+  const actual = await jest.importActual('@org/resiliencia');
   return {
     ...actual,
     CircuitBreakerOptions: () => (_target: any, _key: string, descriptor: PropertyDescriptor) => descriptor,
@@ -19,8 +18,8 @@ import { InventarioHttpClient } from './inventario-http.client';
 import { PedidosSagaService } from './pedidos-saga.service';
 import { PedidoEstado } from '@org/contracts';
 
-function createMockPrismaService(overrides: Record<string, any> = {}) {
-  const mock = {
+function createMockPrismaService(overrides: Record<string, any> = {}): any {
+  const mock: any = {
     $connect: async () => {},
     $disconnect: async () => {},
     checkAndRecordIdempotencyKey: async (_key: string) => true,
@@ -31,8 +30,8 @@ function createMockPrismaService(overrides: Record<string, any> = {}) {
 
 function createMockPublisher() {
   return {
-    publish: vi.fn().mockResolvedValue(undefined),
-    generateServiceToken: vi.fn().mockReturnValue('service-token'),
+    publish: jest.fn().mockResolvedValue(undefined),
+    generateServiceToken: jest.fn().mockReturnValue('service-token'),
   };
 }
 
@@ -49,7 +48,7 @@ function createService(prisma: any, tokenService: any) {
 
 describe('AppService — Pedidos', () => {
   let service: AppService;
-  let mockPrisma: ReturnType<typeof createMockPrismaService>;
+  let mockPrisma: any;
   let mockPublisher: ReturnType<typeof createMockPublisher>;
 
   const basePedido = {
@@ -64,37 +63,37 @@ describe('AppService — Pedidos', () => {
   };
 
   beforeEach(() => {
-    vi.clearAllMocks();
+    jest.clearAllMocks();
     mockPrisma = createMockPrismaService({
-      $executeRaw: vi.fn().mockResolvedValue(1),
-      $queryRaw: vi.fn().mockResolvedValue([{ stockActual: 1 }]),
+      $executeRaw: jest.fn().mockResolvedValue(1),
+      $queryRaw: jest.fn().mockResolvedValue([{ stockActual: 1 }]),
       pedido: {
-        create: vi.fn(),
-        findUnique: vi.fn(),
-        findMany: vi.fn(),
-        update: vi.fn(),
-        updateMany: vi.fn(),
+        create: jest.fn(),
+        findUnique: jest.fn(),
+        findMany: jest.fn(),
+        update: jest.fn(),
+        updateMany: jest.fn(),
       },
       pedidoItem: {
-        update: vi.fn(),
-        findMany: vi.fn(),
+        update: jest.fn(),
+        findMany: jest.fn(),
       },
       productoLocal: {
-        findUnique: vi.fn(),
-        findMany: vi.fn().mockResolvedValue([]),
-        upsert: vi.fn(),
+        findUnique: jest.fn(),
+        findMany: jest.fn().mockResolvedValue([]),
+        upsert: jest.fn(),
       },
       mesaLocal: {
-        findUnique: vi.fn(),
-        upsert: vi.fn(),
+        findUnique: jest.fn(),
+        upsert: jest.fn(),
       },
       idempotencyKey: {
-        create: vi.fn().mockResolvedValue({}),
+        create: jest.fn().mockResolvedValue({}),
       },
       outboxEvent: {
-        createMany: vi.fn().mockResolvedValue({ count: 2 }),
+        createMany: jest.fn().mockResolvedValue({ count: 2 }),
       },
-      $transaction: vi.fn(async (cb: (m: unknown) => unknown) => cb(mockPrisma)),
+      $transaction: jest.fn(async (cb: (m: unknown) => unknown) => cb(mockPrisma)),
     });
     mockPublisher = createMockPublisher();
 
@@ -102,16 +101,16 @@ describe('AppService — Pedidos', () => {
   });
 
   afterEach(() => {
-    vi.restoreAllMocks();
+    jest.restoreAllMocks();
   });
 
   describe('validarMesa', () => {
     it('usa la proyección local cuando la mesa ya está sincronizada', async () => {
       const mesaLocal = { id: 'mesa-1', numero: 1, updatedAt: new Date() };
       mockPrisma.mesaLocal.findUnique.mockResolvedValue(mesaLocal);
-      const getSpy = vi.spyOn(axios, 'get');
+      const getSpy = jest.spyOn(axios, 'get');
 
-      await expect((service as never).validarMesa('mesa-1')).resolves.toBe(mesaLocal);
+      await expect((service as any).validarMesa('mesa-1')).resolves.toBe(mesaLocal);
       expect(getSpy).not.toHaveBeenCalled();
     });
 
@@ -119,9 +118,9 @@ describe('AppService — Pedidos', () => {
       const mesaLocal = { id: 'mesa-1', numero: 1, updatedAt: new Date() };
       mockPrisma.mesaLocal.findUnique.mockResolvedValue(null);
       mockPrisma.mesaLocal.upsert.mockResolvedValue(mesaLocal);
-      vi.spyOn(axios, 'get').mockResolvedValue({ data: { id: 'mesa-1', numero: 1 } });
+      jest.spyOn(axios, 'get').mockResolvedValue({ data: { id: 'mesa-1', numero: 1 } });
 
-      await expect((service as never).validarMesa('mesa-1')).resolves.toBe(mesaLocal);
+      await expect((service as any).validarMesa('mesa-1')).resolves.toBe(mesaLocal);
       expect(axios.get).toHaveBeenCalledWith(
         expect.stringContaining('/mesas/mesa-1'),
         expect.objectContaining({
@@ -143,7 +142,7 @@ describe('AppService — Pedidos', () => {
       await service.procesarPagoRecibido({
         cuentaId: 'cuenta-1',
         mesaId: 'mesa-1',
-        montoTotal: 100,
+        monto: 100,
         metodoPago: 'EFECTIVO'
       });
 
@@ -169,21 +168,21 @@ describe('AppService — Pedidos', () => {
         .mockResolvedValueOnce({ count: 1 })
         .mockResolvedValueOnce({ count: 0 });
 
-      await service.procesarPagoRecibido({ cuentaId: 'c-001', mesaId: 'm-1', montoTotal: 100, metodoPago: 'EFECTIVO' });
-      await expect(service.procesarPagoRecibido({ cuentaId: 'c-001', mesaId: 'm-empty', montoTotal: 100, metodoPago: 'EFECTIVO' })).resolves.not.toThrow();
+      await service.procesarPagoRecibido({ cuentaId: 'c-001', mesaId: 'm-1', monto: 100, metodoPago: 'EFECTIVO' });
+      await expect(service.procesarPagoRecibido({ cuentaId: 'c-001', mesaId: 'm-empty', monto: 100, metodoPago: 'EFECTIVO' })).resolves.not.toThrow();
       expect(mockPrisma.pedido.updateMany).toHaveBeenCalledTimes(2);
     });
 
     it('es idempotente si atrapa error P2002 de base de datos', async () => {
       mockPrisma.$transaction.mockRejectedValueOnce({ code: 'P2002' });
-      await expect(service.procesarPagoRecibido({ cuentaId: 'c-1', mesaId: 'm-1', montoTotal: 1, metodoPago: 'EF' })).resolves.toBeUndefined();
+      await expect(service.procesarPagoRecibido({ cuentaId: 'c-1', mesaId: 'm-1', monto: 1, metodoPago: 'EF' })).resolves.toBeUndefined();
     });
 
     it('re-lanza error si no es P2002', async () => {
       const err = new Error('test db crash');
       (err as any).code = 'P500';
       mockPrisma.$transaction.mockRejectedValueOnce(err);
-      await expect(service.procesarPagoRecibido({ cuentaId: 'c-1', mesaId: 'm-1', montoTotal: 1, metodoPago: 'EF' })).rejects.toThrow('test db crash');
+      await expect(service.procesarPagoRecibido({ cuentaId: 'c-1', mesaId: 'm-1', monto: 1, metodoPago: 'EF' })).rejects.toThrow('test db crash');
     });
   });
 
@@ -192,7 +191,7 @@ describe('AppService — Pedidos', () => {
 
   describe('listarPedidos', () => {
     it('debe listar solo pedidos activos por mesa', async () => {
-      vi.spyOn(mockPrisma.pedido, 'findMany').mockResolvedValue([]);
+      jest.spyOn(mockPrisma.pedido, 'findMany').mockResolvedValue([]);
 
       await service.listarPedidos({ mesaId: 'mesa-1' });
 
@@ -207,7 +206,7 @@ describe('AppService — Pedidos', () => {
     });
 
     it('devuelve data y nextCursor cuando hay mas resultados', async () => {
-      vi.spyOn(mockPrisma.pedido, 'findMany').mockResolvedValue([
+      jest.spyOn(mockPrisma.pedido, 'findMany').mockResolvedValue([
         { ...basePedido, id: 'p-001' },
         { ...basePedido, id: 'p-002' },
         { ...basePedido, id: 'p-003' },
@@ -223,7 +222,7 @@ describe('AppService — Pedidos', () => {
     });
 
     it('aplica cursor, estado, updatedSince y tope maximo de limit', async () => {
-      vi.spyOn(mockPrisma.pedido, 'findMany').mockResolvedValue([]);
+      jest.spyOn(mockPrisma.pedido, 'findMany').mockResolvedValue([]);
 
       await service.listarPedidos({
         cursor: 'p-010',
