@@ -1,4 +1,4 @@
-/* eslint-disable */
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-misused-promises, @typescript-eslint/no-floating-promises, prefer-const, @typescript-eslint/no-unused-vars, @typescript-eslint/restrict-template-expressions, @typescript-eslint/ban-ts-comment */
 // router/index.tsx — React Router v7, rutas protegidas
 
 import { BrowserRouter, Routes, Route, Navigate, Outlet } from 'react-router-dom';
@@ -58,27 +58,27 @@ function RutaPorRol({ ruta, children }: Readonly<{ ruta: RutaApp; children: Reac
 
 function ScreenLoading() {
   return (
-    <div className="screen-loading" role="status" aria-label="Cargando módulo">
+    <output className="screen-loading" aria-label="Cargando módulo">
       <div className="loading-head">
         <div className="skel loading-title" />
         <div className="skel loading-action" />
       </div>
       <div className="loading-grid">
-        {Array.from({ length: 4 }).map((_, index) => (
-          <div className="stat" key={index}>
+        {Array.from({ length: 4 }).map((_) => (
+          <div className="stat" key={crypto.randomUUID()}>
             <div className="skel stat-skel-title" />
             <div className="skel stat-skel-value" />
           </div>
         ))}
       </div>
       <div className="panel loading-panel">
-        {Array.from({ length: 5 }).map((_, index) => (
-          <div className="skeleton-row" key={index}>
+        {Array.from({ length: 5 }).map((_) => (
+          <div className="skeleton-row" key={crypto.randomUUID()}>
             <div className="skel" />
           </div>
         ))}
       </div>
-    </div>
+    </output>
   );
 }
 

@@ -1,24 +1,70 @@
 groups:
-  - name: outbox
-    rules:
-      # Profundidad del outbox: si se acumulan eventos PENDING el publisher está
-      # atascado (RabbitMQ caído, conexión rota, o cron detenido).
-      - alert: OutboxBacklogAlto
-        expr: max by (service) (outbox_pending_total) > 100
-        for: 2m
-        labels:
-          severity: warning
-        annotations:
-          summary: 'Backlog de outbox alto en {{ $labels.service }}'
-          description: '{{ $labels.service }} acumula {{ $value }} eventos PENDING en el outbox (>100) durante 2m. Revisar RabbitMQ y el outbox.processor.'
+- name: CheckoutAlerts
+  rules:
+  - alert: ERP_P95_LatencyHigh
+    expr: histogram_quantile(0.95, rate(http_server_requests_seconds_bucket{service="servicio-inventario"}[5m])) > 5
+    for: 5m
+    labels:
+      severity: warning
+    annotations:
+      summary: "ERP p95 alto"
+      description: "La latencia p95 del ERP (inventario) ha superado los 5 segundos durante los últimos 5 minutos."
+      action: "Revisar dependencias del inventario"
 
-      # Cualquier evento FAILED es dead-letter en BD: requiere reproceso manual
-      # (POST /outbox/:id/retry) y se purga a los 7 días.
-      - alert: OutboxEventosFallidos
-        expr: max by (service) (outbox_failed_total) > 0
-        for: 1m
-        labels:
-          severity: critical
-        annotations:
-          summary: 'Eventos FAILED en el outbox de {{ $labels.service }}'
-          description: '{{ $labels.service }} tiene {{ $value }} evento(s) en estado FAILED. Reprocesar con POST /outbox/:id/retry antes de la purga (7 días).'
+  - alert: PaymentTimeoutRateHigh
+    expr: rate(payment_timeout_rate_total[5m]) / rate(payment_total[5m]) > 0.05
+    for: 5m
+    labels:
+      severity: critical
+    annotations:
+      summary: "Payment timeout rate > 5%"
+      description: "Más del 5% de los pagos están haciendo timeout en los últimos 5 minutos."
+      action: "Revisar pasarela de pagos"
+
+  - alert: PaymentUnknownCountHigh
+    expr: increase(payment_unknown_count_total[10m]) > 50
+    labels:
+      severity: critical
+    annotations:
+      summary: "PAYMENT_UNKNOWN count > 50"
+      description: "Han ocurrido más de 50 fallos de estado financiero incierto en 10 minutos."
+      action: "Soporte + reconciliación"
+
+  - alert: ERPCircuitBreakerOpen
+    expr: circuit_breaker_state{dependency="inventario"} == 1
+    for: 2m
+    labels:
+      severity: warning
+    annotations:
+      summary: "Payment circuit open"
+      description: "El Circuit Breaker para el ERP lleva ABIERTO más de 2 minutos."
+      action: "Degradación controlada. Revisar logs del ERP."
+
+  - alert: OutboxPendingHigh
+    expr: outbox_pending_events_total > 1000
+    for: 1m
+    labels:
+      severity: warning
+    annotations:
+      summary: "Outbox pending > 1000"
+      description: "Se acumulan eventos en la base de datos sin enviar al broker."
+      action: "Revisar publisher/broker."
+
+  - alert: BrokerLagHigh
+    expr: broker_lag_seconds > 300
+    for: 5m
+    labels:
+      severity: warning
+    annotations:
+      summary: "Broker lag > 5 min"
+      description: "El lag de consumidores ha superado los 5 minutos."
+      action: "Revisar consumidores (escalar)."
+
+  - alert: DLQGrowingFast
+    expr: rate(dlq_messages_total[1m]) * 60 > 10
+    labels:
+      severity: critical
+    annotations:
+      summary: "DLQ creciendo > 10/min"
+      description: "La cola de mensajes muertos está creciendo rápidamente."
+      action: "Revisar schema/consumidores."

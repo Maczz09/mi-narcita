@@ -237,5 +237,31 @@ describe('PedidosSagaService — Pedidos', () => {
       expect(prisma.pedidoItem.updateMany).not.toHaveBeenCalled();
       expect(prisma.outboxEvent.create).not.toHaveBeenCalled();
     });
+
+    it('hace early return y loguea si el pedido no se encuentra', async () => {
+      const prisma = createMockPrismaService({
+        pedidoItem: { updateMany: vi.fn().mockResolvedValue({ count: 1 }) },
+        pedido: { findUnique: vi.fn().mockResolvedValue(null), update: vi.fn() },
+      });
+      const svc = new PedidosSagaService(prisma as never);
+      
+      await expect(
+        svc.procesarStockInsuficiente({ pedidoId: 'ped-not-found', productoId: 'prod-a', solicitado: 1, disponible: 0 })
+      ).resolves.toBeUndefined();
+      expect(prisma.pedido.update).not.toHaveBeenCalled();
+    });
+
+    it('re-lanza cualquier error que no sea P2002', async () => {
+      const errorMock = new Error('Database crash');
+      (errorMock as any).code = 'P5000';
+      const prisma = createMockPrismaService({
+        idempotencyKey: { create: vi.fn().mockRejectedValue(errorMock) }
+      });
+      const svc = new PedidosSagaService(prisma as never);
+
+      await expect(
+        svc.procesarStockInsuficiente({ pedidoId: 'ped-crash', productoId: 'prod-a', solicitado: 1, disponible: 0 })
+      ).rejects.toThrow('Database crash');
+    });
   });
 });

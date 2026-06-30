@@ -109,33 +109,7 @@ export function InicioScreen() {
             </div>
           </section>
 
-          <section className="panel">
-            <div className="panel-h"><h3>Actividad reciente</h3></div>
-            <div style={{ padding: '14px 18px' }}>
-              {actividad.length === 0 ? (
-                <div className="muted" style={{ textAlign: 'center', padding: 12 }}>Sin actividad reciente en el turno.</div>
-              ) : (
-                <div className="timeline">
-                  {actividad.map((a, i) => {
-                    const Ic = Icons[a.ic] ?? Icons.Note;
-                    const min = elapsedMin(a.at, Date.now());
-                    return (
-                      <div className={`tl-item ${i === 0 ? 'active' : ''}`} key={a.key}>
-                        <div className="row" style={{ gap: 9 }}>
-                          <span style={{ color: a.c }}><Ic s={15} /></span>
-                          <div style={{ flex: 1 }}>
-                            <div className="tl-t">{a.t}</div>
-                            <div className="muted" style={{ fontSize: 12.5, fontWeight: 600 }}>{a.d}</div>
-                          </div>
-                          <span className="tl-time">hace {min}m</span>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-          </section>
+          <PanelActividad actividad={actividad} />
         </div>
 
         <aside className="module-side">
@@ -240,5 +214,37 @@ function Att({ ic, c, t, s, go }: Readonly<AttProps>) {
       <div style={{ minWidth: 0 }}><b>{t}</b><small>{s}</small></div>
       <button className="btn btn-ghost btn-sm att-go" onClick={go}>Ver</button>
     </div>
+  );
+}
+
+function PanelActividad({ actividad }: Readonly<{ actividad: any[] }>) {
+  return (
+    <section className="panel">
+      <div className="panel-h"><h3>Actividad reciente</h3></div>
+      <div style={{ padding: '14px 18px' }}>
+        {actividad.length === 0 ? (
+          <div className="muted" style={{ textAlign: 'center', padding: 12 }}>Sin actividad reciente en el turno.</div>
+        ) : (
+          <div className="timeline">
+            {actividad.map((a, i) => {
+              const Ic = Icons[a.ic as IconName] ?? Icons.Note;
+              const min = elapsedMin(a.at, Date.now());
+              return (
+                <div className={`tl-item ${i === 0 ? 'active' : ''}`} key={a.key}>
+                  <div className="row" style={{ gap: 9 }}>
+                    <span style={{ color: a.c }}><Ic s={15} /></span>
+                    <div style={{ flex: 1 }}>
+                      <div className="tl-t">{a.t}</div>
+                      <div className="muted" style={{ fontSize: 12.5, fontWeight: 600 }}>{a.d}</div>
+                    </div>
+                    <span className="tl-time">hace {min}m</span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    </section>
   );
 }

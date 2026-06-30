@@ -1,4 +1,4 @@
-/* eslint-disable */
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-misused-promises, @typescript-eslint/no-floating-promises, prefer-const, @typescript-eslint/no-unused-vars, @typescript-eslint/restrict-template-expressions, @typescript-eslint/ban-ts-comment */
 // components/layout/Sidebar.tsx — Navegación lateral
 // v2: Añadidos aria-current="page" (faltaba en la versión original) y
 //     title={it.label} en cada nav-item para que el modo icon-only
@@ -38,9 +38,9 @@ export function Sidebar() {
         </div>
       </div>
 
-      <div className="nav" role="list">
+      <menu className="nav">
         {navVisible.map((g) => (
-          <div key={g.group} role="group" aria-label={g.group}>
+          <div key={g.group} aria-label={g.group}>
             <div className="nav-lbl" aria-hidden="true">{g.group}</div>
             {g.items.map((it) => {
               const Ic = Icons[it.icon];
@@ -57,7 +57,6 @@ export function Sidebar() {
                   // donde el span de texto está oculto por CSS.
                   title={it.label}
                   type="button"
-                  role="listitem"
                 >
                   <Ic s={18} className="ic" aria-hidden="true" />
                   <span>{it.label}</span>
@@ -67,7 +66,7 @@ export function Sidebar() {
             })}
           </div>
         ))}
-      </div>
+      </menu>
 
       <div className="nav-foot" aria-hidden="true">
         <div className="hint" style={{ padding: '4px 8px', lineHeight: 1.5 }}>

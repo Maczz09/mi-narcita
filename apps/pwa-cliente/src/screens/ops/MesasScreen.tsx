@@ -179,7 +179,7 @@ export function MesasScreen() {
               </div>
             ))}
             <span className="spacer" />
-            <div className="seg sm mesa-zone-filter" role="group" aria-label="Filtrar mesas por zona">
+            <div className="seg sm mesa-zone-filter" role="radiogroup" aria-label="Filtrar mesas por zona">
               {ubicaciones.map((z) => (
                 <button key={z} className={ubicacion === z ? 'on' : ''} onClick={() => setUbicacion(z)}>{z === 'TODAS' ? 'Todas' : z}</button>
               ))}

@@ -219,7 +219,7 @@ export class PedidosSagaService {
    * proyecciones reflejen el rechazo. Idempotente por (pedidoId, productoId).
    */
   async procesarStockInsuficiente(payload: StockInsuficientePayload): Promise<void> {
-    const { pedidoId, productoId, solicitado, disponible } = payload;
+    const { pedidoId, productoId } = payload;
     if (!pedidoId || !productoId) {
       this.logger.warn('StockInsuficiente sin pedidoId/productoId — ignorado');
       return;
@@ -252,7 +252,7 @@ export class PedidosSagaService {
           pedido.items.every((i) => i.estado === EstadoItem.RechazadoSinStock);
 
         const nuevoTotal = this.recalcularTotalCobrable(pedido.items);
-        let pedidoFinal = pedido;
+        let pedidoFinal;
         if (todosRechazados && !terminalComercial && pedido.estado !== PedidoEstado.RechazadoSinStock) {
           pedidoFinal = await prisma.pedido.update({
             where: { id: pedidoId },
@@ -267,10 +267,14 @@ export class PedidosSagaService {
           });
         }
 
-        this.logger.warn(
-          `Stock insuficiente para producto ${productoId} en pedido ${pedidoId} ` +
-            `(solicitado ${solicitado}, disponible ${disponible}); ${rechazados.count} ítem(s) marcados RECHAZADO_SIN_STOCK`,
-        );
+        this.logger.warn({
+          operation: 'procesarStockInsuficiente',
+          orderId: pedidoId,
+          dependency: 'inventario',
+          errorCode: 'STOCK_VALIDATION_FAILED',
+          resultingState: 'RECHAZADO_SIN_STOCK',
+          message: `Stock validation failed for product ${productoId}; order items marked as rejected`
+        });
         if (rechazados.count > 0) this.pedidosRechazadosCounter.inc(rechazados.count);
 
         await prisma.outboxEvent.create({

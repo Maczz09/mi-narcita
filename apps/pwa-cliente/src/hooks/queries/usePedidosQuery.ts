@@ -105,7 +105,7 @@ function invalidateOperationalData(mesaId?: string) {
 
 function schedulePostCreateConsistencyRefetch(mesaId?: string) {
   POST_CREATE_REFETCH_DELAYS_MS.forEach((delay) => {
-    window.setTimeout(() => invalidateOperationalData(mesaId), delay);
+    globalThis.setTimeout(() => invalidateOperationalData(mesaId), delay);
   });
 }
 

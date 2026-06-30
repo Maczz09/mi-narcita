@@ -1,0 +1,93 @@
+{
+  "annotations": { "list": [] },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": 1,
+  "links": [],
+  "liveNow": false,
+  "panels": [
+    {
+      "title": "Checkout Health",
+      "type": "row",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 }
+    },
+    {
+      "title": "ERP p95 Latency",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 1 },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, rate(http_server_requests_seconds_bucket{service=\"servicio-inventario\"}[5m]))",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "title": "Payment Timeout Rate",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 1 },
+      "targets": [
+        {
+          "expr": "rate(payment_timeout_rate_total[5m])",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "title": "PAYMENT_UNKNOWN Count",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 6, "x": 0, "y": 9 },
+      "targets": [
+        {
+          "expr": "sum(increase(payment_unknown_count_total[10m]))",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "title": "Circuit Breaker State (Inventario)",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 6, "x": 6, "y": 9 },
+      "targets": [
+        {
+          "expr": "circuit_breaker_state{dependency=\"inventario\"}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "title": "Outbox Pending Events",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 6, "x": 12, "y": 9 },
+      "targets": [
+        {
+          "expr": "outbox_pending_events_total",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "title": "Broker Lag (Seconds)",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 6, "x": 18, "y": 9 },
+      "targets": [
+        {
+          "expr": "broker_lag_seconds",
+          "refId": "A"
+        }
+      ]
+    }
+  ],
+  "schemaVersion": 36,
+  "style": "dark",
+  "tags": [],
+  "templating": { "list": [] },
+  "time": {
+    "from": "now-1h",
+    "to": "now"
+  },
+  "timepicker": {},
+  "timezone": "",
+  "title": "Checkout & Resilience Dashboard"
+}

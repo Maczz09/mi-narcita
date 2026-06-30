@@ -226,7 +226,7 @@ function CobroBody({
               <div className="row" style={{ gap: 6, flexWrap: 'wrap' }}>
                 {['exacto', 50, 100, 200].map((c) => <button key={c} className="chip" onClick={() => setRecibido(c === 'exacto' ? totalCobro.toFixed(2) : String(c))}>{c === 'exacto' ? 'Exacto' : 'S/ ' + c}</button>)}
               </div>
-              <div className={`cuadre ${vuelto > 0 ? 'ok' : 'ok'}`} style={{ marginTop: 12, padding: '12px 14px' }} aria-live="polite" aria-label={`Vuelto: ${vuelto > 0 ? 'S/ ' + vuelto.toFixed(2) : 'Sin vuelto'}`}>
+              <div className="cuadre ok" style={{ marginTop: 12, padding: '12px 14px' }} aria-live="polite" aria-label={`Vuelto: ${vuelto > 0 ? 'S/ ' + vuelto.toFixed(2) : 'Sin vuelto'}`}>
                 <div className="lbl">Vuelto</div><div className="big" style={{ fontSize: 26 }}>{fmt(vuelto)}</div>
               </div>
             </div>
@@ -262,7 +262,7 @@ function CobroBody({
           </button>
           {(faltaPago || !online) && (
             <span id="cobro-pago-hint" className="hint" style={{ textAlign: 'center' }}>
-              {!online ? 'Requiere conexión a internet.' : 'Completa el monto recibido para continuar.'}
+              {online ? 'Completa el monto recibido para continuar.' : 'Requiere conexión a internet.'}
             </span>
           )}
         </div>

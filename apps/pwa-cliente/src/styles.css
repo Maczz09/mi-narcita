@@ -654,14 +654,11 @@ fieldset { border: 0; padding: 0; margin: 0; min-width: 0; }
   .bn-item.on { color: var(--accent-text); background: var(--accent-soft); }
   .bn-more-wrap { flex: 1; min-width: 0; position: relative; display: flex; }
   .bn-more-wrap > .bn-item { width: 100%; }
-  .bn-more-panel { position: absolute; right: 0; bottom: calc(100% + 10px); min-width: min(240px, calc(100vw - 20px)); max-height: min(360px, calc(100vh - 112px)); overflow-y: auto; background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-lg); box-shadow: var(--shadow-lg); padding: 6px; }
-  .bn-more-item { width: 100%; min-height: 42px; display: flex; align-items: center; gap: 10px; border: 0; border-radius: var(--r); background: none; color: var(--text-2); font-size: 13.5px; font-weight: 700; text-align: left; padding: 9px 10px; }
   .bn-more-panel {
     position: absolute; right: 0; bottom: calc(100% + 10px);
     min-width: min(240px, calc(100vw - 20px));
     max-height: min(360px, calc(100vh - 112px));
     overflow-y: auto; overscroll-behavior: contain; background: var(--surface); border: 1px solid var(--border);
-    overflow-y: auto; background: var(--surface); border: 1px solid var(--border);
     border-radius: var(--r-lg); box-shadow: var(--shadow-lg); padding: 6px;
   }
   .bn-more-item {
@@ -992,7 +989,7 @@ fieldset { border: 0; padding: 0; margin: 0; min-width: 0; }
 }
 
 /* KDS fullscreen */
-.kds-fs { position: fixed; inset: 0; z-index: 200; background: var(--bg); padding: 18px 22px; display: flex; flex-direction: column; overflow: hidden; }
+.kds-fs { position: fixed; inset: 0; z-index: 200; background: var(--bg); padding: max(18px, env(safe-area-inset-top)) max(22px, env(safe-area-inset-right)) max(18px, env(safe-area-inset-bottom)) max(22px, env(safe-area-inset-left)); display: flex; flex-direction: column; overflow: hidden; }
 
 /* dish thumb in payment list */
 .dish-line { display: flex; align-items: center; gap: 11px; padding: 9px 0; border-bottom: 1px solid var(--border); }
@@ -1541,7 +1538,7 @@ table.dt tbody tr.row-out:hover td { filter: brightness(.99); }
   .cmd-search { width: 100%; }
 }
 
-.cmd-cart { flex: 1; }
+
 
 .cmd-tabs-mobile { display: none; }
 @media (max-width: 1080px) {
@@ -1952,10 +1949,7 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 }
 
 /* ── A11Y: overscroll containment adicional ─────────────────── */
-.kds-list    { overscroll-behavior: contain; }
-.ped-col-body{ overscroll-behavior: contain; }
-.nav         { overscroll-behavior: contain; }
-.notif-list  { overscroll-behavior: contain; }
+
 
 /* ── BottomNav: touch target explícito en todos los breakpoints ─
    (hoy min-height: 48px solo dentro de @media ≤920px) */
@@ -2116,16 +2110,7 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
    atributo className en JSX. */
 
 /* ── CocinaScreen Bug 3 ─────────────────────────────────────────
-   .kds-fs { padding: 18px 22px } carece de env(safe-area-inset-bottom).
-   En iPhones con home indicator (~34px safe-area) el último
-   ticket queda inaccesible. Override con max() — en desktop
-   env() = 0 por lo que el valor visual no cambia. */
-.kds-fs {
-  padding: max(18px, env(safe-area-inset-top))
-           max(22px, env(safe-area-inset-right))
-           max(18px, env(safe-area-inset-bottom))
-           max(22px, env(safe-area-inset-left));
-}
+   .kds-fs { padding: 18px 22px } modificado directamente arriba. */
 
 /* ── CocinaScreen Bug 4 ─────────────────────────────────────────
    Header de .kds-fs usa .row sin flex-wrap. En ≤560px el total

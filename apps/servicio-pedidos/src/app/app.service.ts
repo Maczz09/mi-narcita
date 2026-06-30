@@ -200,7 +200,7 @@ export class AppService {
         return acc;
       }, new Map<string, number>());
 
-      const productoIds = Array.from(cantidadesPorProducto.keys()).sort();
+      const productoIds = Array.from(cantidadesPorProducto.keys()).sort((a, b) => a.localeCompare(b));
       for (const productoId of productoIds) {
         const cantidad = cantidadesPorProducto.get(productoId)!;
         await prisma.$executeRaw(Prisma.sql`SELECT pg_advisory_xact_lock(hashtext(${productoId}))`);

@@ -1,4 +1,4 @@
-/* eslint-disable */
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-misused-promises, @typescript-eslint/no-floating-promises, prefer-const, @typescript-eslint/no-unused-vars, @typescript-eslint/restrict-template-expressions, @typescript-eslint/ban-ts-comment */
 // api/client.ts — Wrapper delgado sobre fetch nativo con credentials: 'include'.
 // Sin axios. Manejo centralizado de errores HTTP, 401, 429.
 
@@ -143,7 +143,7 @@ async function handleErrorResponse<T>(
     }
     clearAuthToken();
     if (!url.endsWith('/logout')) {
-      window.dispatchEvent(new CustomEvent('auth:expired'));
+      globalThis.dispatchEvent(new CustomEvent('auth:expired'));
     }
     throw new ApiError(res.status, res.statusText, body);
   }

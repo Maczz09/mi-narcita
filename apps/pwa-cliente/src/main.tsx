@@ -1,4 +1,4 @@
-/* eslint-disable */
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-misused-promises, @typescript-eslint/no-floating-promises, prefer-const, @typescript-eslint/no-unused-vars, @typescript-eslint/restrict-template-expressions, @typescript-eslint/ban-ts-comment */
 // main.tsx — Bootstrap de la aplicación NachoPps
 // 1. Restaurar tema guardado
 // 2. Intentar restaurar sesión (GET /me)
@@ -19,7 +19,7 @@ import './styles.css';
 // ─── Restaurar preferencias de vista persistidas ────────────────
 // Tema: preferencia guardada, o la del sistema operativo en el primer arranque.
 const savedTheme = localStorage.getItem('nachopps-theme');
-const systemPrefersDark = window.matchMedia?.('(prefers-color-scheme: dark)').matches;
+const systemPrefersDark = globalThis.matchMedia?.('(prefers-color-scheme: dark)').matches;
 let initialTheme: Theme;
 if (savedTheme === 'dark' || savedTheme === 'light') {
   initialTheme = savedTheme;
@@ -42,18 +42,18 @@ for (const pref of VIEW_PREFS) {
 }
 
 // ─── Escuchar auth:expired para forzar logout ───────────────────
-window.addEventListener('auth:expired', () => {
+globalThis.addEventListener('auth:expired', () => {
   useAuthStore.getState().expireSession();
 });
 
 // ─── Restaurar sesión e iniciar app ─────────────────────────────
 async function bootstrap() {
   // Intentar restaurar sesión con cookie existente
-  await void useAuthStore.getState().restore();
+  await useAuthStore.getState().restore();
 
   // Registrar Service Worker para soporte Offline PWA
   if ('serviceWorker' in navigator && process.env.NODE_ENV === 'production') {
-    window.addEventListener('load', () => {
+    globalThis.addEventListener('load', () => {
       navigator.serviceWorker.register('/sw.js').catch((err) => {
         console.warn('Registro de SW omitido:', err);
       });

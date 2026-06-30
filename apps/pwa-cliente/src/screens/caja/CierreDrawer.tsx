@@ -169,7 +169,7 @@ export function CierreDrawer({ k, cajeroNombre, onClose, onDone }: Readonly<Prop
           )}
           {step === 3 && generado && (
             <>
-              <button className="btn btn-ghost" onClick={() => window.print()}><Icons.Print s={16} /> Imprimir</button>
+              <button className="btn btn-ghost" onClick={() => globalThis.print()}><Icons.Print s={16} /> Imprimir</button>
               <button className="btn btn-success" onClick={() => onDone(denominaciones())}><Icons.Check s={16} /> Confirmar y cerrar turno</button>
             </>
           )}

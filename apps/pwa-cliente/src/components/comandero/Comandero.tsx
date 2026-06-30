@@ -4,7 +4,7 @@
 // La lógica del carrito/contexto y el envío viven en useComanda + domain/comanda
 // (T-22); aquí queda el cableado de queries y la presentación.
 
-import { useMemo, useRef, useState, type ReactNode } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { Icons, type IconName } from '../ui/icons';
 import { useToast } from '../ui/ToastProvider';
 import { fmt } from '../../utils/format';
@@ -85,32 +85,9 @@ export function Comandero({
     [productos, cat, q],
   );
 
-  const cargarMasProductos = nextCursor ? (
-    <button className="dish-card" disabled={loadingMoreInv} onClick={() => void fetchMore()}>
-      <div className="dish-cat">Catálogo</div>
-      <div className="dish-name">{loadingMoreInv ? 'Cargando...' : 'Cargar más productos'}</div>
-      <div className="dish-foot">
-        <span className="dish-price mono">Más resultados</span>
-      </div>
-    </button>
-  ) : null;
-
   let titulo = 'Nuevo pedido';
   if (modoAgregar) titulo = `Agregar a Mesa ${mesaNumero ?? ''}`.trim();
   else if (mesaLock) titulo = `Nuevo pedido · Mesa ${mesaNumero ?? ''}`.trim();
-
-  // Estado vacío de la grilla (cargando / sin resultados); null = mostrar productos.
-  let gridVacio: ReactNode = null;
-  if (loadingInv && productos.length === 0) {
-    gridVacio = <div className="cmd-empty" style={{ gridColumn: '1 / -1' }}><b>Cargando carta…</b></div>;
-  } else if (productosFiltrados.length === 0) {
-    gridVacio = (
-      <>
-        <div className="cmd-empty" style={{ gridColumn: '1 / -1' }}><Icons.Search s={26} /><b>Sin resultados</b><p>Ajusta la categoría o la búsqueda.</p></div>
-        {cargarMasProductos}
-      </>
-    );
-  }
 
   return (
     <div className="cmd-overlay">
@@ -128,16 +105,7 @@ export function Comandero({
           {mesaLock ? (
             <span className="pill-soft" style={{ marginLeft: 2 }}>{mesaUbicacion ?? 'Salón'}{modoAgregar ? ' · cuenta abierta' : ''}</span>
           ) : (
-            <div className="cmd-canal seg">
-              {CANALES.map((c) => {
-                const Ic = Icons[c.ic];
-                return (
-                  <button key={c.key} className={cmd.canal === c.key ? 'on' : ''} onClick={() => cmd.setCanal(c.key)}>
-                    <Ic s={15} /> {c.label}
-                  </button>
-                );
-              })}
-            </div>
+            <ComanderoCanales cmd={cmd} />
           )}
           <span className="spacer" />
         </div>
@@ -186,22 +154,10 @@ export function Comandero({
               <div className="input cmd-search"><Icons.Search s={15} /><input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar plato…" /></div>
             </div>
             <div className="cmd-grid">
-              {gridVacio ?? (
+              {ComanderoEmptyGrid({ loadingInv, productosLength: productos.length, productosFiltradosLength: productosFiltrados.length, nextCursor, loadingMoreInv, fetchMore }) ?? (
                 <>
-                  {productosFiltrados.map((p) => {
-                    const enCarrito = cmd.lines.find((l) => l.producto.id === p.id)?.cantidad ?? 0;
-                    return (
-                      <button key={p.id} className={`dish-card ${enCarrito ? 'has' : ''}`} onClick={() => cmd.addProducto(p)}>
-                        {enCarrito > 0 && <span className="dish-badge">{enCarrito}</span>}
-                        <div className="dish-cat">{p.categoriaNombre ?? '—'}</div>
-                        <div className="dish-name">{p.nombre}</div>
-                        <div className="dish-foot">
-                          <span className="dish-price mono">{fmt(p.precio)}</span>
-                        </div>
-                      </button>
-                    );
-                  })}
-                  {cargarMasProductos}
+                  <ComanderoCatalogGrid productos={productosFiltrados} cmd={cmd} />
+                  <ComanderoCargarMas nextCursor={nextCursor} loadingMoreInv={loadingMoreInv} fetchMore={fetchMore} />
                 </>
               )}
             </div>
@@ -215,4 +171,67 @@ export function Comandero({
       </dialog>
     </div>
   );
+}
+
+function ComanderoCanales({ cmd }: Readonly<{ cmd: any }>) {
+  return (
+    <div className="cmd-canal seg">
+      {CANALES.map((c) => {
+        const Ic = Icons[c.ic];
+        return (
+          <button key={c.key} className={cmd.canal === c.key ? 'on' : ''} onClick={() => cmd.setCanal(c.key)}>
+            <Ic s={15} /> {c.label}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+function ComanderoCatalogGrid({ productos, cmd }: Readonly<{ productos: any[], cmd: any }>) {
+  return (
+    <>
+      {productos.map((p) => {
+        const enCarrito = cmd.lines.find((l: any) => l.producto.id === p.id)?.cantidad ?? 0;
+        return (
+          <button key={p.id} className={`dish-card ${enCarrito ? 'has' : ''}`} onClick={() => cmd.addProducto(p)}>
+            {enCarrito > 0 && <span className="dish-badge">{enCarrito}</span>}
+            <div className="dish-cat">{p.categoriaNombre ?? '—'}</div>
+            <div className="dish-name">{p.nombre}</div>
+            <div className="dish-foot">
+              <span className="dish-price mono">{fmt(p.precio)}</span>
+            </div>
+          </button>
+        );
+      })}
+    </>
+  );
+}
+
+function ComanderoCargarMas({ nextCursor, loadingMoreInv, fetchMore }: Readonly<{ nextCursor: any, loadingMoreInv: boolean, fetchMore: any }>) {
+  if (!nextCursor) return null;
+  return (
+    <button className="dish-card" disabled={loadingMoreInv} onClick={() => fetchMore()}>
+      <div className="dish-cat">Catálogo</div>
+      <div className="dish-name">{loadingMoreInv ? 'Cargando...' : 'Cargar más productos'}</div>
+      <div className="dish-foot">
+        <span className="dish-price mono">Más resultados</span>
+      </div>
+    </button>
+  );
+}
+
+function ComanderoEmptyGrid({ loadingInv, productosLength, productosFiltradosLength, nextCursor, loadingMoreInv, fetchMore }: Readonly<{ loadingInv: boolean, productosLength: number, productosFiltradosLength: number, nextCursor: any, loadingMoreInv: boolean, fetchMore: any }>) {
+  if (loadingInv && productosLength === 0) {
+    return <div className="cmd-empty" style={{ gridColumn: '1 / -1' }}><b>Cargando carta…</b></div>;
+  }
+  if (productosFiltradosLength === 0) {
+    return (
+      <>
+        <div className="cmd-empty" style={{ gridColumn: '1 / -1' }}><Icons.Search s={26} /><b>Sin resultados</b><p>Ajusta la categoría o la búsqueda.</p></div>
+        <ComanderoCargarMas nextCursor={nextCursor} loadingMoreInv={loadingMoreInv} fetchMore={fetchMore} />
+      </>
+    );
+  }
+  return null;
 }

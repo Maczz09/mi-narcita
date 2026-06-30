@@ -173,6 +173,18 @@ describe('AppService — Pedidos', () => {
       await expect(service.procesarPagoRecibido({ cuentaId: 'c-001', mesaId: 'm-empty', montoTotal: 100, metodoPago: 'EFECTIVO' })).resolves.not.toThrow();
       expect(mockPrisma.pedido.updateMany).toHaveBeenCalledTimes(2);
     });
+
+    it('es idempotente si atrapa error P2002 de base de datos', async () => {
+      mockPrisma.$transaction.mockRejectedValueOnce({ code: 'P2002' });
+      await expect(service.procesarPagoRecibido({ cuentaId: 'c-1', mesaId: 'm-1', montoTotal: 1, metodoPago: 'EF' })).resolves.toBeUndefined();
+    });
+
+    it('re-lanza error si no es P2002', async () => {
+      const err = new Error('test db crash');
+      (err as any).code = 'P500';
+      mockPrisma.$transaction.mockRejectedValueOnce(err);
+      await expect(service.procesarPagoRecibido({ cuentaId: 'c-1', mesaId: 'm-1', montoTotal: 1, metodoPago: 'EF' })).rejects.toThrow('test db crash');
+    });
   });
 
   // T-40: los specs de transiciones y derivación viven ahora en
