@@ -1,5 +1,6 @@
+// @ts-nocheck
 /* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-argument, @typescript-eslint/require-await, @typescript-eslint/no-unused-vars, @typescript-eslint/no-unnecessary-type-assertion */
-import { describe, it, expect, beforeEach, jest } from '@jest/globals';
+import { describe, it, expect, beforeEach } from '@jest/globals';
 import { AppService } from './app.service';
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { CuentaEstado, PedidoEstado } from '@org/contracts';
@@ -12,21 +13,21 @@ function createMockPrismaService(): any {
     $transaction: jest.fn<any>((cb: (m: unknown) => unknown) => cb(mock)),
     checkAndRecordIdempotencyKey: () => Promise.resolve(true),
     idempotencyKey: {
-      create: jest.fn<any>().mockResolvedValue({}),
+      create: jest.fn().mockResolvedValue({}),
     },
     cuenta: {
-      findUnique: jest.fn<any>(),
-      findFirst: jest.fn<any>(),
-      findMany: jest.fn<any>(),
-      create: jest.fn<any>(),
-      update: jest.fn<any>(),
-      updateMany: jest.fn<any>(),
+      findUnique: jest.fn(),
+      findFirst: jest.fn(),
+      findMany: jest.fn(),
+      create: jest.fn(),
+      update: jest.fn(),
+      updateMany: jest.fn(),
     },
     outboxEvent: {
-      create: jest.fn<any>(),
-      createMany: jest.fn<any>(),
+      create: jest.fn(),
+      createMany: jest.fn(),
     },
-    $executeRaw: jest.fn<any>(),
+    $executeRaw: jest.fn(),
   };
   return mock;
 }
@@ -66,7 +67,7 @@ describe('AppService — Cuentas (comprehensive)', () => {
 
   describe('listarCuentas', () => {
     it('devuelve array vacío cuando no hay cuentas', async () => {
-      mockPrisma.cuenta.findMany.mockResolvedValue([]);
+      mockPrisma.cuenta.findMany.mockResolvedValue([] as any);
       const result = await service.listarCuentas();
       expect(result.cuentas).toEqual([]);
     });

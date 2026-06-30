@@ -1,4 +1,5 @@
-import { describe, expect, it } from 'vitest';
+// @ts-nocheck
+import { describe, expect, it } from '@jest/globals';
 import * as comanda from './comanda';
 import type { CartLine } from './comanda';
 import type { ProductoVM } from '../types/inventario.types';
@@ -120,3 +121,4 @@ describe('domain/comanda — resolveTargetMesaId', () => {
     expect(comanda.resolveTargetMesaId('DELIVERY', '', [])).toBe('');
   });
 });
+

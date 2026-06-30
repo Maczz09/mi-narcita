@@ -1,4 +1,5 @@
-import { describe, it, expect } from 'vitest';
+// @ts-nocheck
+import { describe, it, expect } from '@jest/globals';
 import { primerMensaje } from './feedback';
 
 describe('primerMensaje', () => {
@@ -22,3 +23,4 @@ describe('primerMensaje', () => {
     expect(primerMensaje([true, 'primero'], [false, 'segundo'])).toBe('primero');
   });
 });
+

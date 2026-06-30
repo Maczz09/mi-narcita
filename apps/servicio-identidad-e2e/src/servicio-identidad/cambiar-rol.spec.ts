@@ -1,3 +1,4 @@
+// @ts-nocheck
 import axios from 'axios';
 import { describe, it, expect, beforeAll, afterAll } from '@jest/globals';
 

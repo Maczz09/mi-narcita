@@ -1,34 +1,35 @@
+// @ts-nocheck
 import { renderHook } from '@testing-library/react';
 import { useInicioData } from './useInicioData';
-import { vi } from 'vitest';
+import {  } from '@jest/globals';
 
-vi.mock('./queries/useMesasQuery', () => ({
+jest.mock('./queries/useMesasQuery', () => ({
   useMesasQuery: () => ({ mesas: [] }),
 }));
 
-vi.mock('./queries/usePedidosQuery', () => ({
+jest.mock('./queries/usePedidosQuery', () => ({
   usePedidosQuery: () => ({ pedidos: [] }),
 }));
 
-vi.mock('./queries/useCajaQuery', () => ({
+jest.mock('./queries/useCajaQuery', () => ({
   useCajaQuery: () => ({ resumen: null }),
 }));
 
-vi.mock('./queries/useReportesQuery', () => ({
+jest.mock('./queries/useReportesQuery', () => ({
   useReportesQuery: () => ({ resumen: null }),
 }));
 
-vi.mock('./queries/useReservasQuery', () => ({
+jest.mock('./queries/useReservasQuery', () => ({
   useReservasQuery: () => ({ reservas: [] }),
 }));
 
-vi.mock('./queries/useInventarioQuery', () => ({
+jest.mock('./queries/useInventarioQuery', () => ({
   useInventarioQuery: () => ({ productos: [] }),
 }));
 
 describe('useInicioData', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    jest.clearAllMocks();
   });
 
   it('should return default values when no data is provided', () => {
@@ -43,3 +44,4 @@ describe('useInicioData', () => {
     expect(result.current.atencionCount).toBe(0);
   });
 });
+

@@ -67,11 +67,11 @@ export class AppService {
       const d = data as Record<string, unknown>;
       if (pattern.includes('pedido.creado') || pattern.includes('creado')) return this.formatPedidoCreado(d);
       if (pattern.includes('pedido.actualizado') || pattern.includes('actualizado')) return this.formatPedidoActualizado(d);
-      if (pattern.includes('reserva.creada') || pattern.includes('reserva')) {
-        return `Nueva reserva registrada a nombre de ${this.texto(d['clienteNombre'], 'Cliente')} para el ${this.texto(d['fecha'])} a las ${this.texto(d['hora'])}.`;
-      }
       if (pattern.includes('reserva.cancelada')) {
         return `La reserva a nombre de ${this.texto(d['clienteNombre'], 'Cliente')} ha sido cancelada.`;
+      }
+      if (pattern.includes('reserva.creada') || pattern.includes('reserva')) {
+        return `Nueva reserva registrada a nombre de ${this.texto(d['clienteNombre'], 'Cliente')} para el ${this.texto(d['fecha'])} a las ${this.texto(d['hora'])}.`;
       }
       return typeof data === 'object' ? JSON.stringify(data) : this.texto(data);
     } catch {

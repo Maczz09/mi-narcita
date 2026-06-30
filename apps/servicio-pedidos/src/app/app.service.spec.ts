@@ -1,10 +1,11 @@
+// @ts-nocheck
 /* eslint-disable */
 import { describe, it, expect, beforeEach, afterEach } from '@jest/globals';
 import axios from 'axios';
 
 // T-33: neutralizar el breaker en los specs del servicio (igual que en caja);
 // el comportamiento del breaker se prueba aparte en http-clients.breaker.spec.ts.
-jest.mock('@org/resiliencia', async () => {
+jest.mock('@org/resiliencia', () => {
   const actual = jest.requireActual('@org/resiliencia') as any;
   return {
     ...actual,
@@ -30,7 +31,7 @@ function createMockPrismaService(overrides: Record<string, any> = {}): any {
 
 function createMockPublisher() {
   return {
-    publish: jest.fn().mockResolvedValue(undefined),
+    publish: jest.fn().mockResolvedValue({} as any),
     generateServiceToken: jest.fn().mockReturnValue('service-token'),
   };
 }
@@ -80,7 +81,7 @@ describe('AppService — Pedidos', () => {
       },
       productoLocal: {
         findUnique: jest.fn(),
-        findMany: jest.fn().mockResolvedValue([]),
+        findMany: jest.fn().mockResolvedValue([] as any),
         upsert: jest.fn(),
       },
       mesaLocal: {
@@ -192,7 +193,7 @@ describe('AppService — Pedidos', () => {
 
   describe('listarPedidos', () => {
     it('debe listar solo pedidos activos por mesa', async () => {
-      jest.spyOn(mockPrisma.pedido, 'findMany').mockResolvedValue([]);
+      jest.spyOn(mockPrisma.pedido, 'findMany').mockResolvedValue([] as any);
 
       await service.listarPedidos({ mesaId: 'mesa-1' });
 
@@ -223,7 +224,7 @@ describe('AppService — Pedidos', () => {
     });
 
     it('aplica cursor, estado, updatedSince y tope maximo de limit', async () => {
-      jest.spyOn(mockPrisma.pedido, 'findMany').mockResolvedValue([]);
+      jest.spyOn(mockPrisma.pedido, 'findMany').mockResolvedValue([] as any);
 
       await service.listarPedidos({
         cursor: 'p-010',

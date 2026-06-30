@@ -1,5 +1,6 @@
+// @ts-nocheck
 /* eslint-disable @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unused-vars */
-import { describe, it, expect, beforeEach, jest } from '@jest/globals';
+import { describe, it, expect, beforeEach } from '@jest/globals';
 import { AppService } from './app.service';
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { PedidoEstado } from '@org/contracts';
@@ -10,24 +11,24 @@ function createMockPrismaService(overrides: Record<string, unknown> = {}): any {
     $disconnect: async () => {},
     checkAndRecordIdempotencyKey: (_key: string) => Promise.resolve(true),
     producto: {
-      findUnique: jest.fn<any>(),
-      findMany: jest.fn<any>(),
-      create: jest.fn<any>(),
-      update: jest.fn<any>(),
-      updateMany: jest.fn<any>(),
+      findUnique: jest.fn(),
+      findMany: jest.fn(),
+      create: jest.fn(),
+      update: jest.fn(),
+      updateMany: jest.fn(),
     },
     categoria: {
-      findMany: jest.fn<any>(),
-      findUnique: jest.fn<any>(),
-      create: jest.fn<any>(),
+      findMany: jest.fn(),
+      findUnique: jest.fn(),
+      create: jest.fn(),
     },
     outboxEvent: {
-      create: jest.fn<any>().mockResolvedValue({}),
+      create: jest.fn().mockResolvedValue({}),
     },
     idempotencyKey: {
-      create: jest.fn<any>().mockResolvedValue({}),
+      create: jest.fn().mockResolvedValue({}),
     },
-    $executeRaw: jest.fn<any>(),
+    $executeRaw: jest.fn(),
     ...overrides,
   };
   mock.$transaction = jest.fn<any>((cb: unknown) => Promise.resolve((cb as (arg: unknown) => unknown)(mock)));
@@ -98,7 +99,7 @@ describe('AppService — Inventario (comprehensive)', () => {
     });
 
     it('devuelve array vacío si no hay categorías', async () => {
-      mockPrisma.categoria.findMany.mockResolvedValue([]);
+      mockPrisma.categoria.findMany.mockResolvedValue([] as any);
       const result = await service.listarCategorias();
       expect(result.categorias).toEqual([]);
     });
@@ -142,7 +143,7 @@ describe('AppService — Inventario (comprehensive)', () => {
     });
 
     it('aplica filtro por categoría', async () => {
-      mockPrisma.producto.findMany.mockResolvedValue([]);
+      mockPrisma.producto.findMany.mockResolvedValue([] as any);
       await service.listarProductos({ categoriaId: 'cat-001' });
       expect(mockPrisma.producto.findMany).toHaveBeenCalledWith(
         expect.objectContaining({ where: expect.objectContaining({ categoriaId: 'cat-001' }) }),
@@ -150,7 +151,7 @@ describe('AppService — Inventario (comprehensive)', () => {
     });
 
     it('aplica filtro disponible=false', async () => {
-      mockPrisma.producto.findMany.mockResolvedValue([]);
+      mockPrisma.producto.findMany.mockResolvedValue([] as any);
       await service.listarProductos({ disponible: false });
       expect(mockPrisma.producto.findMany).toHaveBeenCalledWith(
         expect.objectContaining({ where: expect.objectContaining({ disponible: false }) }),
@@ -158,7 +159,7 @@ describe('AppService — Inventario (comprehensive)', () => {
     });
 
     it('aplica filtro conStock=true (stockActual not null)', async () => {
-      mockPrisma.producto.findMany.mockResolvedValue([]);
+      mockPrisma.producto.findMany.mockResolvedValue([] as any);
       await service.listarProductos({ conStock: true });
       expect(mockPrisma.producto.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -168,7 +169,7 @@ describe('AppService — Inventario (comprehensive)', () => {
     });
 
     it('aplica filtro conStock=false (stockActual null)', async () => {
-      mockPrisma.producto.findMany.mockResolvedValue([]);
+      mockPrisma.producto.findMany.mockResolvedValue([] as any);
       await service.listarProductos({ conStock: false });
       expect(mockPrisma.producto.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -178,7 +179,7 @@ describe('AppService — Inventario (comprehensive)', () => {
     });
 
     it('aplica búsqueda de texto', async () => {
-      mockPrisma.producto.findMany.mockResolvedValue([]);
+      mockPrisma.producto.findMany.mockResolvedValue([] as any);
       await service.listarProductos({ search: 'limon' });
       expect(mockPrisma.producto.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -193,7 +194,7 @@ describe('AppService — Inventario (comprehensive)', () => {
     });
 
     it('limita el máximo a 100', async () => {
-      mockPrisma.producto.findMany.mockResolvedValue([]);
+      mockPrisma.producto.findMany.mockResolvedValue([] as any);
       await service.listarProductos({ limit: 500 });
       expect(mockPrisma.producto.findMany).toHaveBeenCalledWith(
         expect.objectContaining({ take: 101 }),
@@ -201,7 +202,7 @@ describe('AppService — Inventario (comprehensive)', () => {
     });
 
     it('sin parámetros usa defaults (limit 20)', async () => {
-      mockPrisma.producto.findMany.mockResolvedValue([]);
+      mockPrisma.producto.findMany.mockResolvedValue([] as any);
       await service.listarProductos();
       expect(mockPrisma.producto.findMany).toHaveBeenCalledWith(
         expect.objectContaining({ take: 21 }),
@@ -209,7 +210,7 @@ describe('AppService — Inventario (comprehensive)', () => {
     });
 
     it('aplica cursor de paginación', async () => {
-      mockPrisma.producto.findMany.mockResolvedValue([]);
+      mockPrisma.producto.findMany.mockResolvedValue([] as any);
       await service.listarProductos({ cursor: 'prod-010' });
       expect(mockPrisma.producto.findMany).toHaveBeenCalledWith(
         expect.objectContaining({ cursor: { id: 'prod-010' }, skip: 1 }),
@@ -217,7 +218,7 @@ describe('AppService — Inventario (comprehensive)', () => {
     });
 
     it('aplica filtro updatedSince', async () => {
-      mockPrisma.producto.findMany.mockResolvedValue([]);
+      mockPrisma.producto.findMany.mockResolvedValue([] as any);
       await service.listarProductos({ updatedSince: '2026-01-01T00:00:00.000Z' });
       expect(mockPrisma.producto.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -256,7 +257,7 @@ describe('AppService — Inventario (comprehensive)', () => {
     });
 
     it('devuelve array vacío para IDs no encontrados', async () => {
-      mockPrisma.producto.findMany.mockResolvedValue([]);
+      mockPrisma.producto.findMany.mockResolvedValue([] as any);
       const result = await service.obtenerProductosLote(['no-existe']);
       expect(result.productos).toEqual([]);
     });

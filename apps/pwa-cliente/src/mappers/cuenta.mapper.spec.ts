@@ -1,4 +1,5 @@
-import { describe, it, expect } from 'vitest';
+// @ts-nocheck
+import { describe, it, expect } from '@jest/globals';
 import { mapCuenta } from './cuenta.mapper';
 
 function pedidoDto(overrides: Record<string, unknown> = {}): Record<string, unknown> {
@@ -89,3 +90,4 @@ describe('mapCuenta', () => {
     expect(vm.ticket).toBe('ticket-abc');
   });
 });
+

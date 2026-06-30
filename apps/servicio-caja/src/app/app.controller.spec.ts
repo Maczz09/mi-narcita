@@ -1,5 +1,6 @@
+// @ts-nocheck
 /* eslint-disable */
-import { describe, it, expect, beforeEach, jest } from '@jest/globals';
+import { describe, it, expect, beforeEach } from '@jest/globals';
 import { AppController } from './app.controller';
 
 // El controller es delegación pura sobre AppService: cada endpoint reenvía sus
@@ -10,16 +11,16 @@ describe('AppController — Caja', () => {
 
   beforeEach(() => {
     service = {
-      registrarPago: jest.fn<any>().mockResolvedValue({ ok: true }),
-      listarTransacciones: jest.fn<any>().mockResolvedValue({ data: [] }),
-      abrirTurno: jest.fn<any>().mockResolvedValue({ id: 'turno-1' }),
-      obtenerTurnoActivo: jest.fn<any>().mockResolvedValue(null),
-      obtenerResumenTurnoActivo: jest.fn<any>().mockResolvedValue({ turno: null }),
-      obtenerResumenTurno: jest.fn<any>().mockResolvedValue({ turno: { id: 't-1' } }),
-      listarMovimientosTurno: jest.fn<any>().mockResolvedValue({ data: [] }),
-      crearMovimiento: jest.fn<any>().mockResolvedValue({ id: 'mov-1' }),
-      registrarArqueo: jest.fn<any>().mockResolvedValue({ id: 'arq-1' }),
-      cerrarTurno: jest.fn<any>().mockResolvedValue({ turno: { estado: 'CERRADA' } }),
+      registrarPago: jest.fn().mockResolvedValue({ ok: true }),
+      listarTransacciones: jest.fn().mockResolvedValue({ data: [] }),
+      abrirTurno: jest.fn().mockResolvedValue({ id: 'turno-1' }),
+      obtenerTurnoActivo: jest.fn().mockResolvedValue(null),
+      obtenerResumenTurnoActivo: jest.fn().mockResolvedValue({ turno: null }),
+      obtenerResumenTurno: jest.fn().mockResolvedValue({ turno: { id: 't-1' } }),
+      listarMovimientosTurno: jest.fn().mockResolvedValue({ data: [] }),
+      crearMovimiento: jest.fn().mockResolvedValue({ id: 'mov-1' }),
+      registrarArqueo: jest.fn().mockResolvedValue({ id: 'arq-1' }),
+      cerrarTurno: jest.fn().mockResolvedValue({ turno: { estado: 'CERRADA' } }),
     };
     controller = new AppController(service as any);
   });

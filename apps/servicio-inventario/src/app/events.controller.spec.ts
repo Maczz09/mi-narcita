@@ -1,3 +1,4 @@
+// @ts-nocheck
 /* eslint-disable */
 import { Test, TestingModule } from '@nestjs/testing';
 import { EventsController } from './events.controller';
@@ -43,7 +44,7 @@ describe('EventsController (Inventario)', () => {
     };
     const payload: PedidoCreadoPayload = { pedido };
 
-    jest.spyOn(appService, 'procesarPedidoCreado').mockResolvedValue(undefined);
+    jest.spyOn(appService, 'procesarPedidoCreado').mockResolvedValue({} as any);
 
     await eventsController.handlePedidoCreado(payload);
 

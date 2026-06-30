@@ -34,7 +34,7 @@
           "{projectRoot}/test-output/jest/coverage"
         ],
         "options": {
-          "jestConfig": "apps/servicio-pedidos/jest.config.cts"
+          "jestConfig": "apps/servicio-pedidos/jest.config.ts"
         }
       }
     },

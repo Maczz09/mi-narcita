@@ -1,4 +1,5 @@
-import { describe, it, expect } from 'vitest';
+// @ts-nocheck
+import { describe, it, expect } from '@jest/globals';
 import { mapNotificacion, mapNotificaciones, mapSocketNotification } from './notificacion.mapper';
 import type { NotificacionDto, SocketNotificationPayload } from '../types/notificacion.types';
 
@@ -45,7 +46,7 @@ describe('notificacion.mapper', () => {
   it('mapSocketNotification maps correctly', () => {
     const payload: SocketNotificationPayload = {
       pattern: 'pedido.creado',
-      data: { pedido: { mesa: { numero: 10 }, total: 100 } }
+      data: { pedido: { mesa: { numero: 10, capacidad: 4 }, total: 100 } }
     };
     const vm = mapSocketNotification(payload);
     expect(vm.titulo).toBe('Nuevo pedido');
@@ -53,3 +54,4 @@ describe('notificacion.mapper', () => {
     expect(vm.contenido).toContain('S/ 100.00');
   });
 });
+

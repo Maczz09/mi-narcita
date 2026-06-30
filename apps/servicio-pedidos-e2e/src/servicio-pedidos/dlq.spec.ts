@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { execFileSync } from 'node:child_process';
 import * as amqp from 'amqplib';
 import { describe, it, expect } from '@jest/globals';

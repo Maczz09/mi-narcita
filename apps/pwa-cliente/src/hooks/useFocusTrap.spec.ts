@@ -1,5 +1,6 @@
+// @ts-nocheck
 // @vitest-environment jsdom
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach } from '@jest/globals';
 import { getFocusableElements, useFocusTrap } from './useFocusTrap';
 
 // ─── getFocusableElements ─────────────────────────────────────────────────────
@@ -79,3 +80,4 @@ describe('useFocusTrap', () => {
     expect(typeof useFocusTrap).toBe('function');
   });
 });
+

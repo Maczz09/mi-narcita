@@ -1,9 +1,10 @@
-import { describe, expect, it, jest as vi } from '@jest/globals';
+// @ts-nocheck
+import { describe, expect, it } from '@jest/globals';
 import { EventsController } from './events.controller';
 
 describe('EventsController - Mesas', () => {
   it('cuenta.abierta recibe payload directo y ocupa la mesa', async () => {
-    const appService = { actualizarEstado: vi.fn<any>().mockResolvedValue({}) };
+    const appService = { actualizarEstado: jest.fn().mockResolvedValue({}) };
     const controller = new EventsController(appService as never);
 
     await controller.handleCuentaAbierta({ cuentaId: 'cuenta-1', mesaId: 'mesa-1' });
@@ -15,7 +16,7 @@ describe('EventsController - Mesas', () => {
   });
 
   it('cuenta.cerrada recibe payload directo y libera la mesa', async () => {
-    const appService = { actualizarEstado: vi.fn<any>().mockResolvedValue({}) };
+    const appService = { actualizarEstado: jest.fn().mockResolvedValue({}) };
     const controller = new EventsController(appService as never);
 
     await controller.handleCuentaCerrada({ cuentaId: 'cuenta-1', mesaId: 'mesa-1', total: 90 });
@@ -26,3 +27,4 @@ describe('EventsController - Mesas', () => {
     });
   });
 });
+

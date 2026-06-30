@@ -4,9 +4,12 @@
     "outDir": "./out-tsc/jest",
     "module": "commonjs",
     "moduleResolution": "node10",
-    "types": ["jest", "node"],
-    "experimentalDecorators": true,
-    "emitDecoratorMetadata": true
+    "types": [
+      "jest",
+      "node"
+    ],
+    "emitDecoratorMetadata": true,
+    "experimentalDecorators": true
   },
   "include": [
     "jest.config.ts",

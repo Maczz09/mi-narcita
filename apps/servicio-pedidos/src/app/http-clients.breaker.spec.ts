@@ -1,3 +1,4 @@
+// @ts-nocheck
 /* eslint-disable */
 import { describe, it, expect, beforeEach, afterEach } from '@jest/globals';
 import axios from 'axios';

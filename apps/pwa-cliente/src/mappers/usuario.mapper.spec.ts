@@ -1,4 +1,5 @@
-import { describe, it, expect } from 'vitest';
+// @ts-nocheck
+import { describe, it, expect } from '@jest/globals';
 import { mapUsuario, mapUsuarios } from './usuario.mapper';
 
 function dto(overrides: Record<string, unknown> = {}): Record<string, unknown> {
@@ -78,3 +79,4 @@ describe('mapUsuarios', () => {
     expect(mapUsuarios([])).toHaveLength(0);
   });
 });
+

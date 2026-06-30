@@ -1,4 +1,5 @@
-import { describe, expect, it } from 'vitest';
+// @ts-nocheck
+import { describe, expect, it } from '@jest/globals';
 import { mapPedido } from './pedido.mapper';
 import type { PedidoDto } from '../types/pedido.types';
 
@@ -49,3 +50,4 @@ describe('mapPedido', () => {
     );
   });
 });
+

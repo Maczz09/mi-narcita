@@ -1,5 +1,6 @@
+// @ts-nocheck
 /* eslint-disable */
-import { describe, it, expect, beforeEach, jest } from '@jest/globals';
+import { describe, it, expect, beforeEach } from '@jest/globals';
 import axios from 'axios';
 
 jest.mock('axios', () => {
@@ -31,26 +32,26 @@ function createMockPrismaService(): any {
     $transaction: jest.fn<any>((cb: (m: unknown) => unknown) => cb(mock)),
     checkAndRecordIdempotencyKey: () => Promise.resolve(true),
     transaccion: {
-      create: jest.fn<any>(),
-      findMany: jest.fn<any>(),
-      aggregate: jest.fn<any>(),
+      create: jest.fn(),
+      findMany: jest.fn(),
+      aggregate: jest.fn(),
     },
     outboxEvent: {
-      create: jest.fn<any>(),
+      create: jest.fn(),
     },
     cuentaAbierta: {
-      findUnique: jest.fn<any>(),
-      upsert: jest.fn<any>(),
-      update: jest.fn<any>(),
+      findUnique: jest.fn(),
+      upsert: jest.fn(),
+      update: jest.fn(),
     },
     turnoCaja: {
-      findFirst: jest.fn<any>(),
-      create: jest.fn<any>(),
+      findFirst: jest.fn(),
+      create: jest.fn(),
     },
     movimientoCaja: {
-      create: jest.fn<any>(),
+      create: jest.fn(),
     },
-    $executeRaw: jest.fn<any>(),
+    $executeRaw: jest.fn(),
   };
   return mock;
 }

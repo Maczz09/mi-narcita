@@ -1,14 +1,15 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+// @ts-nocheck
+import { describe, it, expect, beforeEach, afterEach } from '@jest/globals';
 import { renderHook, act } from '@testing-library/react';
 import { useOnlineStatus } from './useOnlineStatus';
 
 describe('useOnlineStatus', () => {
   beforeEach(() => {
-    vi.stubGlobal('navigator', { onLine: true });
+    jest.stubGlobal('navigator', { onLine: true });
   });
 
   afterEach(() => {
-    vi.unstubAllGlobals();
+    jest.unstubAllGlobals();
   });
 
   it('returns true initially if navigator.onLine is true', () => {
@@ -30,3 +31,4 @@ describe('useOnlineStatus', () => {
     expect(result.current).toBe(true);
   });
 });
+

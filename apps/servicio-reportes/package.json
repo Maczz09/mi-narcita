@@ -1,58 +1,63 @@
 {
-    "name":  "@org/servicio-reportes",
-    "version":  "0.0.1",
-    "private":  true,
-    "nx":  {
-               "name":  "servicio-reportes",
-               "targets":  {
-                               "build":  {
-                                             "executor":  "nx:run-commands",
-                                             "outputs":  [
-                                                             "{workspaceRoot}/dist/apps/servicio-reportes"
-                                                         ],
-                                             "options":  {
-                                                             "command":  "tsc -p apps/servicio-reportes/tsconfig.app.json \u0026\u0026 npx tsc-alias -p apps/servicio-reportes/tsconfig.app.json \u0026\u0026 node -e \"const fs=require(\u0027fs\u0027); if(fs.existsSync(\u0027apps/servicio-reportes/src/generated\u0027)) fs.cpSync(\u0027apps/servicio-reportes/src/generated\u0027, \u0027dist/apps/servicio-reportes/apps/servicio-reportes/src/generated\u0027, {recursive: true})\""
-                                                         },
-                                             "configurations":  {
-                                                                    "production":  {
-
-                                                                                   },
-                                                                    "development":  {
-
-                                                                                    }
-                                                                }
-                                         },
-                               "serve":  {
-                                             "executor":  "nx:run-commands",
-                                             "dependsOn":  [
-                                                               "build"
-                                                           ],
-                                             "options":  {
-                                                             "command":  "node dist/apps/servicio-reportes/apps/servicio-reportes/src/main.js"
-                                                         },
-                                             "continuous":  true
-                                         }
-                           },
-               "tags":  [
-                            "backend",
-                            "service",
-                            "reportes"
-                        ]
-           },
-    "dependencies":  {
-                         "@nestjs/common":  "^11.0.0",
-                         "@nestjs/core":  "^11.0.0",
-                         "@nestjs/jwt":  "^11.0.0",
-                         "@nestjs/passport":  "^11.0.0",
-                         "@nestjs/platform-express":  "^11.0.0",
-                         "@nestjs/swagger":  "^11.0.0",
-                         "dotenv":  "^16.4.7",
-                         "passport-jwt":  "^4.0.1",
-                         "reflect-metadata":  "^0.1.13",
-                         "rxjs":  "^7.8.0",
-                         "tslib":  "^2.3.0"
-                     },
-    "devDependencies":  {
-                            "@nestjs/testing":  "^11.0.0"
-                        }
+  "name": "@org/servicio-reportes",
+  "version": "0.0.1",
+  "private": true,
+  "nx": {
+    "name": "servicio-reportes",
+    "targets": {
+      "build": {
+        "executor": "nx:run-commands",
+        "outputs": [
+          "{workspaceRoot}/dist/apps/servicio-reportes"
+        ],
+        "options": {
+          "command": "tsc -p apps/servicio-reportes/tsconfig.app.json && npx tsc-alias -p apps/servicio-reportes/tsconfig.app.json && node -e \"const fs=require('fs'); if(fs.existsSync('apps/servicio-reportes/src/generated')) fs.cpSync('apps/servicio-reportes/src/generated', 'dist/apps/servicio-reportes/apps/servicio-reportes/src/generated', {recursive: true})\""
+        },
+        "configurations": {
+          "production": {},
+          "development": {}
+        }
+      },
+      "serve": {
+        "executor": "nx:run-commands",
+        "dependsOn": [
+          "build"
+        ],
+        "options": {
+          "command": "node dist/apps/servicio-reportes/apps/servicio-reportes/src/main.js"
+        },
+        "continuous": true
+      },
+      "test": {
+        "executor": "@nx/jest:jest",
+        "outputs": [
+          "{projectRoot}/test-output/jest/coverage"
+        ],
+        "options": {
+          "jestConfig": "apps/servicio-reportes/jest.config.ts"
+        }
+      }
+    },
+    "tags": [
+      "backend",
+      "service",
+      "reportes"
+    ]
+  },
+  "dependencies": {
+    "@nestjs/common": "^11.0.0",
+    "@nestjs/core": "^11.0.0",
+    "@nestjs/jwt": "^11.0.0",
+    "@nestjs/passport": "^11.0.0",
+    "@nestjs/platform-express": "^11.0.0",
+    "@nestjs/swagger": "^11.0.0",
+    "dotenv": "^16.4.7",
+    "passport-jwt": "^4.0.1",
+    "reflect-metadata": "^0.1.13",
+    "rxjs": "^7.8.0",
+    "tslib": "^2.3.0"
+  },
+  "devDependencies": {
+    "@nestjs/testing": "^11.0.0"
+  }
 }

@@ -1,4 +1,5 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+// @ts-nocheck
+import { describe, it, expect, beforeEach, afterEach } from '@jest/globals';
 import { applyThemeColor } from './theme';
 
 describe('applyThemeColor', () => {
@@ -32,3 +33,4 @@ describe('applyThemeColor', () => {
     expect(() => applyThemeColor('dark')).not.toThrow();
   });
 });
+

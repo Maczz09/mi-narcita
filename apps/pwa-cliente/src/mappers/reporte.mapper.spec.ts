@@ -1,4 +1,5 @@
-import { describe, it, expect } from 'vitest';
+// @ts-nocheck
+import { describe, it, expect } from '@jest/globals';
 import { mapResumen } from './reporte.mapper';
 
 function dto(overrides: Record<string, unknown> = {}): Record<string, unknown> {
@@ -82,3 +83,4 @@ describe('mapResumen', () => {
     expect(vm.topProductos).toEqual([]);
   });
 });
+

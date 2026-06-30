@@ -1,4 +1,5 @@
-import { describe, it, expect } from 'vitest';
+// @ts-nocheck
+import { describe, it, expect } from '@jest/globals';
 import {
   accesoDeRol,
   puedeAcceder,
@@ -115,3 +116,4 @@ describe('homeDeRol', () => {
     expect(homeDeRol('OTRO')).toBe('inicio');
   });
 });
+

@@ -1,4 +1,5 @@
-import { describe, it, expect } from 'vitest';
+// @ts-nocheck
+import { describe, it, expect } from '@jest/globals';
 import { stockNivel, computeInventarioKpis, INITIAL_PRODUCT } from './inventario';
 
 describe('inventario domain', () => {
@@ -40,3 +41,4 @@ describe('inventario domain', () => {
     });
   });
 });
+

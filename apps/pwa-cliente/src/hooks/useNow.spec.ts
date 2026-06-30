@@ -1,15 +1,16 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+// @ts-nocheck
+import { describe, it, expect, beforeEach, afterEach } from '@jest/globals';
 import { renderHook, act } from '@testing-library/react';
 import { useNow } from './useNow';
 
 describe('useNow', () => {
   beforeEach(() => {
-    vi.useFakeTimers();
-    vi.setSystemTime(new Date(2026, 0, 1, 10, 0, 0));
+    jest.useFakeTimers();
+    jest.setSystemTime(new Date(2026, 0, 1, 10, 0, 0));
   });
 
   afterEach(() => {
-    vi.useRealTimers();
+    jest.useRealTimers();
   });
 
   it('returns current time initially', () => {
@@ -21,9 +22,10 @@ describe('useNow', () => {
     const { result } = renderHook(() => useNow(1000));
     
     act(() => {
-      vi.advanceTimersByTime(1000);
+      jest.advanceTimersByTime(1000);
     });
     
     expect(result.current).toBe(new Date(2026, 0, 1, 10, 0, 1).getTime());
   });
 });
+

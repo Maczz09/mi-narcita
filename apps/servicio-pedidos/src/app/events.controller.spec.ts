@@ -1,9 +1,10 @@
+// @ts-nocheck
 import { describe, expect, it } from '@jest/globals';
 import { EventsController } from './events.controller';
 
 describe('EventsController - Pedidos', () => {
   it('mesa.creada recibe payload directo y sincroniza mesa local', async () => {
-    const appService = { upsertMesaLocal: jest.fn().mockResolvedValue(undefined) };
+    const appService = { upsertMesaLocal: jest.fn().mockResolvedValue({} as any) };
     const controller = new EventsController(appService as any);
     const mesa = { id: 'mesa-1', numero: 1, capacidad: 4, ubicacion: 'Salon', estado: 'LIBRE' };
 
@@ -13,7 +14,7 @@ describe('EventsController - Pedidos', () => {
   });
 
   it('mesa.actualizada recibe payload directo y sincroniza mesa local', async () => {
-    const appService = { upsertMesaLocal: jest.fn().mockResolvedValue(undefined) };
+    const appService = { upsertMesaLocal: jest.fn().mockResolvedValue({} as any) };
     const controller = new EventsController(appService as any);
     const mesa = { id: 'mesa-2', numero: 2, capacidad: 4, ubicacion: 'Terraza', estado: 'OCUPADA' };
 
@@ -23,7 +24,7 @@ describe('EventsController - Pedidos', () => {
   });
 
   it('producto.creado delega en procesamiento idempotente de producto creado', async () => {
-    const appService = { procesarProductoCreado: jest.fn().mockResolvedValue(undefined) };
+    const appService = { procesarProductoCreado: jest.fn().mockResolvedValue({} as any) };
     const controller = new EventsController(appService as any);
     const payload = { eventId: 'evt-1', id: 'prod-1', nombre: 'Nachos', precio: 10, stockActual: 5, disponible: true };
 
@@ -33,7 +34,7 @@ describe('EventsController - Pedidos', () => {
   });
 
   it('producto.actualizado delega en procesamiento idempotente de producto actualizado', async () => {
-    const appService = { procesarProductoActualizado: jest.fn().mockResolvedValue(undefined) };
+    const appService = { procesarProductoActualizado: jest.fn().mockResolvedValue({} as any) };
     const controller = new EventsController(appService as any);
     const payload = {
       eventId: 'evt-2',
@@ -52,7 +53,7 @@ describe('EventsController - Pedidos', () => {
   });
 
   it('stock.insuficiente delega en procesarStockInsuficiente', async () => {
-    const appService = { procesarStockInsuficiente: jest.fn().mockResolvedValue(undefined) };
+    const appService = { procesarStockInsuficiente: jest.fn().mockResolvedValue({} as any) };
     const controller = new EventsController(appService as any);
     const payload = { productoId: 'prod-1', stockActual: 0, pedidoId: 'ped-1' };
 

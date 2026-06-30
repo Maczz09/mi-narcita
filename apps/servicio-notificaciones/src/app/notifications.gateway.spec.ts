@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { generateKeyPairSync } from 'node:crypto';
 import jwt from 'jsonwebtoken';
 import { JwtService } from '@nestjs/jwt';

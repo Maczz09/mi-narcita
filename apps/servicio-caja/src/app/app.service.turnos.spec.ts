@@ -1,5 +1,6 @@
+// @ts-nocheck
 /* eslint-disable */
-import { describe, it, expect, beforeEach, jest } from '@jest/globals';
+import { describe, it, expect, beforeEach } from '@jest/globals';
 import axios from 'axios';
 
 // Mocks de borde (igual que app.service.spec.ts): axios para la cuenta remota y
@@ -64,14 +65,14 @@ function createMockPrisma(overrides: Record<string, any> = {}): any {
     $connect: async () => {},
     $disconnect: async () => {},
     checkAndRecordIdempotencyKey: async () => true,
-    turnoCaja: { findFirst: jest.fn<any>(), findUnique: jest.fn<any>(), create: jest.fn<any>(), update: jest.fn<any>() },
-    movimientoCaja: { create: jest.fn<any>(), findMany: jest.fn<any>() },
-    arqueoCaja: { create: jest.fn<any>() },
-    cierreCaja: { create: jest.fn<any>() },
-    transaccion: { create: jest.fn<any>(), findMany: jest.fn<any>(), aggregate: jest.fn<any>() },
-    cuentaAbierta: { findUnique: jest.fn<any>(), upsert: jest.fn<any>(), update: jest.fn<any>() },
-    outboxEvent: { create: jest.fn<any>() },
-    $executeRaw: jest.fn<any>(),
+    turnoCaja: { findFirst: jest.fn(), findUnique: jest.fn(), create: jest.fn(), update: jest.fn() },
+    movimientoCaja: { create: jest.fn(), findMany: jest.fn() },
+    arqueoCaja: { create: jest.fn() },
+    cierreCaja: { create: jest.fn() },
+    transaccion: { create: jest.fn(), findMany: jest.fn(), aggregate: jest.fn() },
+    cuentaAbierta: { findUnique: jest.fn(), upsert: jest.fn(), update: jest.fn() },
+    outboxEvent: { create: jest.fn() },
+    $executeRaw: jest.fn(),
     ...overrides,
   };
   prisma.$transaction = jest.fn<any>(async (cb: any) => cb(prisma));

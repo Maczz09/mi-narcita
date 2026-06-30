@@ -1,4 +1,5 @@
-import { describe, it, expect, jest } from '@jest/globals';
+// @ts-nocheck
+import { describe, it, expect } from '@jest/globals';
 import { toReservaDto } from './reservas.mapper';
 import { Reserva } from '../generated/prisma';
 

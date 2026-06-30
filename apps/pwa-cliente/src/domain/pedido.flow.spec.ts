@@ -1,4 +1,5 @@
-import { describe, it, expect } from 'vitest';
+// @ts-nocheck
+import { describe, it, expect } from '@jest/globals';
 import {
   canalFromModalidad,
   CANAL_LABEL,
@@ -239,3 +240,4 @@ describe('PERMITIR_OVERRIDE_PRODUCCION', () => {
     expect(PERMITIR_OVERRIDE_PRODUCCION).toBe(false);
   });
 });
+

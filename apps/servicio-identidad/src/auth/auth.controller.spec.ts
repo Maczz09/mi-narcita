@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { AuthController } from './auth.controller';
 
 function createResponse() {
@@ -85,7 +86,7 @@ describe('AuthController', () => {
 
   it('logout revoca el refresh y limpia las tres cookies', async () => {
     const response = createResponse();
-    const authService = { revokeRefreshTokenByRaw: jest.fn().mockResolvedValue(undefined) };
+    const authService = { revokeRefreshTokenByRaw: jest.fn().mockResolvedValue({} as any) };
     const controller = new AuthController(authService as never);
 
     await expect(

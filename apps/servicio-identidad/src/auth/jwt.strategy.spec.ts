@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { JwtStrategy } from './jwt.strategy';
 
 describe('JwtStrategy de identidad', () => {

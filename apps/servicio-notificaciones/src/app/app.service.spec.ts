@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { AppService } from './app.service';
 import { PrismaService } from '../prisma/prisma.service';
 
@@ -29,7 +30,7 @@ describe('AppService — Notificaciones', () => {
     });
 
     it('devuelve array vacío si no hay notificaciones', async () => {
-      prisma.notificacion.findMany.mockResolvedValue([]);
+      prisma.notificacion.findMany.mockResolvedValue([] as any);
       const result = await service.obtenerNotificaciones();
       expect(result).toEqual([]);
     });

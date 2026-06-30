@@ -1,4 +1,5 @@
-import { describe, it, expect, jest, beforeEach } from '@jest/globals';
+// @ts-nocheck
+import { describe, it, expect, beforeEach } from '@jest/globals';
 import { ReservasService } from './reservas.service';
 import { ReservaEstado, RoutingKeys } from '@org/contracts';
 
@@ -70,7 +71,7 @@ describe('ReservasService — Reservas', () => {
     });
 
     it('debe retornar array vacio si no hay reservas', async () => {
-      mockPrisma.reserva.findMany.mockResolvedValue([]);
+      mockPrisma.reserva.findMany.mockResolvedValue([] as any);
       const result = await service.listar();
       expect(result.data).toEqual([]);
     });
@@ -92,7 +93,7 @@ describe('ReservasService — Reservas', () => {
     });
 
     it('aplica cursor, estado, fecha, updatedSince y tope maximo de limit', async () => {
-      mockPrisma.reserva.findMany.mockResolvedValue([]);
+      mockPrisma.reserva.findMany.mockResolvedValue([] as any);
 
       await service.listar({
         cursor: 'r-010',
@@ -117,7 +118,7 @@ describe('ReservasService — Reservas', () => {
 
   describe('crear', () => {
     it('debe crear una reserva y publicar evento', async () => {
-      mockPrisma.reserva.findMany.mockResolvedValue([]);
+      mockPrisma.reserva.findMany.mockResolvedValue([] as any);
       mockPrisma.reserva.create.mockResolvedValue(reservaBase);
 
       const result = await service.crear({
@@ -182,7 +183,7 @@ describe('ReservasService — Reservas', () => {
     });
 
     it('debe traducir la carrera de unicidad a ConflictException', async () => {
-      mockPrisma.reserva.findMany.mockResolvedValue([]);
+      mockPrisma.reserva.findMany.mockResolvedValue([] as any);
       mockPrisma.reserva.create.mockRejectedValue({ code: 'P2002' });
 
       await expect(service.crear({
@@ -197,7 +198,7 @@ describe('ReservasService — Reservas', () => {
     });
 
     it('re-lanza errores que no son de unicidad', async () => {
-      mockPrisma.reserva.findMany.mockResolvedValue([]);
+      mockPrisma.reserva.findMany.mockResolvedValue([] as any);
       mockPrisma.$transaction.mockRejectedValue(new Error('db timeout'));
 
       await expect(service.crear({

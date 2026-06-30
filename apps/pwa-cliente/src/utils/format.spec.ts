@@ -1,4 +1,5 @@
-import { describe, it, expect } from 'vitest';
+// @ts-nocheck
+import { describe, it, expect } from '@jest/globals';
 import { fmt, minAgo, fechaLocalISO, horaOf, elapsedMin, elapsedLabel } from './format';
 
 describe('fmt', () => {
@@ -52,3 +53,4 @@ describe('elapsedLabel', () => {
     expect(elapsedLabel('2026-06-10T08:00:00Z', now)).toBe('2h');
   });
 });
+

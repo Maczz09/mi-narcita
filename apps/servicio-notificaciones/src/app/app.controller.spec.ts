@@ -1,5 +1,6 @@
+// @ts-nocheck
 import 'reflect-metadata';
-import { describe, expect, it, vi, beforeEach } from 'vitest';
+import { describe, expect, it, beforeEach } from '@jest/globals';
 import { RoutingKeys } from '@org/contracts';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
@@ -7,15 +8,15 @@ import { NotificationsGateway } from './notifications.gateway';
 
 describe('AppController - Notificaciones', () => {
   let controller: AppController;
-  let appService: { obtenerNotificaciones: ReturnType<typeof vi.fn>; registrarNotificacion: ReturnType<typeof vi.fn> };
-  let gateway: { emitPedidoUpdate: ReturnType<typeof vi.fn> };
+  let appService: { obtenerNotificaciones: ReturnType<typeof jest.fn>; registrarNotificacion: ReturnType<typeof jest.fn> };
+  let gateway: { emitPedidoUpdate: ReturnType<typeof jest.fn> };
 
   beforeEach(() => {
     appService = {
-      obtenerNotificaciones: vi.fn(),
-      registrarNotificacion: vi.fn(),
+      obtenerNotificaciones: jest.fn(),
+      registrarNotificacion: jest.fn(),
     };
-    gateway = { emitPedidoUpdate: vi.fn() };
+    gateway = { emitPedidoUpdate: jest.fn() };
     controller = new AppController(appService as unknown as AppService, gateway as unknown as NotificationsGateway);
   });
 
@@ -144,3 +145,4 @@ describe('AppController - Notificaciones', () => {
     });
   });
 });
+

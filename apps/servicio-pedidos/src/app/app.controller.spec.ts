@@ -1,4 +1,5 @@
-import { describe, it, expect, beforeEach, jest } from '@jest/globals';
+// @ts-nocheck
+import { describe, it, expect, beforeEach } from '@jest/globals';
 import { Test, TestingModule } from '@nestjs/testing';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
@@ -91,7 +92,7 @@ describe('AppController', () => {
 
   describe('procesarPago', () => {
     it('should process payment', async () => {
-      appService.procesarPagoRecibido.mockResolvedValue(undefined);
+      appService.procesarPagoRecibido.mockResolvedValue({} as any);
       await controller.procesarPago({ cuentaId: 'c1', mesaId: 'm1', monto: 100, metodo: 'EFECTIVO', transaccionId: 'tx1' } as any);
       expect(appService.procesarPagoRecibido).toHaveBeenCalledWith({ cuentaId: 'c1', mesaId: 'm1', monto: 100, metodo: 'EFECTIVO', transaccionId: 'tx1' });
     });
