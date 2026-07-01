@@ -1,5 +1,6 @@
+// @vitest-environment jsdom
 // @ts-nocheck
-import { describe, it, expect } from '@jest/globals';
+import { describe, it, expect } from 'vitest';
 import { mapCuenta } from './cuenta.mapper';
 
 function pedidoDto(overrides: Record<string, unknown> = {}): Record<string, unknown> {

@@ -1,8 +1,10 @@
+// @vitest-environment jsdom
+import { vi } from 'vitest';
 // @ts-nocheck
 import { renderHook, act } from '@testing-library/react';
 import { useComanda } from './useComanda';
 import * as comanda from '../domain/comanda';
-import {  } from '@jest/globals';
+import {  } from 'vitest';
 
 describe('useComanda', () => {
   const defaultParams = {
@@ -11,13 +13,13 @@ describe('useComanda', () => {
     modoAgregar: false,
     mesas: [{ id: '1', numero: '1', nombre: 'Mesa 1', estado: 'LIBRE', capacidad: 4 }],
     mesasFisicas: [{ id: '1', numero: '1', nombre: 'Mesa 1', estado: 'LIBRE', capacidad: 4 }],
-    crear: jest.fn(),
-    toast: jest.fn(),
-    onClose: jest.fn(),
+    crear: vi.fn(),
+    toast: vi.fn(),
+    onClose: vi.fn(),
   };
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   it('should initialize correctly', () => {

@@ -1,5 +1,6 @@
+// @vitest-environment jsdom
 // @ts-nocheck
-import { describe, it, expect, beforeEach, afterEach } from '@jest/globals';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { applyThemeColor } from './theme';
 
 describe('applyThemeColor', () => {

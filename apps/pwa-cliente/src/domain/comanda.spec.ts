@@ -1,5 +1,6 @@
+// @vitest-environment jsdom
 // @ts-nocheck
-import { describe, expect, it } from '@jest/globals';
+import { describe, expect, it } from 'vitest';
 import * as comanda from './comanda';
 import type { CartLine } from './comanda';
 import type { ProductoVM } from '../types/inventario.types';

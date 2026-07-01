@@ -1,5 +1,6 @@
+// @vitest-environment jsdom
 // @ts-nocheck
-import { describe, it, expect } from '@jest/globals';
+import { describe, it, expect } from 'vitest';
 import { mapResumen } from './reporte.mapper';
 
 function dto(overrides: Record<string, unknown> = {}): Record<string, unknown> {

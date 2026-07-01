@@ -1,5 +1,6 @@
+// @vitest-environment jsdom
 // @ts-nocheck
-import { describe, it, expect } from '@jest/globals';
+import { describe, it, expect } from 'vitest';
 import { fmt, minAgo, fechaLocalISO, horaOf, elapsedMin, elapsedLabel } from './format';
 
 describe('fmt', () => {

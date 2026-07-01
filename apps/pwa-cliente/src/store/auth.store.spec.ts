@@ -1,27 +1,29 @@
+// @vitest-environment jsdom
+import { vi } from 'vitest';
 // @ts-nocheck
-import { describe, it, expect, beforeEach } from '@jest/globals';
+import { describe, it, expect, beforeEach } from 'vitest';
 import { useAuthStore } from './auth.store';
 import * as authApi from '../api/auth.api';
 import { socketService } from '../services/socket.service';
 import * as clientApi from '../api/client';
 
-jest.mock('../api/auth.api');
-jest.mock('../services/socket.service', () => ({
-  socketService: { connect: jest.fn(), disconnect: jest.fn() }
+vi.mock('../api/auth.api');
+vi.mock('../services/socket.service', () => ({
+  socketService: { connect: vi.fn(), disconnect: vi.fn() }
 }));
-jest.mock('../api/client', () => ({
-  clearAuthToken: jest.fn(),
+vi.mock('../api/client', () => ({
+  clearAuthToken: vi.fn(),
 }));
 
 describe('auth.store', () => {
   beforeEach(() => {
     useAuthStore.setState({ user: null, authenticated: false, loading: false });
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   it('login works', async () => {
     const mockUser = { id: '1', nombre: 'Test', roles: [] };
-    jest.mocked(authApi.login).mockResolvedValue(mockUser as any);
+    vi.mocked(authApi.login).mockResolvedValue(mockUser as any);
 
     await useAuthStore.getState().login({ email: 'test@test.com', password: '123' });
 
@@ -31,7 +33,7 @@ describe('auth.store', () => {
   });
 
   it('logout works', async () => {
-    jest.mocked(authApi.logout).mockResolvedValue({} as any);
+    vi.mocked(authApi.logout).mockResolvedValue({} as any);
     useAuthStore.setState({ user: { id: '1' } as any, authenticated: true });
 
     useAuthStore.getState().logout();
@@ -56,7 +58,7 @@ describe('auth.store', () => {
 
   it('restore success', async () => {
     const mockUser = { id: '1', nombre: 'Test', roles: [] };
-    jest.mocked(authApi.me).mockResolvedValue(mockUser as any);
+    vi.mocked(authApi.me).mockResolvedValue(mockUser as any);
 
     await useAuthStore.getState().restore();
 
@@ -67,7 +69,7 @@ describe('auth.store', () => {
   });
 
   it('restore failure', async () => {
-    jest.mocked(authApi.me).mockRejectedValue(new Error('Unauthorized'));
+    vi.mocked(authApi.me).mockRejectedValue(new Error('Unauthorized'));
 
     await useAuthStore.getState().restore();
 

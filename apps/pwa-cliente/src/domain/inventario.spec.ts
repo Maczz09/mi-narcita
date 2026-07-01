@@ -1,5 +1,6 @@
+// @vitest-environment jsdom
 // @ts-nocheck
-import { describe, it, expect } from '@jest/globals';
+import { describe, it, expect } from 'vitest';
 import { stockNivel, computeInventarioKpis, INITIAL_PRODUCT } from './inventario';
 
 describe('inventario domain', () => {

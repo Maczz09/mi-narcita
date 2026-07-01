@@ -1,5 +1,6 @@
+// @vitest-environment jsdom
 // @ts-nocheck
-import { describe, it, expect } from '@jest/globals';
+import { describe, it, expect } from 'vitest';
 import { mapNotificacion, mapNotificaciones, mapSocketNotification } from './notificacion.mapper';
 import type { NotificacionDto, SocketNotificationPayload } from '../types/notificacion.types';
 

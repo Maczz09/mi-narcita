@@ -1,15 +1,17 @@
+import { vi } from 'vitest';
+// @vitest-environment jsdom
 // @ts-nocheck
-import { describe, it, expect, beforeEach, afterEach } from '@jest/globals';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { useOnlineStatus } from './useOnlineStatus';
 
 describe('useOnlineStatus', () => {
   beforeEach(() => {
-    jest.stubGlobal('navigator', { onLine: true });
+    vi.stubGlobal('navigator', { onLine: true });
   });
 
   afterEach(() => {
-    jest.unstubAllGlobals();
+    vi.unstubAllGlobals();
   });
 
   it('returns true initially if navigator.onLine is true', () => {
