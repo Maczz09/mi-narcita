@@ -1,6 +1,6 @@
 // @ts-nocheck
 /* eslint-disable */
-import { describe, it, expect, beforeEach } from '@jest/globals';
+
 import { AppController } from './app.controller';
 
 // El controller es delegación pura sobre AppService: cada endpoint reenvía sus

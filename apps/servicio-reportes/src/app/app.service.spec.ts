@@ -1,5 +1,5 @@
 // @ts-nocheck
-import { describe, expect, it, beforeEach } from '@jest/globals';
+
 import { AppService } from './app.service';
 import { PrismaService } from '../prisma/prisma.service';
 

@@ -1,5 +1,4 @@
 // @ts-nocheck
-import { describe, it, expect, beforeEach } from '@jest/globals';
 import { Test, TestingModule } from '@nestjs/testing';
 import { MesasHttpClient } from './mesas-http.client';
 import { ServiceTokenService } from '@org/shared-auth';

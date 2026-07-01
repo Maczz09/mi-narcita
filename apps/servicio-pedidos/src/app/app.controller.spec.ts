@@ -1,5 +1,4 @@
 // @ts-nocheck
-import { describe, it, expect, beforeEach } from '@jest/globals';
 import { Test, TestingModule } from '@nestjs/testing';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
@@ -10,6 +9,7 @@ jest.mock('@org/resiliencia', () => {
     ...actual,
     RabbitMQRetryInterceptor: class { intercept(ctx: any, next: any) { return next.handle(); } },
     IdempotencyInterceptor: class { intercept(ctx: any, next: any) { return next.handle(); } },
+    CircuitBreakerOptions: () => (_target: any, _key: string, descriptor: PropertyDescriptor) => descriptor,
   };
 });
 

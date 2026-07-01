@@ -1,6 +1,5 @@
 // @ts-nocheck
 import 'reflect-metadata';
-import { describe, expect, it, beforeEach } from '@jest/globals';
 import { RoutingKeys } from '@org/contracts';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';

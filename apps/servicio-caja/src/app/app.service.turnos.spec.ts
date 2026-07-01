@@ -1,6 +1,6 @@
 // @ts-nocheck
 /* eslint-disable */
-import { describe, it, expect, beforeEach } from '@jest/globals';
+
 import axios from 'axios';
 
 // Mocks de borde (igual que app.service.spec.ts): axios para la cuenta remota y

@@ -1,6 +1,6 @@
 // @ts-nocheck
 /* eslint-disable */
-import { describe, it, expect, beforeEach, afterEach } from '@jest/globals';
+
 import axios from 'axios';
 
 // T-33: neutralizar el breaker en los specs del servicio (igual que en caja);
@@ -538,4 +538,56 @@ describe('AppService — Pedidos', () => {
 
   // T-40: los specs de procesarStockInsuficiente viven ahora en
   // pedidos-saga.service.spec.ts, junto a la clase extraída.
+
+  describe('delegation to saga', () => {
+    it('actualizarEstado delegates to saga', async () => {
+      service['saga'].actualizarEstado = jest.fn().mockResolvedValue({ message: 'ok', pedido: {} });
+      await service.actualizarEstado('id-1', { estado: 'LISTO' } as any);
+      expect(service['saga'].actualizarEstado).toHaveBeenCalledWith('id-1', { estado: 'LISTO' });
+    });
+
+    it('actualizarEstadoItem delegates to saga', async () => {
+      service['saga'].actualizarEstadoItem = jest.fn().mockResolvedValue({ message: 'ok' });
+      await service.actualizarEstadoItem('item-1', { estado: 'LISTO' } as any);
+      expect(service['saga'].actualizarEstadoItem).toHaveBeenCalledWith('item-1', { estado: 'LISTO' });
+    });
+
+    it('procesarStockInsuficiente delegates to saga', async () => {
+      service['saga'].procesarStockInsuficiente = jest.fn().mockResolvedValue(undefined);
+      await service.procesarStockInsuficiente({ pedidoId: 'p1' } as any);
+      expect(service['saga'].procesarStockInsuficiente).toHaveBeenCalledWith({ pedidoId: 'p1' });
+    });
+  });
+
+  describe('upsertMesaLocal', () => {
+    it('upserts mesa correctly', async () => {
+      await service.upsertMesaLocal({ id: 'm1', numero: 5 });
+      expect(mockPrisma.mesaLocal.upsert).toHaveBeenCalledWith({
+        where: { id: 'm1' },
+        update: { numero: 5 },
+        create: { id: 'm1', numero: 5 },
+      });
+    });
+  });
+
+  describe('persistirPedido - stock errors', () => {
+    it('throws BadRequestException if stock is insufficient', async () => {
+      mockPrisma.$queryRaw = jest.fn().mockResolvedValue([]);
+      await expect((service as any).persistirPedido({
+        mesaId: 'mesa-1',
+        numeroMesa: 1,
+        items: [
+          { productoId: 'prod-1', nombre: 'Nachos', cantidad: 50, precioUnitario: 25, stockActual: 10, area: 'COCINA', comensal: 1 }
+        ],
+        total: 1250,
+      })).rejects.toThrow('Stock insuficiente para Nachos.');
+    });
+  });
+
+  describe('procesarEventoProducto - error handling', () => {
+    it('throws error if error is not P2002', async () => {
+      mockPrisma.$transaction.mockRejectedValue(new Error('Random DB Error'));
+      await expect((service as any).procesarEventoProducto('key', { id: 'prod-1' }, async () => {})).rejects.toThrow('Random DB Error');
+    });
+  });
 });

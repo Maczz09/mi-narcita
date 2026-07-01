@@ -1,6 +1,6 @@
 // @ts-nocheck
 /* eslint-disable */
-import { describe, it, expect, beforeEach, afterEach } from '@jest/globals';
+
 import axios from 'axios';
 import { NotFoundException, ServiceUnavailableException } from '@nestjs/common';
 import { CIRCUIT_BREAKER_REGISTRY } from '@org/resiliencia';
@@ -35,8 +35,7 @@ describe('Clientes HTTP de pedidos — circuit breaker (P-55)', () => {
 
   it('mesas: abre el circuito tras N fallos 5xx/red y responde 503 sin tocar la red', async () => {
     const client = new MesasHttpClient(tokenService);
-    const getSpy = jest
-      .spyOn(axios, 'get')
+    const getSpy = jest.spyOn(axios, 'get')
       .mockRejectedValue(Object.assign(new Error('conexión rechazada'), { code: 'ECONNREFUSED' }));
 
     // Racha de fallos para superar errorThresholdPercentage (volumen mínimo de opossum: 10)
@@ -69,8 +68,7 @@ describe('Clientes HTTP de pedidos — circuit breaker (P-55)', () => {
 
   it('inventario: abre el circuito tras N fallos y responde 503 sin tocar la red', async () => {
     const client = new InventarioHttpClient(tokenService);
-    const postSpy = jest
-      .spyOn(axios, 'post')
+    const postSpy = jest.spyOn(axios, 'post')
       .mockRejectedValue(Object.assign(new Error('timeout'), { code: 'ECONNABORTED' }));
 
     for (let i = 0; i < 12; i++) {

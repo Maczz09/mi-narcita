@@ -1,5 +1,5 @@
 // @ts-nocheck
-import { describe, expect, it } from '@jest/globals';
+
 import { EventsController } from './events.controller';
 
 describe('EventsController - Mesas', () => {

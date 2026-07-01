@@ -60,8 +60,7 @@ function createMockPrismaService(overrides: Record<string, unknown> = {}) {
 function createMockJwtService() {
   return {
     sign: jest.fn().mockReturnValue('fake-access-token'),
-    verify: jest
-      .fn()
+    verify: jest.fn()
       .mockReturnValue({ sub: 'u-001', email: 'admin@test.com', rol: 'ADMIN' }),
   };
 }
