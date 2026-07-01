@@ -8,7 +8,7 @@ import {
   type Page,
 } from '@playwright/test';
 
-const API_BASE_URL = process.env.API_BASE_URL ?? 'http://localhost';
+const API_BASE_URL = process.env.API_BASE_URL ?? 'http://localhost:8000';
 const ADMIN_EMAIL = process.env.E2E_ADMIN_EMAIL ?? 'admin@nachopps.pe';
 const ADMIN_PASSWORD = process.env.E2E_ADMIN_PASSWORD ?? 'nachopps123';
 const REQUIRED_PAGE_SIZE = 50;

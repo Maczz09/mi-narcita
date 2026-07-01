@@ -6,7 +6,7 @@
   pwsh scripts/sonar-scan.ps1 -Token squ_xxxxxxxx -WithCoverage
 #>
 param(
-  [Parameter(Mandatory = $true)][string]$Token,
+  [string]$Token,
   [string]$HostUrl = 'http://host.docker.internal:9000',
   [switch]$WithCoverage
 )
@@ -17,14 +17,13 @@ $root = Split-Path $PSScriptRoot -Parent
 if ($WithCoverage) {
   Write-Host '── Generando cobertura (nx run-many -t test --coverage)…'
   Push-Location $root
-  try { npm exec nx run-many -- -t test --coverage --passWithNoTests }
+  try { npm exec nx run-many -- -t test --coverage --exclude=@org/source --passWithNoTests }
   finally { Pop-Location }
 }
 
 Write-Host "── Lanzando sonar-scanner contra $HostUrl…"
 docker run --rm `
   -e SONAR_HOST_URL=$HostUrl `
-  -e SONAR_TOKEN=$Token `
   -v "${root}:/usr/src" `
   sonarsource/sonar-scanner-cli:latest
 

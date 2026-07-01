@@ -43,7 +43,7 @@ export function useFocusTrap(
         for (const sibling of Array.from<Element>(parent.children)) {
           const isScrim =
             sibling.classList.contains('scrim') ||
-            sibling.hasAttribute('data-scrim');
+            (sibling as HTMLElement).dataset?.scrim !== undefined;
           if (sibling !== node && !sibling.hasAttribute('inert') && !isScrim) {
             sibling.setAttribute('inert', '');
             inertTargets.push(sibling);

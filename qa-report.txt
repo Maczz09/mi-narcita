@@ -1,0 +1,5 @@
+=== REPORTE QA E2E ===
+Errores encontrados: 2
+[ERROR CONSOLA] Failed to load resource: the server responded with a status of 401 (Unauthorized)
+[ERROR CONSOLA] Failed to load resource: the server responded with a status of 401 (Unauthorized)
+[COOKIES LUEGO DE LOGIN] 3

@@ -19,7 +19,7 @@ export default defineConfig({
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,
     env: {
-      VITE_API_BASE_URL: process.env.API_BASE_URL ?? 'http://localhost',
+      VITE_API_BASE_URL: '',
     },
   },
   projects: [

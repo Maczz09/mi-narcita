@@ -295,3 +295,11 @@ services:
       - name: reportes
         paths: [/reportes, /v1/reportes]
         strip_path: true
+
+  # ── Frontend PWA ──
+  - name: pwa-cliente
+    url: http://pwa-cliente:8080
+    routes:
+      - name: pwa
+        paths: [/]
+        strip_path: false
