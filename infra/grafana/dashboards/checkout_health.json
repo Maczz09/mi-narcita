@@ -13,34 +13,25 @@
       "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 }
     },
     {
-      "title": "ERP p95 Latency",
+      "title": "ERP (Inventario) p95 Latency",
       "type": "timeseries",
       "gridPos": { "h": 8, "w": 12, "x": 0, "y": 1 },
+      "fieldConfig": { "defaults": { "unit": "s" }, "overrides": [] },
       "targets": [
         {
-          "expr": "histogram_quantile(0.95, rate(http_server_requests_seconds_bucket{service=\"servicio-inventario\"}[5m]))",
+          "expr": "histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket{instance=\"servicio-inventario:3000\"}[5m])) by (le))",
           "refId": "A"
         }
       ]
     },
     {
-      "title": "Payment Timeout Rate",
+      "title": "ERP (Inventario) Timeout Rate",
       "type": "timeseries",
       "gridPos": { "h": 8, "w": 12, "x": 12, "y": 1 },
+      "fieldConfig": { "defaults": { "unit": "ops" }, "overrides": [] },
       "targets": [
         {
-          "expr": "rate(payment_timeout_rate_total[5m])",
-          "refId": "A"
-        }
-      ]
-    },
-    {
-      "title": "PAYMENT_UNKNOWN Count",
-      "type": "stat",
-      "gridPos": { "h": 4, "w": 6, "x": 0, "y": 9 },
-      "targets": [
-        {
-          "expr": "sum(increase(payment_unknown_count_total[10m]))",
+          "expr": "sum(rate(erp_timeout_rate_total[5m]))",
           "refId": "A"
         }
       ]
@@ -48,7 +39,7 @@
     {
       "title": "Circuit Breaker State (Inventario)",
       "type": "stat",
-      "gridPos": { "h": 4, "w": 6, "x": 6, "y": 9 },
+      "gridPos": { "h": 4, "w": 8, "x": 0, "y": 9 },
       "targets": [
         {
           "expr": "circuit_breaker_state{dependency=\"inventario\"}",
@@ -57,23 +48,89 @@
       ]
     },
     {
-      "title": "Outbox Pending Events",
+      "title": "Outbox Pending Events (todos los servicios)",
       "type": "stat",
-      "gridPos": { "h": 4, "w": 6, "x": 12, "y": 9 },
+      "gridPos": { "h": 4, "w": 8, "x": 8, "y": 9 },
       "targets": [
         {
-          "expr": "outbox_pending_events_total",
+          "expr": "sum(outbox_pending_total)",
           "refId": "A"
         }
       ]
     },
     {
-      "title": "Broker Lag (Seconds)",
+      "title": "Outbox Publish Lag p95 (s)",
       "type": "stat",
-      "gridPos": { "h": 4, "w": 6, "x": 18, "y": 9 },
+      "gridPos": { "h": 4, "w": 8, "x": 16, "y": 9 },
+      "fieldConfig": { "defaults": { "unit": "s" }, "overrides": [] },
       "targets": [
         {
-          "expr": "broker_lag_seconds",
+          "expr": "histogram_quantile(0.95, sum(rate(outbox_publish_lag_seconds_bucket[5m])) by (le))",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "title": "Pagos & Broker",
+      "type": "row",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 13 }
+    },
+    {
+      "title": "Pagos con cierre de cuenta pendiente (análogo PAYMENT_UNKNOWN)",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 8, "x": 0, "y": 14 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "red", "value": 1 }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "expr": "sum(increase(pagos_cierre_remoto_pendiente_total[10m]))",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "title": "Broker Consumer Lag p95 (s)",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 8, "x": 8, "y": 14 },
+      "fieldConfig": { "defaults": { "unit": "s" }, "overrides": [] },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum(rate(broker_consumer_lag_seconds_bucket[5m])) by (le))",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "title": "DLQ Messages (rate/min)",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 8, "x": 16, "y": 14 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "red", "value": 1 }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "expr": "sum(rate(dlq_messages_total[5m])) * 60",
           "refId": "A"
         }
       ]

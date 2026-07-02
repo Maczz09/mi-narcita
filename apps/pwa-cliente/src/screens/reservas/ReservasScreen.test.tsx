@@ -1,10 +1,15 @@
 // @vitest-environment jsdom
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { ReservasScreen } from './ReservasScreen';
+import { useToast } from '../../components/ui/ToastProvider';
 import * as onlineStatusHook from '../../hooks/useOnlineStatus';
 import * as reservasQueryHook from '../../hooks/queries/useReservasQuery';
 import * as mesasQueryHook from '../../hooks/queries/useMesasQuery';
+
+vi.mock('../../components/ui/ToastProvider', () => ({
+  useToast: vi.fn(),
+}));
 
 describe('ReservasScreen', () => {
   const mockFetch = vi.fn();
@@ -14,9 +19,11 @@ describe('ReservasScreen', () => {
   const mockCancelar = vi.fn();
   const mockConsultarDisponibilidad = vi.fn();
   const mockClearFeedback = vi.fn();
+  const mockToast = vi.fn();
 
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(useToast).mockReturnValue({ toast: mockToast } as any);
     vi.spyOn(onlineStatusHook, 'useOnlineStatus').mockReturnValue(true);
     vi.spyOn(mesasQueryHook, 'useMesasQuery').mockReturnValue({
       mesas: [
@@ -136,18 +143,17 @@ describe('ReservasScreen', () => {
 
   it('catches error when create reservation fails', async () => {
     mockCrear.mockRejectedValueOnce(new Error('error creating'));
-    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-    
+
     render(<ReservasScreen />);
     fireEvent.change(screen.getByLabelText('Cliente'), { target: { value: 'Carlos' } });
     const mesaSelect = screen.getByLabelText('Mesa');
     fireEvent.change(mesaSelect, { target: { value: 'M1' } });
-    
+
     fireEvent.click(screen.getByText('Crear reserva'));
-    await new Promise(process.nextTick);
-    
-    expect(consoleSpy).toHaveBeenCalled();
-    consoleSpy.mockRestore();
+
+    await waitFor(() => {
+      expect(mockToast).toHaveBeenCalledWith(expect.objectContaining({ kind: 'err', msg: 'error creating' }));
+    });
   });
 
   it('can consult availability', () => {

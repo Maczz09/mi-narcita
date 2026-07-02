@@ -14,6 +14,7 @@ import { Comandero } from '../../components/comandero/Comandero';
 import { useFocusTrap } from '../../hooks/useFocusTrap';
 import { useNow } from '../../hooks/useNow';
 import { useOnlineStatus } from '../../hooks/useOnlineStatus';
+import { useToast } from '../../components/ui/ToastProvider';
 import { useAuthStore } from '../../store/auth.store';
 import type { MesaVM, EstadoMesa, CrearMesaPayload } from '../../types/mesa.types';
 import type { CuentaVM } from '../../types/cuenta.types';
@@ -40,6 +41,7 @@ type ComanderoState =
 export function MesasScreen() {
   const navigate = useNavigate();
   const online = useOnlineStatus();
+  const { toast } = useToast();
   const rol = useAuthStore((s) => s.user?.rol);
   const puedeCrearMesa = rol === 'ADMIN' || rol === 'SISTEMA';
   const { mesas, loading, saving, loadError, error, success, fetch, crearMesa, clearFeedback } = useMesasQuery();
@@ -101,7 +103,7 @@ export function MesasScreen() {
       });
       setMesaForm({ ...INITIAL_MESA_FORM, numero: siguienteNumero + 1 });
     } catch (e) {
-      console.error('Error al crear mesa', e);
+      toast({ title: 'No se pudo crear la mesa', msg: e instanceof Error ? e.message : 'Inténtalo de nuevo', icon: 'Alert', kind: 'err' });
     }
   };
 

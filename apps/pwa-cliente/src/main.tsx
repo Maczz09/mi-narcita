@@ -9,9 +9,9 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { useAuthStore } from './store/auth.store';
 import { AppRouter } from './router/index';
-import { QueryClientProvider } from '@tanstack/react-query';
+import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client';
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
-import { queryClient } from './api/queryClient';
+import { queryClient, queryPersister, PERSIST_MAX_AGE_MS } from './api/queryClient';
 import { ToastProvider } from './components/ui/ToastProvider';
 import { applyThemeColor, type Theme } from './utils/theme';
 import './styles.css';
@@ -67,12 +67,21 @@ async function bootstrap() {
 
   root.render(
     <StrictMode>
-      <QueryClientProvider client={queryClient}>
+      <PersistQueryClientProvider
+        client={queryClient}
+        persistOptions={{
+          persister: queryPersister,
+          maxAge: PERSIST_MAX_AGE_MS,
+          // Solo se restauran queries de lectura ya resueltas con éxito; los
+          // errores y las mutaciones no se persisten.
+          dehydrateOptions: { shouldDehydrateQuery: (query) => query.state.status === 'success' },
+        }}
+      >
         <ToastProvider>
           <AppRouter />
         </ToastProvider>
         <ReactQueryDevtools initialIsOpen={false} position="bottom" />
-      </QueryClientProvider>
+      </PersistQueryClientProvider>
     </StrictMode>,
   );
 }

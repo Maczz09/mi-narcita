@@ -1,6 +1,7 @@
 import { render, screen } from '@testing-library/react';
 import { describe, it, expect, vi } from 'vitest';
 import { Shell } from './Shell';
+import { queryClient } from '../../api/queryClient';
 
 // ── Mocks ────────────────────────────────────────────────────────────────────
 
@@ -105,6 +106,29 @@ describe('Shell', () => {
     const banner = screen.getByText(/Sin conexión/).closest('[role="status"]');
     expect(banner).toHaveAttribute('aria-live', 'polite');
     expect(banner).toHaveAttribute('aria-atomic', 'true');
+
+    vi.mocked(useOnlineStatus).mockReturnValue(true);
+  });
+
+  it('muestra "datos de hace" en el banner offline cuando hay caché', async () => {
+    const { useOnlineStatus } = await import('../../hooks/useOnlineStatus');
+    vi.mocked(useOnlineStatus).mockReturnValue(false);
+    queryClient.setQueryData(['shell-test-key'], { ok: true });
+
+    render(<Shell>Contenido</Shell>);
+    expect(screen.getByText(/Mostrando datos de hace/)).toBeInTheDocument();
+
+    queryClient.removeQueries({ queryKey: ['shell-test-key'] });
+    vi.mocked(useOnlineStatus).mockReturnValue(true);
+  });
+
+  it('NO muestra "datos de hace" si la caché está vacía', async () => {
+    const { useOnlineStatus } = await import('../../hooks/useOnlineStatus');
+    vi.mocked(useOnlineStatus).mockReturnValue(false);
+    queryClient.clear();
+
+    render(<Shell>Contenido</Shell>);
+    expect(screen.queryByText(/Mostrando datos de hace/)).not.toBeInTheDocument();
 
     vi.mocked(useOnlineStatus).mockReturnValue(true);
   });

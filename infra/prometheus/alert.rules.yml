@@ -2,69 +2,77 @@ groups:
 - name: CheckoutAlerts
   rules:
   - alert: ERP_P95_LatencyHigh
-    expr: histogram_quantile(0.95, rate(http_server_requests_seconds_bucket{service="servicio-inventario"}[5m])) > 5
+    expr: histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket{instance="servicio-inventario:3000"}[5m])) by (le)) > 5
     for: 5m
     labels:
       severity: warning
+      owner: servicio-inventario
     annotations:
       summary: "ERP p95 alto"
       description: "La latencia p95 del ERP (inventario) ha superado los 5 segundos durante los últimos 5 minutos."
       action: "Revisar dependencias del inventario"
 
-  - alert: PaymentTimeoutRateHigh
-    expr: rate(payment_timeout_rate_total[5m]) / rate(payment_total[5m]) > 0.05
-    for: 5m
+  - alert: ErpTimeoutRateHigh
+    expr: increase(erp_timeout_rate_total[5m]) > 5
     labels:
       severity: critical
+      owner: servicio-pedidos
     annotations:
-      summary: "Payment timeout rate > 5%"
-      description: "Más del 5% de los pagos están haciendo timeout en los últimos 5 minutos."
-      action: "Revisar pasarela de pagos"
+      summary: "ERP timeout rate alto"
+      description: "Más de 5 timeouts al llamar al ERP (inventario) en los últimos 5 minutos."
+      action: "Revisar disponibilidad/latencia de servicio-inventario"
 
-  - alert: PaymentUnknownCountHigh
-    expr: increase(payment_unknown_count_total[10m]) > 50
+  # Análogo de PAYMENT_UNKNOWN en NachoPps: el pago se registró en caja pero el
+  # cierre remoto de la cuenta (HTTP a servicio-cuentas) falló — ver [[pagos_cierre_remoto_pendiente_total]].
+  - alert: PagoCierrePendienteHigh
+    expr: increase(pagos_cierre_remoto_pendiente_total[10m]) > 5
     labels:
       severity: critical
+      owner: servicio-caja
     annotations:
-      summary: "PAYMENT_UNKNOWN count > 50"
-      description: "Han ocurrido más de 50 fallos de estado financiero incierto en 10 minutos."
-      action: "Soporte + reconciliación"
+      summary: "Pagos con cierre de cuenta sin confirmar > 5 en 10 min"
+      description: "Varios pagos quedaron registrados en caja sin que la cuenta se cerrara en servicio-cuentas."
+      action: "Soporte + reconciliación manual de cuentas abiertas con pago registrado"
 
   - alert: ERPCircuitBreakerOpen
     expr: circuit_breaker_state{dependency="inventario"} == 1
     for: 2m
     labels:
       severity: warning
+      owner: servicio-pedidos
     annotations:
-      summary: "Payment circuit open"
-      description: "El Circuit Breaker para el ERP lleva ABIERTO más de 2 minutos."
+      summary: "Circuit breaker de inventario abierto"
+      description: "El Circuit Breaker para el ERP (inventario) lleva ABIERTO más de 2 minutos."
       action: "Degradación controlada. Revisar logs del ERP."
 
   - alert: OutboxPendingHigh
-    expr: outbox_pending_events_total > 1000
+    expr: sum(outbox_pending_total) > 200
     for: 1m
     labels:
       severity: warning
+      owner: plataforma
     annotations:
-      summary: "Outbox pending > 1000"
+      summary: "Outbox pending alto"
       description: "Se acumulan eventos en la base de datos sin enviar al broker."
       action: "Revisar publisher/broker."
 
-  - alert: BrokerLagHigh
-    expr: broker_lag_seconds > 300
+  - alert: BrokerConsumerLagHigh
+    expr: histogram_quantile(0.95, sum(rate(broker_consumer_lag_seconds_bucket[5m])) by (le)) > 300
     for: 5m
     labels:
       severity: warning
+      owner: plataforma
     annotations:
-      summary: "Broker lag > 5 min"
-      description: "El lag de consumidores ha superado los 5 minutos."
+      summary: "Broker consumer lag > 5 min"
+      description: "El p95 del tiempo entre publicación y consumo de eventos ha superado los 5 minutos."
       action: "Revisar consumidores (escalar)."
 
   - alert: DLQGrowingFast
-    expr: rate(dlq_messages_total[1m]) * 60 > 10
+    expr: rate(dlq_messages_total[5m]) * 60 > 2
     labels:
       severity: critical
+      owner: plataforma
     annotations:
-      summary: "DLQ creciendo > 10/min"
-      description: "La cola de mensajes muertos está creciendo rápidamente."
+      summary: "DLQ creciendo"
+      description: "Mensajes agotando reintentos y cayendo a la dead-letter queue a un ritmo sostenido."
       action: "Revisar schema/consumidores."

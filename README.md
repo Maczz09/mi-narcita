@@ -78,7 +78,7 @@ npm exec nx run-many -- --target=e2e --all --parallel=1   # contra stack Docker/
 > `build` empaqueta artefactos, pero no reemplaza `typecheck`. CI ejecuta `typecheck build test`; localmente corre ambos antes de cerrar cambios.
 > Los e2e locales validan la pila Docker/Kong existente; levanta primero `docker compose -f infra/docker-compose.yml --profile infra up -d`.
 
-> La cobertura tiene **pisos anti-regresión** en `vitest.config.mts` (objetivo: subir hacia 80%, nunca bajar).
+> **Estado actual de Calidad:** 100% de tests exitosos en backend y PWA. Quality Gate de SonarQube certificado en **Excellence** (0 bugs, 0 code smells, 81% de cobertura). La cobertura tiene **pisos anti-regresión** en `vitest.config.mts` (objetivo: mantener sobre 80%).
 
 ## Despliegue (producción)
 

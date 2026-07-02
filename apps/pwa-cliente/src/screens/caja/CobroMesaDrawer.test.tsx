@@ -4,6 +4,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { CobroMesaDrawer } from './CobroMesaDrawer';
 import { useCuentasQuery } from '../../hooks/queries/useCuentasQuery';
 import { useOnlineStatus } from '../../hooks/useOnlineStatus';
+import { useToast } from '../../components/ui/ToastProvider';
 
 vi.mock('../../hooks/useOnlineStatus', () => ({
   useOnlineStatus: vi.fn()
@@ -11,6 +12,10 @@ vi.mock('../../hooks/useOnlineStatus', () => ({
 
 vi.mock('../../hooks/queries/useCuentasQuery', () => ({
   useCuentasQuery: vi.fn()
+}));
+
+vi.mock('../../components/ui/ToastProvider', () => ({
+  useToast: vi.fn()
 }));
 
 vi.mock('../../components/ui/Scrim', () => ({
@@ -53,6 +58,7 @@ const mockCuenta = {
 describe('CobroMesaDrawer', () => {
   beforeEach(() => {
     vi.mocked(useOnlineStatus).mockReturnValue(true);
+    vi.mocked(useToast).mockReturnValue({ toast: vi.fn() } as any);
     vi.mocked(useCuentasQuery).mockReturnValue({
       cuentaActiva: mockCuenta,
       loading: false,

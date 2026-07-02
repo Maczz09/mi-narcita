@@ -105,6 +105,20 @@ async function runConcurrent(label, fn, concurrency = CONCURRENCY, rounds = ROUN
 
 function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 
+// La cuenta se abre de forma asíncrona (pedido → outbox → RabbitMQ → servicio-cuentas);
+// outbox_publish_lag_seconds mide p50≈1.5s / p95≈4.5s en este stack, así que un solo
+// sleep corto antes de cobrar produce 404 falsos. Reintenta con backoff hasta maxWaitMs.
+async function waitForCuenta(mesaId, token, maxWaitMs = 6000, stepMs = 400) {
+  const deadline = Date.now() + maxWaitMs;
+  let last;
+  while (Date.now() < deadline) {
+    await sleep(stepMs);
+    last = await req('GET', `/cuentas/mesa/${mesaId}`, null, token);
+    if (last.ok) return last;
+  }
+  return last;
+}
+
 // Resetea el presupuesto de rate-limit de login (ver nota de cabecera).
 async function resetRateLimit(reason = '') {
   if ((process.env.RATE_LIMIT_RESET || 'wait') === 'restart') {
@@ -208,7 +222,7 @@ async function testMesasCreateAndRead() {
   console.log('\n═══ TEST 2b: servicio-mesas — Concurrent Create + Read ═══');
   await runConcurrent('Mesas create+read', async (i) => {
     const create = await req('POST', '/mesas', {
-      numero: 900 + i, capacidad: 4, ubicacion: `TEST-ZONE-${i}`
+      numero: Math.floor(Math.random() * 100000) + 9000 + i, capacidad: 4, ubicacion: `TEST-ZONE-${i}`
     }, adminToken);
     const read = await req('GET', `/mesas`, null, adminToken);
     return { ok: create.ok && read.ok, status: create.status, ms: create.ms + read.ms };
@@ -221,15 +235,22 @@ async function testMesasCreateAndRead() {
 
 async function testPedidosConcurrentCreate() {
   console.log('\n═══ TEST 3: servicio-pedidos — Concurrent Order Creation ═══');
-  // Get a table first
+  // Get a table first (GET /mesas responde { mesas: [...] }, no { data: [...] })
   const mesasRes = await req('GET', '/mesas', null, adminToken);
-  const mesaId = mesasRes.data?.[0]?.id;
+  const mesaId = mesasRes.data?.mesas?.[0]?.id;
   if (!mesaId) { console.log('  ⚠ No mesas found, skipping'); return; }
+  // productoId debe ser un UUID real: servicio-inventario valida @IsUUID en /productos/lote
+  // (un id inventado como 'test-product' hace fallar el cold-start con 400→500, ver T-33).
+  // GET /inventario/productos responde { data: [...] }; req() ya envuelve el body
+  // en .data, así que la lista real vive en .data.data (no .data).
+  const prods = await req('GET', '/inventario/productos', null, adminToken);
+  const productoId = prods.data?.data?.[0]?.id;
+  if (!productoId) { console.log('  ⚠ No productos found, skipping'); return; }
 
   await runConcurrent('Pedidos concurrent creation', async (i) => {
     return req('POST', '/pedidos', {
       mesaId,
-      items: [{ productoId: 'test-product', cantidad: 1, area: 'COCINA' }]
+      items: [{ productoId, cantidad: 1, area: 'COCINA' }]
     }, adminToken);
   }, CONCURRENCY, 30);
 }
@@ -261,6 +282,7 @@ async function testReservasConcurrentCreate() {
       clienteTelefono: `999${String(i).padStart(6, '0')}`,
       fecha, hora,
       numComensales: 2 + (i % 4),
+      mesaPreferida: `stress-mesa-${i % 5}`,
     }, adminToken);
   }, CONCURRENCY, 40);
 }
@@ -294,7 +316,7 @@ async function testInventarioCreateProduct() {
     }, adminToken);
     if (!catRes.ok) return catRes;
     return req('POST', '/inventario/productos', {
-      categoriaId: catRes.data?.id,
+      categoriaId: catRes.data?.categoria?.id,
       nombre: `TestProd-${genId()}`,
       precio: 10 + i,
       stockActual: 100,
@@ -340,27 +362,33 @@ async function testReportesConcurrent() {
 // TEST 9: CROSS-SERVICE — Full Order-to-Payment Flow
 // ═══════════════════════════════════════════
 
+
 async function testFullFlowConcurrent() {
   console.log('\n═══ TEST 9: Cross-service — Full Order-to-Payment Flow ═══');
+  // GET /inventario/productos responde { data: [...] } dentro del body ya envuelto por req().
+  const prods = await req('GET', '/inventario/productos', null, adminToken);
+  const realProdId = prods.data?.data?.[0]?.id;
+  if (!realProdId) { console.log('  ⚠ No productos found, skipping'); return; }
+
   await runConcurrent('Full flow: mesa→pedido→cuenta→pago', async (i) => {
     // 1. Create mesa
     const mesa = await req('POST', '/mesas', {
-      numero: 800 + i, capacidad: 2, ubicacion: 'STRESS-TEST'
+      numero: Math.floor(Math.random() * 100000) + 8000 + i, capacidad: 2, ubicacion: 'STRESS-TEST'
     }, adminToken);
     if (!mesa.ok) return mesa;
-    const mesaId = mesa.data?.id;
+    const mesaId = mesa.data?.mesa?.id || mesa.data?.id;
 
     // 2. Create pedido
     const pedido = await req('POST', '/pedidos', {
       mesaId,
-      items: [{ productoId: 'stress-product', cantidad: 1, area: 'COCINA' }]
+      items: [{ productoId: realProdId, cantidad: 1, area: 'COCINA' }]
+
     }, adminToken);
     if (!pedido.ok) return pedido;
     const pedidoId = pedido.data?.id;
 
-    // 3. Get cuenta
-    await sleep(500);
-    const cuenta = await req('GET', `/cuentas/mesa/${mesaId}`, null, adminToken);
+    // 3. Get cuenta (con reintentos: la apertura es async vía outbox→RabbitMQ)
+    const cuenta = await waitForCuenta(mesaId, adminToken);
     if (!cuenta.ok) return cuenta;
     const cuentaId = cuenta.data?.id;
 
@@ -380,29 +408,32 @@ async function testFullFlowConcurrent() {
 async function testMultiTableCycle() {
   console.log('\n═══ TEST 10: Cross-service — Multi-Table Concurrent Full Cycle ═══');
   const TABLES = 10;
+  // productoId debe ser un UUID real (ver nota en TEST 3); la lista real vive en .data.data.
+  const prods = await req('GET', '/inventario/productos', null, adminToken);
+  const productoId1 = prods.data?.data?.[0]?.id;
+  const productoId2 = prods.data?.data?.[1]?.id || productoId1;
+  if (!productoId1) { console.log('  ⚠ No productos found, skipping'); return; }
+
   await runConcurrent(`${TABLES} tables doing full cycle simultaneously`, async (i) => {
     // Each "table" does: create mesa → create order → get cuenta → pay → delete mesa
     const mesa = await req('POST', '/mesas', {
-      numero: 700 + i, capacidad: 4, ubicacion: `MULTI-${i}`
+      numero: Math.floor(Math.random() * 100000) + 7000 + i, capacidad: 4, ubicacion: `MULTI-${i}`
     }, adminToken);
     if (!mesa.ok) return mesa;
 
     const pedido = await req('POST', '/pedidos', {
-      mesaId: mesa.data.id,
+      mesaId: mesa.data?.mesa?.id || mesa.data?.id,
       items: [
-        { productoId: 'prod-1', cantidad: 2, area: 'COCINA' },
-        { productoId: 'prod-2', cantidad: 1, area: 'BAR' }
+        { productoId: productoId1, cantidad: 2, area: 'COCINA' },
+        { productoId: productoId2, cantidad: 1, area: 'BAR' }
       ]
     }, adminToken);
 
-    await sleep(300);
-    const cuenta = await req('GET', `/cuentas/mesa/${mesa.data.id}`, null, adminToken);
-    if (cuenta.ok) {
-      await req('POST', '/caja/pagos', {
-        cuentaId: cuenta.data?.id, montoRecibido: 55, metodo: 'TARJETA'
-      }, adminToken);
-    }
-    return { ok: true, status: 200, ms: 0 };
+    const cuenta = await waitForCuenta(mesa.data?.mesa?.id || mesa.data?.id, adminToken);
+    if (!cuenta.ok) return cuenta;
+    return req('POST', '/caja/pagos', {
+      cuentaId: cuenta.data?.id, montoRecibido: 55, metodo: 'TARJETA'
+    }, adminToken);
   }, TABLES, TABLES);
 }
 

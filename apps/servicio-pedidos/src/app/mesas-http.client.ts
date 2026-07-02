@@ -40,7 +40,7 @@ export class MesasHttpClient {
       Boolean(error?.response?.status && error.response.status < 500),
   })
   private async fetchMesaRemota(mesaId: string, token: string): Promise<MesaRemota> {
-    const { data } = await axios.get<MesaRemota>(`${this.MESAS_URL}/mesas/${mesaId}`, {
+    const { data } = await axios.get<MesaRemota>(`${this.MESAS_URL}/${mesaId}`, {
       timeout: this.HTTP_TIMEOUT_MS,
       headers: { Authorization: `Bearer ${token}` },
     });

@@ -99,7 +99,7 @@ export function CajaScreen() {
       setModal(null);
       toast({ title: 'Caja abierta', msg: `Fondo inicial ${fmt(fondoInicial)}`, icon: 'Cash', kind: 'ok' });
     } catch (err) {
-      console.error(err);
+      toast({ title: 'No se pudo abrir la caja', msg: err instanceof Error ? err.message : 'Inténtalo de nuevo', icon: 'Alert', kind: 'err' });
     }
   };
 
@@ -277,7 +277,7 @@ export function CajaScreen() {
               const esEgreso = mov.tipo === 'EGRESO';
               toast({ title: esEgreso ? 'Egreso registrado' : 'Ingreso registrado', msg: `${mov.donde} · ${fmt(Math.abs(mov.monto))}`, icon: esEgreso ? 'ArrowDown' : 'ArrowUp', kind: esEgreso ? 'info' : 'ok' });
             } catch (err) {
-              console.error(err);
+              toast({ title: 'No se pudo registrar el movimiento', msg: err instanceof Error ? err.message : 'Inténtalo de nuevo', icon: 'Alert', kind: 'err' });
             }
           })(...args); }}
         />
@@ -294,7 +294,7 @@ export function CajaScreen() {
               setModal(null);
               toast({ title: 'Caja cerrada', msg: 'Turno cerrado y arqueo guardado', icon: 'Lock' });
             } catch (err) {
-              console.error(err);
+              toast({ title: 'No se pudo cerrar la caja', msg: err instanceof Error ? err.message : 'Inténtalo de nuevo', icon: 'Alert', kind: 'err' });
             }
           })(...args); }}
         />

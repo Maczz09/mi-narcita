@@ -119,6 +119,62 @@ function applyHeaders(headers: Headers, method: string): void {
   }
 }
 
+// ─── Retry con backoff exponencial + jitter ─────────────────────
+// Solo para requests seguros de reintentar: GET (siempre idempotente) o
+// mutaciones que ya llevan Idempotency-Key (hoy, solo POST vía withIdempotencyKey).
+// PATCH/DELETE no lo llevan y algunos representan deltas (p. ej. reponer stock),
+// así que nunca se reintentan automáticamente para evitar aplicar el cambio dos veces.
+// Nunca se reintenta en 4xx (incluye 401/429, que ya tienen su propio manejo).
+const RETRY_MAX_ATTEMPTS = 2;
+const RETRY_BASE_DELAY_MS = 300;
+const RETRY_MAX_DELAY_MS = 2000;
+
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+// Fracción [0, 1) para el jitter del backoff. No es un uso criptográfico —
+// solo evita reintentos sincronizados entre clientes — pero se usa
+// Web Crypto (ya usado en newIdempotencyKey) en vez de Math.random() para
+// no disparar el hotspot de seguridad "PRNG inseguro" de SonarQube.
+function randomFraction(): number {
+  const c = globalThis.crypto;
+  if (!c?.getRandomValues) return 0;
+  const bytes = new Uint32Array(1);
+  c.getRandomValues(bytes);
+  return bytes[0] / 0xffffffff;
+}
+
+function backoffDelay(attempt: number): number {
+  const exp = RETRY_BASE_DELAY_MS * 2 ** attempt;
+  const jitter = randomFraction() * RETRY_BASE_DELAY_MS;
+  return Math.min(exp + jitter, RETRY_MAX_DELAY_MS);
+}
+
+function isRetryable(headers: Headers, method: string): boolean {
+  return method === 'GET' || headers.has('Idempotency-Key');
+}
+
+async function fetchWithRetry(url: string, init: RequestInit, retryable: boolean): Promise<Response> {
+  const maxAttempts = retryable ? RETRY_MAX_ATTEMPTS : 0;
+  for (let attempt = 0; ; attempt += 1) {
+    try {
+      const res = await fetch(url, init);
+      if (res.status >= 500 && attempt < maxAttempts) {
+        await delay(backoffDelay(attempt));
+        continue;
+      }
+      return res;
+    } catch (err) {
+      if (attempt < maxAttempts) {
+        await delay(backoffDelay(attempt));
+        continue;
+      }
+      throw err;
+    }
+  }
+}
+
 async function parseErrorBody(res: Response): Promise<unknown> {
   try {
     return await res.json();
@@ -161,7 +217,7 @@ async function request<T>(path: string, init?: RequestInit, retried = false): Pr
   const method = (init?.method ?? 'GET').toUpperCase();
   applyHeaders(headers, method);
 
-  const res = await fetch(url, { ...init, headers, credentials: 'include' });
+  const res = await fetchWithRetry(url, { ...init, headers, credentials: 'include' }, isRetryable(headers, method));
 
   if (!res.ok) return handleErrorResponse<T>(res, path, url, init, retried);
   if (res.status === 204) return undefined as T;

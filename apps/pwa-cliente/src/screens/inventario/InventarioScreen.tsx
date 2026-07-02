@@ -6,11 +6,13 @@ import { Icons } from '../../components/ui/icons';
 import { StatKpi } from '../../components/ui/StatKpi';
 import { ProductoTable } from '../../components/inventario/ProductoTable';
 import { NuevoProductoForm } from '../../components/inventario/NuevoProductoForm';
+import { useToast } from '../../components/ui/ToastProvider';
 import { INITIAL_PRODUCT, STOCK_BAJO, computeInventarioKpis } from '../../domain/inventario';
 import type { CrearProductoPayload } from '../../types/inventario.types';
 
 export function InventarioScreen() {
   const online = useOnlineStatus();
+  const { toast } = useToast();
   const [categoriaId, setCategoriaId] = useState('');
   const [search, setSearch] = useState('');
   const {
@@ -54,7 +56,7 @@ export function InventarioScreen() {
       });
       setProductoForm(INITIAL_PRODUCT);
     } catch (err) {
-      console.error(err);
+      toast({ title: 'No se pudo crear el producto', msg: err instanceof Error ? err.message : 'Inténtalo de nuevo', icon: 'Alert', kind: 'err' });
     }
   };
 
@@ -68,7 +70,7 @@ export function InventarioScreen() {
       await reponerStock(productoId, cantidad);
       setStockInputs((prev) => ({ ...prev, [productoId]: '' }));
     } catch (err) {
-      console.error(err);
+      toast({ title: 'No se pudo reponer el stock', msg: err instanceof Error ? err.message : 'Inténtalo de nuevo', icon: 'Alert', kind: 'err' });
     }
   };
 
@@ -142,9 +144,9 @@ export function InventarioScreen() {
             onStockInput={(id, val) => setStockInputs((prev) => ({ ...prev, [id]: val }))}
             saving={saving}
             online={online}
-            onToggleDisponible={(p) => { if (!saving) { actualizarProducto(p.id, { disponible: !p.disponible }).catch(e => console.error(e)); } }}
+            onToggleDisponible={(p) => { if (!saving) { actualizarProducto(p.id, { disponible: !p.disponible }).catch((e: unknown) => toast({ title: 'No se pudo actualizar el producto', msg: e instanceof Error ? e.message : 'Inténtalo de nuevo', icon: 'Alert', kind: 'err' })); } }}
             onReponer={handleReponer}
-            onReponerQuick={(id, cant) => { if (online) { reponerStock(id, cant).catch(e => console.error(e)); } }}
+            onReponerQuick={(id, cant) => { if (online) { reponerStock(id, cant).catch((e: unknown) => toast({ title: 'No se pudo reponer el stock', msg: e instanceof Error ? e.message : 'Inténtalo de nuevo', icon: 'Alert', kind: 'err' })); } }}
             nextCursor={nextCursor}
             loadingMore={loadingMore}
             onLoadMore={fetchMore}

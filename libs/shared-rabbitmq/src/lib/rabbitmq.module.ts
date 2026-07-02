@@ -1,7 +1,9 @@
-import { DynamicModule, Module } from '@nestjs/common';
+import { DynamicModule, Logger, Module } from '@nestjs/common';
 import * as amqp from 'amqp-connection-manager';
 import { RABBITMQ_CONNECTION } from './rabbitmq.constants';
 import { RabbitMQPublisherService } from './rabbitmq-publisher.service';
+
+const logger = new Logger('RabbitMQConnection');
 
 export interface RabbitMQModuleOptions {
   uri?: string;
@@ -22,7 +24,18 @@ export class RabbitMQModule {
           throw new Error('RABBITMQ_URI environment variable is required');
         }
 
-        return amqp.connect([uri]);
+        const connection = amqp.connect([uri]);
+        // AmqpConnectionManager no emite 'error' (solo 'disconnect', que ya
+        // maneja la reconexión internamente) — el 'error' que sí tumbaba el
+        // proceso es el del ChannelWrapper, manejado en
+        // RabbitMQPublisherService.onModuleInit(). Estos listeners son solo
+        // para observabilidad de la conexión.
+        connection.on('connect', () => logger.log('Conectado a RabbitMQ'));
+        connection.on('disconnect', ({ err }: { err: Error }) => {
+          logger.warn(`Desconectado de RabbitMQ, reintentando: ${err?.message}`);
+        });
+
+        return connection;
       },
     };
 

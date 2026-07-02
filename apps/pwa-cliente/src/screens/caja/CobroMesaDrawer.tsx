@@ -8,6 +8,7 @@ import { Icons, type IconName } from '../../components/ui/icons';
 import { fmt } from '../../utils/format';
 import { useCuentasQuery } from '../../hooks/queries/useCuentasQuery';
 import { useOnlineStatus } from '../../hooks/useOnlineStatus';
+import { useToast } from '../../components/ui/ToastProvider';
 import { useFocusTrap } from '../../hooks/useFocusTrap';
 import type { MetodoPago, CuentaVM } from '../../types/cuenta.types';
 import type { PedidoItemVM } from '../../types/pedido.types';
@@ -29,6 +30,7 @@ interface Props {
 
 export function CobroMesaDrawer({ mesaId, mesaNumero, onClose, onPaid }: Readonly<Props>) {
   const online = useOnlineStatus();
+  const { toast } = useToast();
   const {
     cuentaActiva, loading, error, success,
     registrarPago, clearFeedback,
@@ -71,7 +73,7 @@ export function CobroMesaDrawer({ mesaId, mesaNumero, onClose, onPaid }: Readonl
       onPaid?.();
       onClose();
     } catch (err) {
-      console.error(err);
+      toast({ title: 'No se pudo registrar el pago', msg: err instanceof Error ? err.message : 'Inténtalo de nuevo', icon: 'Alert', kind: 'err' });
     }
   };
 

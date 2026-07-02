@@ -5,6 +5,7 @@ import { useMemo, useState, useEffect, type SubmitEvent } from 'react';
 import { useOnlineStatus } from '../../hooks/useOnlineStatus';
 import { useReservasQuery } from '../../hooks/queries/useReservasQuery';
 import { useMesasQuery } from '../../hooks/queries/useMesasQuery';
+import { useToast } from '../../components/ui/ToastProvider';
 import type { CrearReservaPayload } from '../../types/reserva.types';
 
 const INITIAL_FORM: CrearReservaPayload = {
@@ -18,6 +19,7 @@ const INITIAL_FORM: CrearReservaPayload = {
 
 export function ReservasScreen() {
   const online = useOnlineStatus();
+  const { toast } = useToast();
   const [fecha, setFecha] = useState(INITIAL_FORM.fecha);
   const [form, setForm] = useState<CrearReservaPayload>(INITIAL_FORM);
 
@@ -71,7 +73,7 @@ export function ReservasScreen() {
         numComensales: Number(form.numComensales) || 1,
       });
     } catch (err) {
-      console.error(err);
+      toast({ title: 'No se pudo crear la reserva', msg: err instanceof Error ? err.message : 'Inténtalo de nuevo', icon: 'Alert', kind: 'err' });
     }
   };
 

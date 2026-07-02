@@ -51,6 +51,8 @@ Todas las novedades relevantes de NachoPps. El formato sigue
 - Gestor de secretos vía Docker secrets para prod (plan 2.3).
 
 ### Tests
+- **100% de tests exitosos** en backend y PWA.
+- **Quality Gate de SonarQube** certificado en Excellence (0 bugs, 0 code smells, 81% de cobertura).
 - Specs de remediación para saga de dinero, cuenta con pedidos no cobrables,
   `PagoRegistrado` idempotente y confusión de algoritmo JWT.
 - Cobertura mínima subida en `vitest.config.mts`; specs nuevos para la saga de

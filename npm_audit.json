@@ -1,0 +1,757 @@
+﻿{
+  "auditReportVersion": 2,
+  "vulnerabilities": {
+    "@babel/core": {
+      "name": "@babel/core",
+      "severity": "low",
+      "isDirect": false,
+      "via": [
+        {
+          "source": 1120793,
+          "name": "@babel/core",
+          "dependency": "@babel/core",
+          "title": "@babel/core: Arbitrary File Read via sourceMappingURL Comment",
+          "url": "https://github.com/advisories/GHSA-4x5r-pxfx-6jf8",
+          "severity": "low",
+          "cwe": [
+            "CWE-22",
+            "CWE-200"
+          ],
+          "cvss": {
+            "score": 3.2,
+            "vectorString": "CVSS:3.1/AV:L/AC:H/PR:N/UI:N/S:C/C:L/I:N/A:N"
+          },
+          "range": "<=7.29.0"
+        }
+      ],
+      "effects": [],
+      "range": "<=7.29.0",
+      "nodes": [
+        "node_modules/@babel/core"
+      ],
+      "fixAvailable": true
+    },
+    "@module-federation/cli": {
+      "name": "@module-federation/cli",
+      "severity": "high",
+      "isDirect": false,
+      "via": [
+        "@module-federation/dts-plugin"
+      ],
+      "effects": [],
+      "range": "<=0.0.0-release-v2-4-0-20260428030547 || 2.3.2 - 2.5.1",
+      "nodes": [
+        "node_modules/@module-federation/cli"
+      ],
+      "fixAvailable": true
+    },
+    "@module-federation/dts-plugin": {
+      "name": "@module-federation/dts-plugin",
+      "severity": "high",
+      "isDirect": false,
+      "via": [
+        "undici"
+      ],
+      "effects": [
+        "@module-federation/cli",
+        "@module-federation/enhanced",
+        "@module-federation/manifest",
+        "@module-federation/rspack"
+      ],
+      "range": "<=0.0.0-release-v2-4-0-20260428030547 || 2.3.2 - 2.5.1",
+      "nodes": [
+        "node_modules/@module-federation/dts-plugin"
+      ],
+      "fixAvailable": true
+    },
+    "@module-federation/enhanced": {
+      "name": "@module-federation/enhanced",
+      "severity": "high",
+      "isDirect": false,
+      "via": [
+        "@module-federation/cli",
+        "@module-federation/dts-plugin",
+        "@module-federation/manifest",
+        "@module-federation/rspack"
+      ],
+      "effects": [
+        "@module-federation/node"
+      ],
+      "range": "<=0.0.0-main-20260508022256 || 2.3.2 - 2.5.1",
+      "nodes": [
+        "node_modules/@module-federation/enhanced"
+      ],
+      "fixAvailable": true
+    },
+    "@module-federation/manifest": {
+      "name": "@module-federation/manifest",
+      "severity": "high",
+      "isDirect": false,
+      "via": [
+        "@module-federation/dts-plugin"
+      ],
+      "effects": [],
+      "range": "<=0.0.0-main-20260508022256 || 2.3.2 - 2.5.1",
+      "nodes": [
+        "node_modules/@module-federation/manifest"
+      ],
+      "fixAvailable": true
+    },
+    "@module-federation/node": {
+      "name": "@module-federation/node",
+      "severity": "high",
+      "isDirect": false,
+      "via": [
+        "@module-federation/enhanced"
+      ],
+      "effects": [],
+      "range": "2.7.40 - 2.7.44",
+      "nodes": [
+        "node_modules/@module-federation/node"
+      ],
+      "fixAvailable": true
+    },
+    "@module-federation/rspack": {
+      "name": "@module-federation/rspack",
+      "severity": "high",
+      "isDirect": false,
+      "via": [
+        "@module-federation/dts-plugin",
+        "@module-federation/manifest"
+      ],
+      "effects": [],
+      "range": "<=0.0.0-release-v2-4-0-20260428030547 || 2.3.2 - 2.5.1",
+      "nodes": [
+        "node_modules/@module-federation/rspack"
+      ],
+      "fixAvailable": true
+    },
+    "@nx/eslint": {
+      "name": "@nx/eslint",
+      "severity": "high",
+      "isDirect": true,
+      "via": [
+        "@nx/jest",
+        "@nx/js"
+      ],
+      "effects": [
+        "@nx/vitest"
+      ],
+      "range": "22.7.5 || 23.0.0-beta.0 - 23.0.0",
+      "nodes": [
+        "node_modules/@nx/eslint"
+      ],
+      "fixAvailable": true
+    },
+    "@nx/jest": {
+      "name": "@nx/jest",
+      "severity": "high",
+      "isDirect": true,
+      "via": [
+        "@nx/js"
+      ],
+      "effects": [],
+      "range": "22.7.5 || 23.0.0-beta.0 - 23.0.0",
+      "nodes": [
+        "node_modules/@nx/jest"
+      ],
+      "fixAvailable": true
+    },
+    "@nx/js": {
+      "name": "@nx/js",
+      "severity": "high",
+      "isDirect": true,
+      "via": [
+        "@nx/workspace"
+      ],
+      "effects": [
+        "@nx/eslint",
+        "@nx/jest",
+        "@nx/module-federation",
+        "@nx/nest",
+        "@nx/node",
+        "@nx/playwright",
+        "@nx/react",
+        "@nx/rollup",
+        "@nx/vite",
+        "@nx/vitest",
+        "@nx/web",
+        "@nx/webpack"
+      ],
+      "range": "22.7.5 || 23.0.0-beta.0 - 23.0.0",
+      "nodes": [
+        "node_modules/@nx/js"
+      ],
+      "fixAvailable": true
+    },
+    "@nx/module-federation": {
+      "name": "@nx/module-federation",
+      "severity": "high",
+      "isDirect": false,
+      "via": [
+        "@nx/js",
+        "@nx/web"
+      ],
+      "effects": [],
+      "range": "22.7.5 || 23.0.0-beta.0 - 23.0.0",
+      "nodes": [
+        "node_modules/@nx/module-federation"
+      ],
+      "fixAvailable": true
+    },
+    "@nx/nest": {
+      "name": "@nx/nest",
+      "severity": "high",
+      "isDirect": true,
+      "via": [
+        "@nx/eslint",
+        "@nx/js",
+        "@nx/node"
+      ],
+      "effects": [],
+      "range": "22.7.5 || 23.0.0-beta.0 - 23.0.0",
+      "nodes": [
+        "node_modules/@nx/nest"
+      ],
+      "fixAvailable": true
+    },
+    "@nx/node": {
+      "name": "@nx/node",
+      "severity": "high",
+      "isDirect": true,
+      "via": [
+        "@nx/eslint",
+        "@nx/jest",
+        "@nx/js"
+      ],
+      "effects": [],
+      "range": "22.7.5 || 23.0.0-beta.0 - 23.0.0",
+      "nodes": [
+        "node_modules/@nx/node"
+      ],
+      "fixAvailable": true
+    },
+    "@nx/playwright": {
+      "name": "@nx/playwright",
+      "severity": "high",
+      "isDirect": true,
+      "via": [
+        "@nx/eslint",
+        "@nx/js"
+      ],
+      "effects": [],
+      "range": "22.7.5 || 23.0.0-beta.0 - 23.0.0",
+      "nodes": [
+        "node_modules/@nx/playwright"
+      ],
+      "fixAvailable": true
+    },
+    "@nx/react": {
+      "name": "@nx/react",
+      "severity": "high",
+      "isDirect": true,
+      "via": [
+        "@nx/eslint",
+        "@nx/js",
+        "@nx/module-federation",
+        "@nx/rollup",
+        "@nx/vite",
+        "@nx/web"
+      ],
+      "effects": [],
+      "range": "22.7.5 || 23.0.0-beta.0 - 23.0.0",
+      "nodes": [
+        "node_modules/@nx/react"
+      ],
+      "fixAvailable": true
+    },
+    "@nx/rollup": {
+      "name": "@nx/rollup",
+      "severity": "high",
+      "isDirect": true,
+      "via": [
+        "@nx/js"
+      ],
+      "effects": [],
+      "range": "22.7.5 || 23.0.0-beta.0 - 23.0.0",
+      "nodes": [
+        "node_modules/@nx/rollup"
+      ],
+      "fixAvailable": true
+    },
+    "@nx/vite": {
+      "name": "@nx/vite",
+      "severity": "high",
+      "isDirect": true,
+      "via": [
+        "@nx/js",
+        "@nx/vitest"
+      ],
+      "effects": [],
+      "range": "22.7.5 || 23.0.0-beta.0 - 23.0.0",
+      "nodes": [
+        "node_modules/@nx/vite"
+      ],
+      "fixAvailable": true
+    },
+    "@nx/vitest": {
+      "name": "@nx/vitest",
+      "severity": "high",
+      "isDirect": true,
+      "via": [
+        "@nx/eslint",
+        "@nx/js"
+      ],
+      "effects": [],
+      "range": "<=0.0.1-alpha.0 || 22.7.5 || 23.0.0-beta.0 - 23.0.0",
+      "nodes": [
+        "node_modules/@nx/vitest"
+      ],
+      "fixAvailable": true
+    },
+    "@nx/web": {
+      "name": "@nx/web",
+      "severity": "high",
+      "isDirect": true,
+      "via": [
+        "@nx/eslint",
+        "@nx/jest",
+        "@nx/js",
+        "@nx/playwright",
+        "@nx/vite",
+        "@nx/webpack"
+      ],
+      "effects": [],
+      "range": "22.7.5 || 23.0.0-beta.0 - 23.0.0",
+      "nodes": [
+        "node_modules/@nx/web"
+      ],
+      "fixAvailable": true
+    },
+    "@nx/webpack": {
+      "name": "@nx/webpack",
+      "severity": "high",
+      "isDirect": true,
+      "via": [
+        "@nx/js"
+      ],
+      "effects": [],
+      "range": "22.7.5 || 23.0.0-beta.0 - 23.0.0",
+      "nodes": [
+        "node_modules/@nx/webpack"
+      ],
+      "fixAvailable": true
+    },
+    "@nx/workspace": {
+      "name": "@nx/workspace",
+      "severity": "high",
+      "isDirect": true,
+      "via": [
+        "nx"
+      ],
+      "effects": [
+        "@nx/js"
+      ],
+      "range": "22.7.5 || 23.0.0-beta.0 - 23.0.0",
+      "nodes": [
+        "node_modules/@nx/workspace"
+      ],
+      "fixAvailable": true
+    },
+    "http-proxy-middleware": {
+      "name": "http-proxy-middleware",
+      "severity": "high",
+      "isDirect": false,
+      "via": [
+        {
+          "source": 1121163,
+          "name": "http-proxy-middleware",
+          "dependency": "http-proxy-middleware",
+          "title": "http-proxy-middleware: multipart/form-data field injection via unescaped CRLF in `fixRequestBody`",
+          "url": "https://github.com/advisories/GHSA-gcq2-9pq2-cxqm",
+          "severity": "high",
+          "cwe": [
+            "CWE-93"
+          ],
+          "cvss": {
+            "score": 7.5,
+            "vectorString": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:C/C:L/I:H/A:N"
+          },
+          "range": ">=3.0.4 <3.0.7"
+        },
+        {
+          "source": 1121360,
+          "name": "http-proxy-middleware",
+          "dependency": "http-proxy-middleware",
+          "title": "http-proxy-middleware `router` host+path substring matching allows Host-header-driven backend routing bypass",
+          "url": "https://github.com/advisories/GHSA-64mm-vxmg-q3vj",
+          "severity": "moderate",
+          "cwe": [
+            "CWE-20",
+            "CWE-187"
+          ],
+          "cvss": {
+            "score": 0,
+            "vectorString": null
+          },
+          "range": ">=0.16.0 <2.0.10"
+        },
+        {
+          "source": 1121361,
+          "name": "http-proxy-middleware",
+          "dependency": "http-proxy-middleware",
+          "title": "http-proxy-middleware `router` host+path substring matching allows Host-header-driven backend routing bypass",
+          "url": "https://github.com/advisories/GHSA-64mm-vxmg-q3vj",
+          "severity": "moderate",
+          "cwe": [
+            "CWE-20",
+            "CWE-187"
+          ],
+          "cvss": {
+            "score": 0,
+            "vectorString": null
+          },
+          "range": ">=3.0.0 <3.0.6"
+        }
+      ],
+      "effects": [],
+      "range": "0.16.0 - 2.0.10-beta.0 || 3.0.0 - 3.0.6",
+      "nodes": [
+        "node_modules/http-proxy-middleware",
+        "node_modules/webpack-dev-server/node_modules/http-proxy-middleware"
+      ],
+      "fixAvailable": true
+    },
+    "launch-editor": {
+      "name": "launch-editor",
+      "severity": "moderate",
+      "isDirect": false,
+      "via": [
+        {
+          "source": 1120787,
+          "name": "launch-editor",
+          "dependency": "launch-editor",
+          "title": "launch-editor: NTLMv2 hash disclosure via UNC path handling on Windows",
+          "url": "https://github.com/advisories/GHSA-v6wh-96g9-6wx3",
+          "severity": "moderate",
+          "cwe": [
+            "CWE-73",
+            "CWE-522"
+          ],
+          "cvss": {
+            "score": 0,
+            "vectorString": null
+          },
+          "range": "<=2.14.0"
+        }
+      ],
+      "effects": [],
+      "range": "<=2.14.0",
+      "nodes": [
+        "node_modules/launch-editor"
+      ],
+      "fixAvailable": true
+    },
+    "nx": {
+      "name": "nx",
+      "severity": "high",
+      "isDirect": true,
+      "via": [
+        "tmp"
+      ],
+      "effects": [
+        "@nx/workspace"
+      ],
+      "range": "22.7.5 || 23.0.0-beta.0 - 23.0.0",
+      "nodes": [
+        "node_modules/nx"
+      ],
+      "fixAvailable": true
+    },
+    "protobufjs": {
+      "name": "protobufjs",
+      "severity": "moderate",
+      "isDirect": false,
+      "via": [
+        {
+          "source": 1120742,
+          "name": "protobufjs",
+          "dependency": "protobufjs",
+          "title": "protobufjs : Schema-derived names can shadow runtime-significant properties",
+          "url": "https://github.com/advisories/GHSA-f38q-mgvj-vph7",
+          "severity": "moderate",
+          "cwe": [
+            "CWE-674",
+            "CWE-754"
+          ],
+          "cvss": {
+            "score": 5.3,
+            "vectorString": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:L"
+          },
+          "range": "<=7.6.2"
+        }
+      ],
+      "effects": [],
+      "range": "<=7.6.2",
+      "nodes": [
+        "node_modules/protobufjs"
+      ],
+      "fixAvailable": true
+    },
+    "tmp": {
+      "name": "tmp",
+      "severity": "high",
+      "isDirect": false,
+      "via": [
+        {
+          "source": 1120729,
+          "name": "tmp",
+          "dependency": "tmp",
+          "title": "tmp: Type-confusion bypass of _assertPath allows path traversal via non-string prefix/postfix/template",
+          "url": "https://github.com/advisories/GHSA-7c78-jf6q-g5cm",
+          "severity": "high",
+          "cwe": [
+            "CWE-20",
+            "CWE-22"
+          ],
+          "cvss": {
+            "score": 8.2,
+            "vectorString": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:H/A:L"
+          },
+          "range": ">=0.2.6 <0.2.7"
+        }
+      ],
+      "effects": [
+        "nx"
+      ],
+      "range": "0.2.6",
+      "nodes": [
+        "node_modules/tmp"
+      ],
+      "fixAvailable": true
+    },
+    "undici": {
+      "name": "undici",
+      "severity": "high",
+      "isDirect": false,
+      "via": [
+        {
+          "source": 1121187,
+          "name": "undici",
+          "dependency": "undici",
+          "title": "undici vulnerable to TLS certificate validation bypass via dropped requestTls in SOCKS5 ProxyAgent",
+          "url": "https://github.com/advisories/GHSA-vmh5-mc38-953g",
+          "severity": "high",
+          "cwe": [
+            "CWE-295"
+          ],
+          "cvss": {
+            "score": 7.4,
+            "vectorString": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:H/I:H/A:N"
+          },
+          "range": ">=7.23.0 <7.28.0"
+        },
+        {
+          "source": 1121241,
+          "name": "undici",
+          "dependency": "undici",
+          "title": "undici vulnerable to HTTP header injection via Set-Cookie percent-decoding",
+          "url": "https://github.com/advisories/GHSA-p88m-4jfj-68fv",
+          "severity": "moderate",
+          "cwe": [
+            "CWE-93"
+          ],
+          "cvss": {
+            "score": 5.9,
+            "vectorString": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:N/I:H/A:N"
+          },
+          "range": ">=7.0.0 <7.28.0"
+        },
+        {
+          "source": 1121244,
+          "name": "undici",
+          "dependency": "undici",
+          "title": "undici WebSocket client vulnerable to denial of service via fragment count bypass",
+          "url": "https://github.com/advisories/GHSA-vxpw-j846-p89q",
+          "severity": "high",
+          "cwe": [
+            "CWE-400",
+            "CWE-770"
+          ],
+          "cvss": {
+            "score": 7.5,
+            "vectorString": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H"
+          },
+          "range": ">=7.0.0 <7.28.0"
+        },
+        {
+          "source": 1121247,
+          "name": "undici",
+          "dependency": "undici",
+          "title": "undici vulnerable to cross-origin request routing via SOCKS5 proxy pool reuse",
+          "url": "https://github.com/advisories/GHSA-hm92-r4w5-c3mj",
+          "severity": "high",
+          "cwe": [
+            "CWE-346"
+          ],
+          "cvss": {
+            "score": 7.5,
+            "vectorString": "CVSS:3.1/AV:N/AC:H/PR:L/UI:N/S:U/C:H/I:H/A:H"
+          },
+          "range": ">=7.23.0 <7.28.0"
+        },
+        {
+          "source": 1121249,
+          "name": "undici",
+          "dependency": "undici",
+          "title": "undici vulnerable to HTTP response queue poisoning via keep-alive socket reuse",
+          "url": "https://github.com/advisories/GHSA-35p6-xmwp-9g52",
+          "severity": "low",
+          "cwe": [
+            "CWE-367"
+          ],
+          "cvss": {
+            "score": 3.7,
+            "vectorString": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:N/I:L/A:N"
+          },
+          "range": ">=7.0.0 <7.28.0"
+        },
+        {
+          "source": 1121254,
+          "name": "undici",
+          "dependency": "undici",
+          "title": "undici vulnerable to Set-Cookie SameSite attribute downgrade via permissive substring matching",
+          "url": "https://github.com/advisories/GHSA-g8m3-5g58-fq7m",
+          "severity": "low",
+          "cwe": [
+            "CWE-183"
+          ],
+          "cvss": {
+            "score": 3.7,
+            "vectorString": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:N/I:L/A:N"
+          },
+          "range": ">=7.0.0 <7.28.0"
+        },
+        {
+          "source": 1121428,
+          "name": "undici",
+          "dependency": "undici",
+          "title": "undici vulnerable to cross-user information disclosure via shared cache whitespace bypass",
+          "url": "https://github.com/advisories/GHSA-pr7r-676h-xcf6",
+          "severity": "moderate",
+          "cwe": [
+            "CWE-524"
+          ],
+          "cvss": {
+            "score": 5.9,
+            "vectorString": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:H/I:N/A:N"
+          },
+          "range": ">=7.0.0 <7.28.0"
+        }
+      ],
+      "effects": [
+        "@module-federation/dts-plugin"
+      ],
+      "range": "7.0.0 - 7.27.2",
+      "nodes": [
+        "node_modules/undici"
+      ],
+      "fixAvailable": true
+    },
+    "vite": {
+      "name": "vite",
+      "severity": "high",
+      "isDirect": true,
+      "via": [
+        {
+          "source": 1120786,
+          "name": "vite",
+          "dependency": "vite",
+          "title": "launch-editor: NTLMv2 hash disclosure via UNC path handling on Windows",
+          "url": "https://github.com/advisories/GHSA-v6wh-96g9-6wx3",
+          "severity": "moderate",
+          "cwe": [
+            "CWE-73",
+            "CWE-522"
+          ],
+          "cvss": {
+            "score": 0,
+            "vectorString": null
+          },
+          "range": ">=8.0.0 <=8.0.15"
+        },
+        {
+          "source": 1120791,
+          "name": "vite",
+          "dependency": "vite",
+          "title": "vite: `server.fs.deny` bypass on Windows alternate paths",
+          "url": "https://github.com/advisories/GHSA-fx2h-pf6j-xcff",
+          "severity": "high",
+          "cwe": [
+            "CWE-22",
+            "CWE-200"
+          ],
+          "cvss": {
+            "score": 0,
+            "vectorString": null
+          },
+          "range": ">=8.0.0 <=8.0.15"
+        }
+      ],
+      "effects": [],
+      "range": "8.0.0 - 8.0.15",
+      "nodes": [
+        "node_modules/vite"
+      ],
+      "fixAvailable": true
+    },
+    "webpack-dev-server": {
+      "name": "webpack-dev-server",
+      "severity": "moderate",
+      "isDirect": false,
+      "via": [
+        {
+          "source": 1121087,
+          "name": "webpack-dev-server",
+          "dependency": "webpack-dev-server",
+          "title": "webpack-dev-server vulnerable to HMR WebSocket interception via permissive user proxies",
+          "url": "https://github.com/advisories/GHSA-mx8g-39q3-5c79",
+          "severity": "moderate",
+          "cwe": [
+            "CWE-346",
+            "CWE-441"
+          ],
+          "cvss": {
+            "score": 5.3,
+            "vectorString": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:L"
+          },
+          "range": "<5.2.5"
+        }
+      ],
+      "effects": [],
+      "range": "<5.2.5",
+      "nodes": [
+        "node_modules/webpack-dev-server"
+      ],
+      "fixAvailable": true
+    }
+  },
+  "metadata": {
+    "vulnerabilities": {
+      "info": 0,
+      "low": 1,
+      "moderate": 3,
+      "high": 25,
+      "critical": 0,
+      "total": 29
+    },
+    "dependencies": {
+      "prod": 636,
+      "dev": 1642,
+      "optional": 179,
+      "peer": 3,
+      "peerOptional": 0,
+      "total": 2279
+    }
+  }
+}

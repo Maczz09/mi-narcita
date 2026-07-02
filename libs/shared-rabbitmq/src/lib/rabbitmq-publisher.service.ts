@@ -51,6 +51,14 @@ export class RabbitMQPublisherService implements OnModuleInit {
         }
       },
     });
+
+    // Sin este listener, un 'error' del ChannelWrapper (p. ej. heartbeat
+    // timeout con el broker) lo trata Node como excepción fatal no capturada
+    // y tumba el proceso entero — no solo el canal. amqp-connection-manager
+    // ya reconecta el canal solo; loguear basta para que el evento no sea fatal.
+    this.channelWrapper.on('error', (err: Error, info: { name: string }) => {
+      this.logger.error(`Error de canal RabbitMQ (${info?.name ?? 'sin nombre'}): ${err.message}`, err.stack);
+    });
   }
 
   async publish<TPayload>(
@@ -64,6 +72,9 @@ export class RabbitMQPublisherService implements OnModuleInit {
     if (producer) {
       carrier['x-producer'] = producer;
     }
+    // Timestamp de publicación (epoch ms): permite medir en el consumidor cuánto
+    // tiempo pasó un mensaje en el broker antes de ser procesado (broker_consumer_lag_seconds).
+    carrier['x-published-at'] = String(Date.now());
 
     await this.channelWrapper.publish(NACHOPPS_EXCHANGE, routingKey, {
       pattern: routingKey,

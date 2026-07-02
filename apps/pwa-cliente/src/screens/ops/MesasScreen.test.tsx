@@ -7,6 +7,7 @@ import { useOnlineStatus } from '../../hooks/useOnlineStatus';
 import { useAuthStore } from '../../store/auth.store';
 import { useMesasQuery } from '../../hooks/queries/useMesasQuery';
 import { useCuentasQuery } from '../../hooks/queries/useCuentasQuery';
+import { useToast } from '../../components/ui/ToastProvider';
 import { BrowserRouter } from 'react-router-dom';
 
 vi.mock('../../hooks/useOnlineStatus');
@@ -14,6 +15,7 @@ vi.mock('../../hooks/useNow', () => ({ useNow: () => Date.now() }));
 vi.mock('../../store/auth.store');
 vi.mock('../../hooks/queries/useMesasQuery');
 vi.mock('../../hooks/queries/useCuentasQuery');
+vi.mock('../../components/ui/ToastProvider', () => ({ useToast: vi.fn() }));
 vi.mock('../../components/comandero/Comandero', () => ({
   Comandero: (props: any) => (
     <div data-testid="comandero">
@@ -33,6 +35,7 @@ describe('MesasScreen', () => {
       fetch: vi.fn(), crearMesa: vi.fn().mockResolvedValue(true), clearFeedback: vi.fn()
     });
     (useCuentasQuery as any).mockReturnValue({ cuentaActiva: null, loading: false });
+    (useToast as any).mockReturnValue({ toast: vi.fn() });
   });
 
   const renderScreen = () => render(<BrowserRouter><MesasScreen /></BrowserRouter>);

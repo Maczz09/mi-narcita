@@ -10,6 +10,8 @@ import { Sidebar } from './Sidebar';
 import { Header } from './Header';
 import { BottomNav } from './BottomNav';
 import { useOnlineStatus } from '../../hooks/useOnlineStatus';
+import { useLastSynced } from '../../hooks/useLastSynced';
+import { elapsedLabel } from '../../utils/format';
 
 interface ShellProps {
   children: ReactNode;
@@ -21,6 +23,7 @@ interface ShellProps {
 
 export function Shell({ children, hasSidePanel = false }: Readonly<ShellProps>) {
   const online = useOnlineStatus();
+  const lastSynced = useLastSynced();
 
   return (
     <div className="app">
@@ -37,6 +40,7 @@ export function Shell({ children, hasSidePanel = false }: Readonly<ShellProps>) 
         >
           <OfflineIcon />
           Sin conexión. Las acciones que modifican datos están pausadas.
+          {lastSynced > 0 && ` Mostrando datos de hace ${elapsedLabel(new Date(lastSynced).toISOString())}.`}
         </div>
       )}
 

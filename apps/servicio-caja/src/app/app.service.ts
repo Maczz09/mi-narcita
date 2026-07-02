@@ -38,6 +38,12 @@ export class AppService {
     [10, 25, 50, 100, 200, 500, 1000],
     ['metodo'],
   );
+  // Análogo de PAYMENT_UNKNOWN: el pago quedó registrado en caja pero el
+  // cierre remoto de la cuenta (HTTP a servicio-cuentas) falló, así que la
+  // cuenta puede seguir figurando ABIERTA aunque el cliente ya pagó.
+  private readonly pagosCierrePendienteCounter = getOrCreateCounter(
+    'pagos_cierre_remoto_pendiente_total', 'Pagos registrados cuyo cierre remoto de cuenta falló',
+  );
   constructor(
     private readonly prisma: PrismaService,
     private readonly cuentasHttp: CuentasHttpClient,
@@ -401,6 +407,7 @@ export class AppService {
     });
 
     let ticket: unknown;
+    const cierreStart = Date.now();
     try {
       const cierre = await this.cuentasHttp.cerrarCuenta(command.cuentaId, descuento.toNumber());
       ticket = (cierre as Record<string, unknown>)?.ticket;
@@ -409,7 +416,17 @@ export class AppService {
         data: { estado: 'CERRADA', total: totalConDescuento },
       });
     } catch (error) {
-      this.logger.warn(`Pago ${transaccion.id} registrado; cierre remoto pendiente: ${(error as Error).message}`);
+      this.pagosCierrePendienteCounter.inc();
+      this.logger.warn({
+        operation: 'cerrarCuenta',
+        transaccionId: transaccion.id,
+        cuentaId: command.cuentaId,
+        dependency: 'cuentas',
+        durationMs: Date.now() - cierreStart,
+        errorCode: 'CIERRE_REMOTO_FAILED',
+        resultingState: 'PAGO_SIN_CIERRE_CONFIRMADO',
+        message: `Pago ${transaccion.id} registrado; cierre remoto de cuenta pendiente: ${(error as Error).message}`,
+      });
     }
 
     const transaccionDto = this.mapTransaccion(transaccion);

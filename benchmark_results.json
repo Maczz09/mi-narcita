@@ -1,0 +1,10 @@
+{
+  "url": "http://localhost:4200",
+  "loadTimeMs": 4125,
+  "ttfb": 10.700000002980232,
+  "domInteractive": 21.600000008940697,
+  "domComplete": 3000.9000000059605,
+  "fcp": 3384,
+  "totalRequests": 5,
+  "totalTransfer": 464958
+}

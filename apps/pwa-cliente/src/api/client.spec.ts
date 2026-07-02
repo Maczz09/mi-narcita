@@ -98,5 +98,101 @@ describe('client', () => {
 
     await expect(client.get('/test')).rejects.toThrow(/Demasiadas solicitudes/);
   });
+
+  describe('retry con backoff', () => {
+    beforeEach(() => {
+      vi.useFakeTimers();
+    });
+
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    it('reintenta un GET tras un error de red y termina en éxito', async () => {
+      const mockOk = { ok: true, status: 200, json: vi.fn().mockResolvedValue({ id: 1 }) };
+      vi.mocked(fetch)
+        .mockRejectedValueOnce(new TypeError('network error'))
+        .mockResolvedValueOnce(mockOk as any);
+
+      const promise = client.get('/test');
+      await vi.advanceTimersByTimeAsync(2000);
+      const data = await promise;
+
+      expect(data).toEqual({ id: 1 });
+      expect(fetch).toHaveBeenCalledTimes(2);
+    });
+
+    it('reintenta un GET tras un 5xx y termina en éxito', async () => {
+      const mockRes500 = { ok: false, status: 500, statusText: 'Internal Server Error', json: vi.fn().mockResolvedValue({}) };
+      const mockOk = { ok: true, status: 200, json: vi.fn().mockResolvedValue({ id: 1 }) };
+      vi.mocked(fetch)
+        .mockResolvedValueOnce(mockRes500 as any)
+        .mockResolvedValueOnce(mockOk as any);
+
+      const promise = client.get('/test');
+      await vi.advanceTimersByTimeAsync(2000);
+      const data = await promise;
+
+      expect(data).toEqual({ id: 1 });
+      expect(fetch).toHaveBeenCalledTimes(2);
+    });
+
+    it('agota los reintentos de un GET y termina en error', async () => {
+      const mockRes500 = { ok: false, status: 500, statusText: 'Internal Server Error', json: vi.fn().mockResolvedValue({}) };
+      vi.mocked(fetch).mockResolvedValue(mockRes500 as any);
+
+      const promise = client.get('/test');
+      // Evitar rechazo no manejado mientras avanzan los timers de los reintentos.
+      promise.catch(() => {});
+      await vi.advanceTimersByTimeAsync(10000);
+      await expect(promise).rejects.toThrow('Internal Server Error');
+
+      // 1 intento inicial + 2 reintentos = 3 llamadas a fetch.
+      expect(fetch).toHaveBeenCalledTimes(3);
+    });
+
+    it('no reintenta un PATCH (sin Idempotency-Key) tras un 5xx', async () => {
+      const mockRes500 = { ok: false, status: 500, statusText: 'Internal Server Error', json: vi.fn().mockResolvedValue({}) };
+      vi.mocked(fetch).mockResolvedValue(mockRes500 as any);
+
+      await expect(client.patch('/test', { a: 1 })).rejects.toThrow('Internal Server Error');
+      expect(fetch).toHaveBeenCalledTimes(1);
+    });
+
+    it('no reintenta un 4xx aunque el request sea un GET', async () => {
+      const mockRes404 = { ok: false, status: 404, statusText: 'Not Found', json: vi.fn().mockResolvedValue({}) };
+      vi.mocked(fetch).mockResolvedValue(mockRes404 as any);
+
+      await expect(client.get('/test')).rejects.toThrow('Not Found');
+      expect(fetch).toHaveBeenCalledTimes(1);
+    });
+
+    it('agota los reintentos de un GET tras errores de red persistentes y termina en error', async () => {
+      vi.mocked(fetch).mockRejectedValue(new TypeError('network error persistente'));
+
+      const promise = client.get('/test');
+      promise.catch(() => {});
+      await vi.advanceTimersByTimeAsync(10000);
+      await expect(promise).rejects.toThrow('network error persistente');
+
+      // 1 intento inicial + 2 reintentos = 3 llamadas a fetch.
+      expect(fetch).toHaveBeenCalledTimes(3);
+    });
+
+    it('reintenta un POST (lleva Idempotency-Key) tras un 5xx', async () => {
+      const mockRes500 = { ok: false, status: 500, statusText: 'Internal Server Error', json: vi.fn().mockResolvedValue({}) };
+      const mockOk = { ok: true, status: 201, json: vi.fn().mockResolvedValue({ id: 2 }) };
+      vi.mocked(fetch)
+        .mockResolvedValueOnce(mockRes500 as any)
+        .mockResolvedValueOnce(mockOk as any);
+
+      const promise = client.post('/test', { name: 'Foo' });
+      await vi.advanceTimersByTimeAsync(2000);
+      const data = await promise;
+
+      expect(data).toEqual({ id: 2 });
+      expect(fetch).toHaveBeenCalledTimes(2);
+    });
+  });
 });
 

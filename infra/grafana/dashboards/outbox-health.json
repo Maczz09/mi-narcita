@@ -14,7 +14,6 @@
       "id": 1,
       "title": "Outbox pendientes por servicio",
       "type": "timeseries",
-      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
       "gridPos": { "h": 9, "w": 12, "x": 0, "y": 0 },
       "fieldConfig": {
         "defaults": { "custom": { "drawStyle": "line", "fillOpacity": 10 }, "unit": "short" },
@@ -32,7 +31,6 @@
       "id": 2,
       "title": "Outbox FAILED por servicio (dead-letter en BD)",
       "type": "timeseries",
-      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
       "gridPos": { "h": 9, "w": 12, "x": 12, "y": 0 },
       "fieldConfig": {
         "defaults": {
@@ -60,7 +58,6 @@
       "id": 3,
       "title": "Total pendientes (todos los servicios)",
       "type": "stat",
-      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
       "gridPos": { "h": 6, "w": 12, "x": 0, "y": 9 },
       "fieldConfig": { "defaults": { "unit": "short" }, "overrides": [] },
       "targets": [
@@ -71,7 +68,6 @@
       "id": 4,
       "title": "Total FAILED (todos los servicios)",
       "type": "stat",
-      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
       "gridPos": { "h": 6, "w": 12, "x": 12, "y": 9 },
       "fieldConfig": {
         "defaults": {
