@@ -1,3 +1,11 @@
+---
+tipo: adr
+id: ADR-009
+estado: aceptada
+fecha: 2026-06-10
+fuente: [libs/contracts/src/index.ts:1]
+---
+
 # ADR-009: Contratos front/back desde `@org/contracts`
 
 ## Estado

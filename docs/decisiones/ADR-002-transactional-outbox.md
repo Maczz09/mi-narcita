@@ -8,13 +8,32 @@ fuente: [apps/servicio-inventario/prisma/schema.prisma:38, libs/resiliencia/src/
 
 # ADR-002 - Transactional Outbox
 
-**Contexto.** La decision se materializa en las fuentes citadas. [apps/servicio-inventario/prisma/schema.prisma:38]
+**Contexto.** Un servicio que cambia estado y publica el evento en dos operaciones
+separadas (commit a Postgres y publish a RabbitMQ) puede fallar entre ambas: estado
+guardado sin evento (consumidores nunca se enteran) o evento publicado sin estado
+(consumidores reaccionan a algo que no existe). No hay transaccion distribuida entre la
+base y el broker. [apps/servicio-inventario/prisma/schema.prisma:38]
 
-**Decision.** Mantener el mecanismo descrito por las fuentes citadas. [apps/servicio-inventario/prisma/schema.prisma:38, libs/resiliencia/src/lib/outbox.processor.ts:60]
+**Decision.** Patron Transactional Outbox en todos los servicios productores: el evento
+se inserta como fila `OutboxEvent` (`status: PENDING`) **en la misma transaccion** que
+el cambio de estado, y un `OutboxProcessor` (cron cada 1 s, unificado en
+`libs/resiliencia`) lo publica al exchange con reintentos (5 fallos → `FAILED`), purga
+de procesados e idempotencia. La atomicidad la da la transaccion local; la entrega, el
+processor. [apps/servicio-inventario/prisma/schema.prisma:38, libs/resiliencia/src/lib/outbox.processor.ts:60]
 
-**Consecuencias.** Los atomos afectados enlazan los endpoints, eventos, modelos e invariantes que dependen de esta decision. [apps/servicio-inventario/prisma/schema.prisma:38]
+**Alternativas descartadas.**
+- *Publish directo tras el commit*: ventana de fallo entre commit y publish; es
+  exactamente el problema a resolver.
+- *Two-phase commit / transaccion distribuida*: RabbitMQ no participa en 2PC y el
+  acoplamiento operativo seria mayor que el problema.
+- *Change Data Capture (Debezium)*: garantia equivalente leyendo el WAL, pero suma una
+  pieza de infraestructura pesada; el outbox con cron cubre la escala actual.
 
-**Alternativas descartadas.** No hay alternativa codificada en las fuentes citadas. [apps/servicio-inventario/prisma/schema.prisma:38]
+**Consecuencias.**
+- Garantia **at-least-once**: puede publicarse un duplicado (crash tras publish y antes
+  de marcar `PROCESSED`); los consumidores lo absorben con claim de `IdempotencyKey`.
+- Lag de publicacion de hasta ~1 s (cron), medido por `outbox_publish_lag_seconds`.
+- Los eventos `FAILED` requieren revision operativa (runbook del servicio productor).
 
 **Adenda T-23 (2026-06-09) — mensajes persistentes.** El publisher
 (`libs/shared-rabbitmq/src/lib/rabbitmq-publisher.service.ts`) ahora publica con
