@@ -1,0 +1,38 @@
+# Ficha de catalogo de servicio (gobierno de servicios, sesion 31).
+# Fuente de endpoints/eventos: _indice.md y docs/eventos/_catalogo.md.
+serviceName: servicio-caja
+domain: ventas-y-cobro
+businessCapability: Cobrar cuentas y controlar turnos de caja (pagos mixtos, arqueos, cierre Z)
+ownerTeam: ventas-team
+technicalOwner: tech-lead-ventas
+businessOwner: finanzas-restobar
+status: active
+criticality: high
+apiVersion: v1
+port: 3009
+contracts:
+  - GET /health
+  - POST /pagos
+  - GET /
+eventsPublished:
+  - pago.registrado
+eventsConsumed:
+  - cuenta.abierta
+  - cuenta.cerrada
+dependencies:
+  - postgres (base propia: caja)
+  - rabbitmq (cola caja_queue)
+  - servicio-cuentas (HTTP con circuit breaker)
+docs:
+  indice: docs/servicios/servicio-caja/_indice.md
+  openapi: docs/servicios/servicio-caja/openapi.json
+  runbook: docs/operacion/runbooks/servicio-caja.md
+  ownership: docs/gobierno/ownership.md
+  trazabilidad: docs/gobierno/trazabilidad.md
+  changelog: CHANGELOG.md
+  adrs:
+    - docs/decisiones/ADR-001-database-per-service.md
+    - docs/decisiones/ADR-002-transactional-outbox.md
+    - docs/decisiones/ADR-003-eventos-proyecciones-locales.md
+    - docs/decisiones/ADR-007-ack-nack-rmq.md
+    - docs/decisiones/ADR-008-dlq-parking-reinyeccion.md

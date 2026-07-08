@@ -1,0 +1,38 @@
+# Ficha de catalogo de servicio (gobierno de servicios, sesion 31).
+# Fuente de endpoints/eventos: _indice.md y docs/eventos/_catalogo.md.
+serviceName: servicio-notificaciones
+domain: plataforma
+businessCapability: Notificar en tiempo real (WebSocket/socket.io) los eventos del dominio a la PWA
+ownerTeam: plataforma-team
+technicalOwner: tech-lead-plataforma
+businessOwner: gerencia-ti
+status: active
+criticality: low
+apiVersion: v1
+port: 3008
+contracts:
+  - GET /
+  - WS socket.io (rooms por dominio)
+eventsPublished: []
+eventsConsumed:
+  - pedido.creado
+  - pedido.actualizado
+  - cuenta.abierta
+  - cuenta.cerrada
+  - mesa.actualizada
+  - reserva.creada
+  - reserva.cancelada
+dependencies:
+  - postgres (base propia: notificaciones)
+  - rabbitmq (cola notificaciones_queue)
+docs:
+  indice: docs/servicios/servicio-notificaciones/_indice.md
+  openapi: docs/servicios/servicio-notificaciones/openapi.json
+  runbook: docs/operacion/runbooks/servicio-notificaciones.md
+  ownership: docs/gobierno/ownership.md
+  trazabilidad: docs/gobierno/trazabilidad.md
+  changelog: CHANGELOG.md
+  adrs:
+    - docs/decisiones/ADR-001-database-per-service.md
+    - docs/decisiones/ADR-007-ack-nack-rmq.md
+    - docs/decisiones/ADR-008-dlq-parking-reinyeccion.md

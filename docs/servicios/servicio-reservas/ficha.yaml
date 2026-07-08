@@ -1,0 +1,37 @@
+# Ficha de catalogo de servicio (gobierno de servicios, sesion 31).
+# Fuente de endpoints/eventos: _indice.md y docs/eventos/_catalogo.md.
+serviceName: servicio-reservas
+domain: salon
+businessCapability: Gestionar reservas de mesas garantizando anti-doble-booking
+ownerTeam: salon-team
+technicalOwner: tech-lead-salon
+businessOwner: operaciones-salon
+status: active
+criticality: medium
+apiVersion: v1
+port: 3006
+contracts:
+  - GET /
+  - GET /disponibilidad
+  - POST /
+  - PATCH /:id/confirmar
+  - DELETE /:id
+eventsPublished:
+  - reserva.creada
+  - reserva.cancelada
+eventsConsumed: []
+dependencies:
+  - postgres (base propia: reservas)
+  - rabbitmq (publicacion outbox)
+docs:
+  indice: docs/servicios/servicio-reservas/_indice.md
+  openapi: docs/servicios/servicio-reservas/openapi.json
+  runbook: docs/operacion/runbooks/servicio-reservas.md
+  ownership: docs/gobierno/ownership.md
+  trazabilidad: docs/gobierno/trazabilidad.md
+  changelog: CHANGELOG.md
+  adrs:
+    - docs/decisiones/ADR-001-database-per-service.md
+    - docs/decisiones/ADR-002-transactional-outbox.md
+    - docs/decisiones/ADR-005-reserva-slot-unico.md
+    - docs/decisiones/ADR-010-granularidad-anti-doble-booking.md

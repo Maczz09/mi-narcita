@@ -1,0 +1,33 @@
+# Ficha de catalogo de servicio (gobierno de servicios, sesion 31).
+# Fuente de endpoints/eventos: _indice.md y docs/eventos/_catalogo.md.
+serviceName: servicio-reportes
+domain: plataforma
+businessCapability: Consolidar ventas diarias en proyecciones para reportes gerenciales
+ownerTeam: plataforma-team
+technicalOwner: tech-lead-plataforma
+businessOwner: gerencia-ti
+status: active
+criticality: low
+apiVersion: v1
+port: 3010
+contracts:
+  - GET /
+  - GET /resumen
+eventsPublished: []
+eventsConsumed:
+  - cuenta.cerrada
+dependencies:
+  - postgres (base propia: reportes)
+  - rabbitmq (cola reportes_queue)
+docs:
+  indice: docs/servicios/servicio-reportes/_indice.md
+  openapi: docs/servicios/servicio-reportes/openapi.json
+  runbook: docs/operacion/runbooks/servicio-reportes.md
+  ownership: docs/gobierno/ownership.md
+  trazabilidad: docs/gobierno/trazabilidad.md
+  changelog: CHANGELOG.md
+  adrs:
+    - docs/decisiones/ADR-001-database-per-service.md
+    - docs/decisiones/ADR-003-eventos-proyecciones-locales.md
+    - docs/decisiones/ADR-007-ack-nack-rmq.md
+    - docs/decisiones/ADR-008-dlq-parking-reinyeccion.md

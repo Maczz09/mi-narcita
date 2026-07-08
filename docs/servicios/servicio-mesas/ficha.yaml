@@ -1,0 +1,38 @@
+# Ficha de catalogo de servicio (gobierno de servicios, sesion 31).
+# Fuente de endpoints/eventos: _indice.md y docs/eventos/_catalogo.md.
+serviceName: servicio-mesas
+domain: salon
+businessCapability: Administrar las mesas del salon y su estado de ocupacion
+ownerTeam: salon-team
+technicalOwner: tech-lead-salon
+businessOwner: operaciones-salon
+status: active
+criticality: medium
+apiVersion: v1
+port: 3002
+contracts:
+  - GET /
+  - GET /:id
+  - POST /
+  - PATCH /:id/estado
+eventsPublished:
+  - mesa.creada
+  - mesa.actualizada
+eventsConsumed:
+  - cuenta.abierta
+  - cuenta.cerrada
+dependencies:
+  - postgres (base propia: mesas)
+  - rabbitmq (cola mesas_queue)
+docs:
+  indice: docs/servicios/servicio-mesas/_indice.md
+  openapi: docs/servicios/servicio-mesas/openapi.json
+  runbook: docs/operacion/runbooks/servicio-mesas.md
+  ownership: docs/gobierno/ownership.md
+  trazabilidad: docs/gobierno/trazabilidad.md
+  changelog: CHANGELOG.md
+  adrs:
+    - docs/decisiones/ADR-001-database-per-service.md
+    - docs/decisiones/ADR-002-transactional-outbox.md
+    - docs/decisiones/ADR-007-ack-nack-rmq.md
+    - docs/decisiones/ADR-008-dlq-parking-reinyeccion.md

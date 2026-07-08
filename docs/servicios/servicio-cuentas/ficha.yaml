@@ -1,0 +1,42 @@
+# Ficha de catalogo de servicio (gobierno de servicios, sesion 31).
+# Fuente de endpoints/eventos: _indice.md y docs/eventos/_catalogo.md.
+serviceName: servicio-cuentas
+domain: ventas-y-cobro
+businessCapability: Administrar la cuenta de consumo de cada mesa (apertura, division, cierre y ticket)
+ownerTeam: ventas-team
+technicalOwner: tech-lead-ventas
+businessOwner: finanzas-restobar
+status: active
+criticality: high
+apiVersion: v1
+port: 3005
+contracts:
+  - GET /
+  - POST /
+  - GET /mesa/:mesaId
+  - GET /:id
+  - POST /:id/dividir
+  - POST /:id/cerrar
+eventsPublished:
+  - cuenta.abierta
+  - cuenta.cerrada
+  - ticket.generado
+eventsConsumed:
+  - pedido.creado
+  - pedido.actualizado
+  - pago.registrado
+dependencies:
+  - postgres (base propia: cuentas)
+  - rabbitmq (cola cuentas_queue)
+docs:
+  indice: docs/servicios/servicio-cuentas/_indice.md
+  openapi: docs/servicios/servicio-cuentas/openapi.json
+  runbook: docs/operacion/runbooks/servicio-cuentas.md
+  ownership: docs/gobierno/ownership.md
+  trazabilidad: docs/gobierno/trazabilidad.md
+  changelog: CHANGELOG.md
+  adrs:
+    - docs/decisiones/ADR-001-database-per-service.md
+    - docs/decisiones/ADR-002-transactional-outbox.md
+    - docs/decisiones/ADR-007-ack-nack-rmq.md
+    - docs/decisiones/ADR-008-dlq-parking-reinyeccion.md

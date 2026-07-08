@@ -1,0 +1,35 @@
+# Ficha de catalogo de servicio (gobierno de servicios, sesion 31).
+# Fuente de endpoints/eventos: _indice.md y docs/eventos/_catalogo.md.
+serviceName: servicio-identidad
+domain: plataforma
+businessCapability: Autenticar usuarios (JWT RS256 en cookie httpOnly) y administrar roles del personal
+ownerTeam: plataforma-team
+technicalOwner: tech-lead-plataforma
+businessOwner: gerencia-ti
+status: active
+criticality: high
+apiVersion: v1
+port: 3001
+contracts:
+  - GET /
+  - POST /auth/login
+  - POST /auth/logout
+  - GET /auth/me
+  - POST /usuarios
+  - GET /usuarios
+  - PATCH /usuarios/:id/rol
+eventsPublished: []
+eventsConsumed: []
+dependencies:
+  - postgres (base propia: identidad)
+  - rabbitmq (publicacion outbox)
+docs:
+  indice: docs/servicios/servicio-identidad/_indice.md
+  openapi: docs/servicios/servicio-identidad/openapi.json
+  runbook: docs/operacion/runbooks/servicio-identidad.md
+  ownership: docs/gobierno/ownership.md
+  trazabilidad: docs/gobierno/trazabilidad.md
+  changelog: CHANGELOG.md
+  adrs:
+    - docs/decisiones/ADR-001-database-per-service.md
+    - docs/decisiones/ADR-002-transactional-outbox.md

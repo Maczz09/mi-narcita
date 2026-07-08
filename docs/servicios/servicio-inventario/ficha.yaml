@@ -1,0 +1,43 @@
+# Ficha de catalogo de servicio (gobierno de servicios, sesion 31).
+# Fuente de endpoints/eventos: _indice.md y docs/eventos/_catalogo.md.
+serviceName: servicio-inventario
+domain: abastecimiento
+businessCapability: Administrar productos, categorias y stock con descuento atomico e idempotente
+ownerTeam: abastecimiento-team
+technicalOwner: tech-lead-abastecimiento
+businessOwner: operaciones-cocina
+status: active
+criticality: high
+apiVersion: v1
+port: 3007
+contracts:
+  - GET /
+  - GET /categorias
+  - POST /categorias
+  - GET /productos
+  - GET /productos/:id
+  - POST /productos/lote
+  - POST /productos
+  - PATCH /productos/:id/stock
+eventsPublished:
+  - producto.creado
+  - producto.actualizado
+eventsConsumed:
+  - pedido.creado
+dependencies:
+  - postgres (base propia: inventario)
+  - rabbitmq (cola inventario_queue)
+docs:
+  indice: docs/servicios/servicio-inventario/_indice.md
+  openapi: docs/servicios/servicio-inventario/openapi.json
+  runbook: docs/operacion/runbooks/servicio-inventario.md
+  ownership: docs/gobierno/ownership.md
+  trazabilidad: docs/gobierno/trazabilidad.md
+  changelog: CHANGELOG.md
+  adrs:
+    - docs/decisiones/ADR-001-database-per-service.md
+    - docs/decisiones/ADR-002-transactional-outbox.md
+    - docs/decisiones/ADR-004-decremento-atomico-condicional.md
+    - docs/decisiones/ADR-006-reposicion-como-delta.md
+    - docs/decisiones/ADR-007-ack-nack-rmq.md
+    - docs/decisiones/ADR-008-dlq-parking-reinyeccion.md

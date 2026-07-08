@@ -1,0 +1,45 @@
+# Ficha de catalogo de servicio (gobierno de servicios, sesion 31).
+# Fuente de endpoints/eventos: _indice.md y docs/eventos/_catalogo.md.
+serviceName: servicio-pedidos
+domain: ventas-y-cobro
+businessCapability: Tomar pedidos por mesa y comandar items a cocina/barra
+ownerTeam: ventas-team
+technicalOwner: tech-lead-ventas
+businessOwner: finanzas-restobar
+status: active
+criticality: high
+apiVersion: v1
+port: 3004
+contracts:
+  - POST /
+  - GET /
+  - PATCH /:id/estado
+  - PATCH /items/:itemId/estado
+eventsPublished:
+  - pedido.creado
+  - pedido.listo
+  - pedido.actualizado
+eventsConsumed:
+  - pago.registrado
+  - mesa.creada
+  - mesa.actualizada
+  - producto.creado
+  - producto.actualizado
+dependencies:
+  - postgres (base propia: pedidos)
+  - rabbitmq (cola pedidos_queue)
+  - servicio-mesas (HTTP con circuit breaker)
+  - servicio-inventario (HTTP con circuit breaker)
+docs:
+  indice: docs/servicios/servicio-pedidos/_indice.md
+  openapi: docs/servicios/servicio-pedidos/openapi.json
+  runbook: docs/operacion/runbooks/servicio-pedidos.md
+  ownership: docs/gobierno/ownership.md
+  trazabilidad: docs/gobierno/trazabilidad.md
+  changelog: CHANGELOG.md
+  adrs:
+    - docs/decisiones/ADR-001-database-per-service.md
+    - docs/decisiones/ADR-002-transactional-outbox.md
+    - docs/decisiones/ADR-003-eventos-proyecciones-locales.md
+    - docs/decisiones/ADR-007-ack-nack-rmq.md
+    - docs/decisiones/ADR-008-dlq-parking-reinyeccion.md
