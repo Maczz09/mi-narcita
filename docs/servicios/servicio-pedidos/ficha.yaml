@@ -10,11 +10,14 @@ status: active
 criticality: high
 apiVersion: v1
 port: 3004
-contracts:
-  - POST /
-  - GET /
-  - PATCH /:id/estado
-  - PATCH /items/:itemId/estado
+contracts:  # generado desde openapi.json (npm run contratos:openapi)
+  - GET /api
+  - POST /api
+  - PATCH /api/items/{itemId}/estado
+  - GET /api/outbox/failed
+  - POST /api/outbox/{id}/retry
+  - GET /api/telemetry/metrics
+  - PATCH /api/{id}/estado
 eventsPublished:
   - pedido.creado
   - pedido.listo

@@ -10,10 +10,21 @@ status: active
 criticality: high
 apiVersion: v1
 port: 3009
-contracts:
-  - GET /health
-  - POST /pagos
-  - GET /
+contracts:  # generado desde openapi.json (npm run contratos:openapi)
+  - GET /api
+  - GET /api/health
+  - GET /api/outbox/failed
+  - POST /api/outbox/{id}/retry
+  - POST /api/pagos
+  - GET /api/telemetry/metrics
+  - POST /api/turnos/abrir
+  - GET /api/turnos/activo
+  - GET /api/turnos/activo/resumen
+  - POST /api/turnos/{id}/arqueo
+  - POST /api/turnos/{id}/cerrar
+  - GET /api/turnos/{id}/movimientos
+  - POST /api/turnos/{id}/movimientos
+  - GET /api/turnos/{id}/resumen
 eventsPublished:
   - pago.registrado
 eventsConsumed:

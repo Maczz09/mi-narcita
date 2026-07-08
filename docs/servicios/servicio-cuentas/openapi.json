@@ -1,0 +1,247 @@
+{
+  "openapi": "3.0.0",
+  "paths": {
+    "/api": {
+      "get": {
+        "operationId": "AppController_healthCheck",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "App"
+        ]
+      },
+      "post": {
+        "operationId": "AppController_abrirCuenta",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AbrirCuentaCommand"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "App"
+        ]
+      }
+    },
+    "/api/mesa/{mesaId}": {
+      "get": {
+        "operationId": "AppController_obtenerCuentaPorMesa",
+        "parameters": [
+          {
+            "name": "mesaId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "App"
+        ]
+      }
+    },
+    "/api/{id}": {
+      "get": {
+        "operationId": "AppController_obtenerCuenta",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "App"
+        ]
+      }
+    },
+    "/api/{id}/dividir": {
+      "post": {
+        "operationId": "AppController_dividirCuenta",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DividirCuentaCommand"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "App"
+        ]
+      }
+    },
+    "/api/{id}/cerrar": {
+      "post": {
+        "operationId": "AppController_cerrarCuenta",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CerrarCuentaCommand"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "App"
+        ]
+      }
+    },
+    "/api/telemetry/metrics": {
+      "get": {
+        "operationId": "PrometheusController_index",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Prometheus"
+        ]
+      }
+    },
+    "/api/outbox/failed": {
+      "get": {
+        "operationId": "OutboxAdminController_listFailed",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "OutboxAdmin"
+        ]
+      }
+    },
+    "/api/outbox/{id}/retry": {
+      "post": {
+        "operationId": "OutboxAdminController_retry",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "OutboxAdmin"
+        ]
+      }
+    }
+  },
+  "info": {
+    "title": "Nachopps Restobar — API Cuentas",
+    "description": "Gestión de cuentas por mesa, división y cierre",
+    "version": "1.0",
+    "contact": {}
+  },
+  "tags": [],
+  "servers": [],
+  "components": {
+    "securitySchemes": {
+      "bearer": {
+        "scheme": "bearer",
+        "bearerFormat": "JWT",
+        "type": "http"
+      }
+    },
+    "schemas": {
+      "AbrirCuentaCommand": {
+        "type": "object",
+        "properties": {}
+      },
+      "DividirCuentaCommand": {
+        "type": "object",
+        "properties": {}
+      },
+      "CerrarCuentaCommand": {
+        "type": "object",
+        "properties": {}
+      },
+      "PedidoCreadoPayload": {
+        "type": "object",
+        "properties": {}
+      },
+      "PedidoActualizadoPayload": {
+        "type": "object",
+        "properties": {}
+      },
+      "PagoRegistradoPayload": {
+        "type": "object",
+        "properties": {}
+      }
+    }
+  }
+}

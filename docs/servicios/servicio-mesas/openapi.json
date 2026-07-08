@@ -1,0 +1,183 @@
+{
+  "openapi": "3.0.0",
+  "paths": {
+    "/api": {
+      "get": {
+        "operationId": "AppController_listarMesas",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "App"
+        ]
+      },
+      "post": {
+        "operationId": "AppController_crearMesa",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CrearMesaCommand"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "App"
+        ]
+      }
+    },
+    "/api/{id}": {
+      "get": {
+        "operationId": "AppController_obtenerMesa",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "App"
+        ]
+      }
+    },
+    "/api/{id}/estado": {
+      "patch": {
+        "operationId": "AppController_actualizarEstado",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ActualizarEstadoMesaCommand"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "App"
+        ]
+      }
+    },
+    "/api/telemetry/metrics": {
+      "get": {
+        "operationId": "PrometheusController_index",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Prometheus"
+        ]
+      }
+    },
+    "/api/outbox/failed": {
+      "get": {
+        "operationId": "OutboxAdminController_listFailed",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "OutboxAdmin"
+        ]
+      }
+    },
+    "/api/outbox/{id}/retry": {
+      "post": {
+        "operationId": "OutboxAdminController_retry",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "OutboxAdmin"
+        ]
+      }
+    }
+  },
+  "info": {
+    "title": "Nachopps Restobar — API Mesas",
+    "description": "Mapa de mesas, estados y liberación automática",
+    "version": "1.0",
+    "contact": {}
+  },
+  "tags": [],
+  "servers": [],
+  "components": {
+    "securitySchemes": {
+      "bearer": {
+        "scheme": "bearer",
+        "bearerFormat": "JWT",
+        "type": "http"
+      }
+    },
+    "schemas": {
+      "CrearMesaCommand": {
+        "type": "object",
+        "properties": {}
+      },
+      "ActualizarEstadoMesaCommand": {
+        "type": "object",
+        "properties": {}
+      },
+      "CuentaAbiertaPayload": {
+        "type": "object",
+        "properties": {}
+      },
+      "CuentaCerradaPayload": {
+        "type": "object",
+        "properties": {}
+      }
+    }
+  }
+}

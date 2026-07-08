@@ -10,14 +10,18 @@ status: active
 criticality: high
 apiVersion: v1
 port: 3001
-contracts:
-  - GET /
-  - POST /auth/login
-  - POST /auth/logout
-  - GET /auth/me
-  - POST /usuarios
-  - GET /usuarios
-  - PATCH /usuarios/:id/rol
+contracts:  # generado desde openapi.json (npm run contratos:openapi)
+  - GET /api
+  - POST /api/auth/login
+  - POST /api/auth/logout
+  - GET /api/auth/me
+  - POST /api/auth/refresh
+  - GET /api/outbox/failed
+  - POST /api/outbox/{id}/retry
+  - GET /api/telemetry/metrics
+  - GET /api/usuarios
+  - POST /api/usuarios
+  - PATCH /api/usuarios/{id}/rol
 eventsPublished: []
 eventsConsumed: []
 dependencies:

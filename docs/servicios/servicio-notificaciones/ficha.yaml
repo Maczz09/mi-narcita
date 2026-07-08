@@ -10,9 +10,10 @@ status: active
 criticality: low
 apiVersion: v1
 port: 3008
-contracts:
-  - GET /
-  - WS socket.io (rooms por dominio)
+contracts:  # generado desde openapi.json (npm run contratos:openapi)
+  - GET /api
+  - GET /api/telemetry/metrics
+  - WS socket.io (rooms por dominio, libs/contracts/src/events/ws-rooms.ts)
 eventsPublished: []
 eventsConsumed:
   - pedido.creado

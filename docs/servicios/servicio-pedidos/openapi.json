@@ -1,0 +1,213 @@
+{
+  "openapi": "3.0.0",
+  "paths": {
+    "/api": {
+      "post": {
+        "operationId": "AppController_crearPedido",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CrearPedidoCommand"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "App"
+        ]
+      },
+      "get": {
+        "operationId": "AppController_listarPedidos",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "App"
+        ]
+      }
+    },
+    "/api/{id}/estado": {
+      "patch": {
+        "operationId": "AppController_actualizarEstado",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ActualizarEstadoPedidoCommand"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "App"
+        ]
+      }
+    },
+    "/api/items/{itemId}/estado": {
+      "patch": {
+        "operationId": "AppController_actualizarEstadoItem",
+        "parameters": [
+          {
+            "name": "itemId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ActualizarEstadoItemCommand"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "App"
+        ]
+      }
+    },
+    "/api/telemetry/metrics": {
+      "get": {
+        "operationId": "PrometheusController_index",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Prometheus"
+        ]
+      }
+    },
+    "/api/outbox/failed": {
+      "get": {
+        "operationId": "OutboxAdminController_listFailed",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "OutboxAdmin"
+        ]
+      }
+    },
+    "/api/outbox/{id}/retry": {
+      "post": {
+        "operationId": "OutboxAdminController_retry",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "OutboxAdmin"
+        ]
+      }
+    }
+  },
+  "info": {
+    "title": "Nachopps Restobar — API Pedidos",
+    "description": "Comandas, saga de pedidos y KDS",
+    "version": "1.0",
+    "contact": {}
+  },
+  "tags": [],
+  "servers": [],
+  "components": {
+    "securitySchemes": {
+      "bearer": {
+        "scheme": "bearer",
+        "bearerFormat": "JWT",
+        "type": "http"
+      }
+    },
+    "schemas": {
+      "CrearPedidoCommand": {
+        "type": "object",
+        "properties": {}
+      },
+      "ActualizarEstadoPedidoCommand": {
+        "type": "object",
+        "properties": {}
+      },
+      "ActualizarEstadoItemCommand": {
+        "type": "object",
+        "properties": {}
+      },
+      "PagoRegistradoPayload": {
+        "type": "object",
+        "properties": {}
+      },
+      "MesaCreadaPayload": {
+        "type": "object",
+        "properties": {}
+      },
+      "MesaActualizadaPayload": {
+        "type": "object",
+        "properties": {}
+      },
+      "ProductoCreadoPayload": {
+        "type": "object",
+        "properties": {}
+      },
+      "ProductoActualizadoPayload": {
+        "type": "object",
+        "properties": {}
+      },
+      "StockInsuficientePayload": {
+        "type": "object",
+        "properties": {}
+      }
+    }
+  }
+}

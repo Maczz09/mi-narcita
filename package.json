@@ -21,6 +21,7 @@
     "probar:caos": "node stress-tests/run-rabbitmq-chaos.js",
     "probar:replicas": "node stress-tests/run-outbox-replicas.js",
     "backfill:cuentas-abiertas": "npx tsx scripts/backfill-cuentas-abiertas.ts",
+    "contratos:openapi": "ts-node -P scripts/tsconfig.export-openapi.json -T -r tsconfig-paths/register scripts/export-openapi.ts",
     "drift": "bash scripts/check-migration-drift.sh",
     "seguridad:sonar": "pwsh scripts/sonar-scan.ps1",
     "seguridad:zap": "pwsh scripts/zap-baseline.ps1",

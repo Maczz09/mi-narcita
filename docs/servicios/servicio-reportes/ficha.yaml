@@ -10,9 +10,13 @@ status: active
 criticality: low
 apiVersion: v1
 port: 3010
-contracts:
-  - GET /
-  - GET /resumen
+contracts:  # generado desde openapi.json (npm run contratos:openapi)
+  - GET /api
+  - GET /api/por-mesero
+  - GET /api/por-producto
+  - GET /api/por-turno
+  - GET /api/resumen
+  - GET /api/telemetry/metrics
 eventsPublished: []
 eventsConsumed:
   - cuenta.cerrada

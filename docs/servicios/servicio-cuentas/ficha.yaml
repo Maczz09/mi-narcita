@@ -10,13 +10,16 @@ status: active
 criticality: high
 apiVersion: v1
 port: 3005
-contracts:
-  - GET /
-  - POST /
-  - GET /mesa/:mesaId
-  - GET /:id
-  - POST /:id/dividir
-  - POST /:id/cerrar
+contracts:  # generado desde openapi.json (npm run contratos:openapi)
+  - GET /api
+  - POST /api
+  - GET /api/mesa/{mesaId}
+  - GET /api/outbox/failed
+  - POST /api/outbox/{id}/retry
+  - GET /api/telemetry/metrics
+  - GET /api/{id}
+  - POST /api/{id}/cerrar
+  - POST /api/{id}/dividir
 eventsPublished:
   - cuenta.abierta
   - cuenta.cerrada

@@ -10,11 +10,14 @@ status: active
 criticality: medium
 apiVersion: v1
 port: 3002
-contracts:
-  - GET /
-  - GET /:id
-  - POST /
-  - PATCH /:id/estado
+contracts:  # generado desde openapi.json (npm run contratos:openapi)
+  - GET /api
+  - POST /api
+  - GET /api/outbox/failed
+  - POST /api/outbox/{id}/retry
+  - GET /api/telemetry/metrics
+  - GET /api/{id}
+  - PATCH /api/{id}/estado
 eventsPublished:
   - mesa.creada
   - mesa.actualizada

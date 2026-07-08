@@ -10,12 +10,15 @@ status: active
 criticality: medium
 apiVersion: v1
 port: 3006
-contracts:
-  - GET /
-  - GET /disponibilidad
-  - POST /
-  - PATCH /:id/confirmar
-  - DELETE /:id
+contracts:  # generado desde openapi.json (npm run contratos:openapi)
+  - GET /api
+  - POST /api
+  - GET /api/disponibilidad
+  - GET /api/outbox/failed
+  - POST /api/outbox/{id}/retry
+  - GET /api/telemetry/metrics
+  - DELETE /api/{id}
+  - PATCH /api/{id}/confirmar
 eventsPublished:
   - reserva.creada
   - reserva.cancelada

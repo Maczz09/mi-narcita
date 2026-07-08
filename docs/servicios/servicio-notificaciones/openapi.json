@@ -1,0 +1,88 @@
+{
+  "openapi": "3.0.0",
+  "paths": {
+    "/api": {
+      "get": {
+        "operationId": "AppController_obtenerNotificaciones",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "App"
+        ]
+      }
+    },
+    "/api/telemetry/metrics": {
+      "get": {
+        "operationId": "PrometheusController_index",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Prometheus"
+        ]
+      }
+    }
+  },
+  "info": {
+    "title": "Nachopps Restobar — API Notificaciones",
+    "description": "WebSockets, push notifications y auditoría de eventos",
+    "version": "1.0",
+    "contact": {}
+  },
+  "tags": [],
+  "servers": [],
+  "components": {
+    "securitySchemes": {
+      "bearer": {
+        "scheme": "bearer",
+        "bearerFormat": "JWT",
+        "type": "http"
+      }
+    },
+    "schemas": {
+      "PedidoCreadoPayload": {
+        "type": "object",
+        "properties": {}
+      },
+      "PedidoActualizadoPayload": {
+        "type": "object",
+        "properties": {}
+      },
+      "PedidoListoPayload": {
+        "type": "object",
+        "properties": {}
+      },
+      "TicketGeneradoPayload": {
+        "type": "object",
+        "properties": {}
+      },
+      "CuentaAbiertaPayload": {
+        "type": "object",
+        "properties": {}
+      },
+      "CuentaCerradaPayload": {
+        "type": "object",
+        "properties": {}
+      },
+      "MesaActualizadaPayload": {
+        "type": "object",
+        "properties": {}
+      },
+      "ReservaCreadaPayload": {
+        "type": "object",
+        "properties": {}
+      },
+      "ReservaCanceladaPayload": {
+        "type": "object",
+        "properties": {}
+      }
+    }
+  }
+}

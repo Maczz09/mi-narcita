@@ -10,15 +10,19 @@ status: active
 criticality: high
 apiVersion: v1
 port: 3007
-contracts:
-  - GET /
-  - GET /categorias
-  - POST /categorias
-  - GET /productos
-  - GET /productos/:id
-  - POST /productos/lote
-  - POST /productos
-  - PATCH /productos/:id/stock
+contracts:  # generado desde openapi.json (npm run contratos:openapi)
+  - GET /api
+  - GET /api/categorias
+  - POST /api/categorias
+  - GET /api/outbox/failed
+  - POST /api/outbox/{id}/retry
+  - GET /api/productos
+  - POST /api/productos
+  - POST /api/productos/lote
+  - GET /api/productos/{id}
+  - PATCH /api/productos/{id}
+  - PATCH /api/productos/{id}/stock
+  - GET /api/telemetry/metrics
 eventsPublished:
   - producto.creado
   - producto.actualizado
