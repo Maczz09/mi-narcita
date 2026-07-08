@@ -137,3 +137,21 @@ jobs:
 
       - name: Check agent skills sync
         run: node scripts/sync-agent-skills.mjs --check
+
+  gobierno:
+    # Fitness functions de gobierno de servicios (FF-GOV-01..07): ownership,
+    # contrato versionado, versión vigente, eventos rastreables, ADRs, runbook
+    # y trazabilidad por servicio. Ver docs/gobierno/.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'npm'
+
+      - run: npm ci
+
+      - name: Check fitness functions de gobierno
+        run: node scripts/check-gobierno.mjs
