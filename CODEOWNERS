@@ -1,0 +1,19 @@
+# Ownership de código por equipo (ver docs/gobierno/ownership.md).
+# Dominio ventas y cobro
+apps/servicio-caja/ @ventas-team
+apps/servicio-cuentas/ @ventas-team
+apps/servicio-pedidos/ @ventas-team
+# Dominio salón
+apps/servicio-mesas/ @salon-team
+apps/servicio-reservas/ @salon-team
+# Dominio abastecimiento
+apps/servicio-inventario/ @abastecimiento-team
+# Dominio plataforma
+apps/servicio-identidad/ @plataforma-team
+apps/servicio-notificaciones/ @plataforma-team
+apps/servicio-reportes/ @plataforma-team
+apps/pwa-cliente/ @plataforma-team
+libs/ @plataforma-team
+infra/ @plataforma-team
+docs/ @plataforma-team
+.github/ @plataforma-team
