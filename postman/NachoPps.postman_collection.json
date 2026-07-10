@@ -1,0 +1,1014 @@
+{
+  "info": {
+    "_postman_id": "a1b2c3d4-e5f6-4789-9abc-def012345678",
+    "name": "NachoPps Restobar — API Microservicios",
+    "description": "Colección generada a partir del código fuente (controllers HTTP de los 9 microservicios NestJS del monorepo).\n\n**Arquitectura**: cada request apunta directamente al puerto local de su microservicio (`http://localhost:PORT/api/...`), tal como corren con `nx serve` o `docker-compose` (ver `.env` de cada `apps/servicio-*`). Alternativamente, todo el tráfico puede pasar por el API Gateway Kong en `{{kong_url}}` usando prefijos `/identidad`, `/mesas`, `/pedidos`, etc. (ver `infra/kong/kong.yml.template`).\n\n**Autenticación**: JWT Bearer. Ejecuta primero `Identidad > Login`; el test script guarda automáticamente `access_token` (y `usuario_id`) como variable de colección, que el resto de requests usa vía Bearer Token heredado a nivel de colección.\n\n**Usuarios semilla** (`apps/servicio-identidad/prisma/seed.ts`), contraseña = valor de `SEED_DEFAULT_PASSWORD`:\n- admin@nachopps.pe (ADMIN — acceso total)\n- mesero@nachopps.pe (MESERO)\n- cajero@nachopps.pe (CAJERO)\n- cocina@nachopps.pe (COCINA)\n- recepcion@nachopps.pe (RECEPCION)\n- gerencia@nachopps.pe (GERENCIA)\n\nLos requests de creación (Crear Mesa, Crear Pedido, Abrir Cuenta, Abrir Turno, Crear Categoría, Crear Producto, Crear Reserva, Crear Usuario) guardan automáticamente el id resultante en la variable correspondiente (`mesa_id`, `pedido_id`, etc.) para encadenar el resto de requests sin edición manual.\n\nEndpoints de mensajería (`@EventPattern`/RabbitMQ) y WebSockets quedan fuera de esta colección por no ser HTTP.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      { "key": "token", "value": "{{access_token}}", "type": "string" }
+    ]
+  },
+  "variable": [
+    { "key": "identidad_url", "value": "http://localhost:3001/api" },
+    { "key": "mesas_url", "value": "http://localhost:3002/api" },
+    { "key": "pedidos_url", "value": "http://localhost:3004/api" },
+    { "key": "cuentas_url", "value": "http://localhost:3005/api" },
+    { "key": "reservas_url", "value": "http://localhost:3006/api" },
+    { "key": "inventario_url", "value": "http://localhost:3007/api" },
+    { "key": "notificaciones_url", "value": "http://localhost:3008/api" },
+    { "key": "caja_url", "value": "http://localhost:3009/api" },
+    { "key": "reportes_url", "value": "http://localhost:3010/api" },
+    { "key": "kong_url", "value": "http://localhost:8000" },
+    { "key": "access_token", "value": "" },
+    { "key": "admin_email", "value": "admin@nachopps.pe" },
+    { "key": "admin_password", "value": "" },
+    { "key": "usuario_id", "value": "" },
+    { "key": "mesa_id", "value": "" },
+    { "key": "pedido_id", "value": "" },
+    { "key": "item_id", "value": "" },
+    { "key": "cuenta_id", "value": "" },
+    { "key": "turno_id", "value": "" },
+    { "key": "categoria_id", "value": "" },
+    { "key": "producto_id", "value": "" },
+    { "key": "reserva_id", "value": "" }
+  ],
+  "item": [
+    {
+      "name": "Identidad (Auth y Usuarios)",
+      "item": [
+        {
+          "name": "Health Check",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{identidad_url}}", "host": ["{{identidad_url}}"], "path": [] },
+            "description": "Público. Responde `{ status: 'OK', service: 'Identidad' }`."
+          },
+          "response": []
+        },
+        {
+          "name": "Login",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const body = pm.response.json();",
+                  "    if (body.access_token) {",
+                  "        pm.collectionVariables.set('access_token', body.access_token);",
+                  "        pm.environment.set('access_token', body.access_token);",
+                  "    }",
+                  "    if (body.usuario && body.usuario.id) {",
+                  "        pm.collectionVariables.set('usuario_id', body.usuario.id);",
+                  "        pm.environment.set('usuario_id', body.usuario.id);",
+                  "    }",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{admin_email}}\",\n  \"password\": \"{{admin_password}}\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{identidad_url}}/auth/login", "host": ["{{identidad_url}}"], "path": ["auth", "login"] },
+            "description": "Público. Guarda `access_token` y `usuario_id` en variables de colección automáticamente."
+          },
+          "response": []
+        },
+        {
+          "name": "Refresh Token",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const body = pm.response.json();",
+                  "    if (body.access_token) {",
+                  "        pm.collectionVariables.set('access_token', body.access_token);",
+                  "        pm.environment.set('access_token', body.access_token);",
+                  "    }",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refresh_token\": \"\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{identidad_url}}/auth/refresh", "host": ["{{identidad_url}}"], "path": ["auth", "refresh"] },
+            "description": "Público. El flujo normal usa la cookie httpOnly `refresh_token` (Postman la reenvía sola si Login se ejecutó antes en la misma sesión); el body es un fallback opcional."
+          },
+          "response": []
+        },
+        {
+          "name": "Logout",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": { "raw": "{{identidad_url}}/auth/logout", "host": ["{{identidad_url}}"], "path": ["auth", "logout"] },
+            "description": "Requiere JWT (cualquier rol autenticado)."
+          },
+          "response": []
+        },
+        {
+          "name": "Obtener Perfil (me)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{identidad_url}}/auth/me", "host": ["{{identidad_url}}"], "path": ["auth", "me"] },
+            "description": "Requiere JWT (cualquier rol autenticado)."
+          },
+          "response": []
+        },
+        {
+          "name": "Crear Usuario",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code >= 200 && pm.response.code < 300) {",
+                  "    const body = pm.response.json();",
+                  "    if (body.id) {",
+                  "        pm.collectionVariables.set('usuario_id', body.id);",
+                  "        pm.environment.set('usuario_id', body.id);",
+                  "    }",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombre\": \"Nuevo Usuario\",\n  \"email\": \"nuevo.usuario@nachopps.pe\",\n  \"password\": \"ClaveSegura123\",\n  \"rol\": \"MESERO\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{identidad_url}}/usuarios", "host": ["{{identidad_url}}"], "path": ["usuarios"] },
+            "description": "Roles: ADMIN. `rol` uno de ADMIN, CAJERO, COCINA, MESERO, RECEPCION, GERENCIA, SISTEMA. `password` mínimo 8 caracteres."
+          },
+          "response": []
+        },
+        {
+          "name": "Listar Usuarios",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{identidad_url}}/usuarios?limit=20",
+              "host": ["{{identidad_url}}"],
+              "path": ["usuarios"],
+              "query": [
+                { "key": "limit", "value": "20" },
+                { "key": "cursor", "value": "", "disabled": true },
+                { "key": "rol", "value": "", "disabled": true },
+                { "key": "search", "value": "", "disabled": true },
+                { "key": "updatedSince", "value": "", "disabled": true }
+              ]
+            },
+            "description": "Roles: ADMIN, SISTEMA, GERENCIA. `limit` 1-100."
+          },
+          "response": []
+        },
+        {
+          "name": "Cambiar Rol de Usuario",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"rol\": \"CAJERO\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{identidad_url}}/usuarios/{{usuario_id}}/rol", "host": ["{{identidad_url}}"], "path": ["usuarios", "{{usuario_id}}", "rol"] },
+            "description": "Roles: ADMIN."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Mesas",
+      "item": [
+        {
+          "name": "Listar Mesas",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{mesas_url}}", "host": ["{{mesas_url}}"], "path": [] },
+            "description": "Roles: ADMIN, SISTEMA, CAJERO, MESERO, RECEPCION."
+          },
+          "response": []
+        },
+        {
+          "name": "Obtener Mesa",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{mesas_url}}/{{mesa_id}}", "host": ["{{mesas_url}}"], "path": ["{{mesa_id}}"] },
+            "description": "Roles: ADMIN, SISTEMA, CAJERO, MESERO, RECEPCION. `id` es UUID."
+          },
+          "response": []
+        },
+        {
+          "name": "Crear Mesa",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code >= 200 && pm.response.code < 300) {",
+                  "    const body = pm.response.json();",
+                  "    if (body.id) {",
+                  "        pm.collectionVariables.set('mesa_id', body.id);",
+                  "        pm.environment.set('mesa_id', body.id);",
+                  "    }",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"numero\": 1,\n  \"capacidad\": 4,\n  \"ubicacion\": \"Terraza\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{mesas_url}}", "host": ["{{mesas_url}}"], "path": [] },
+            "description": "Roles: ADMIN, SISTEMA."
+          },
+          "response": []
+        },
+        {
+          "name": "Actualizar Estado de Mesa",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"estado\": \"OCUPADA\",\n  \"cuentaAsociada\": null\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{mesas_url}}/{{mesa_id}}/estado", "host": ["{{mesas_url}}"], "path": ["{{mesa_id}}", "estado"] },
+            "description": "Roles: ADMIN, SISTEMA, CAJERO, MESERO, RECEPCION. `estado`: LIBRE | OCUPADA | RESERVADA."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Pedidos",
+      "item": [
+        {
+          "name": "Crear Pedido",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code >= 200 && pm.response.code < 300) {",
+                  "    const body = pm.response.json();",
+                  "    if (body.id) {",
+                  "        pm.collectionVariables.set('pedido_id', body.id);",
+                  "        pm.environment.set('pedido_id', body.id);",
+                  "    }",
+                  "    if (Array.isArray(body.items) && body.items[0] && body.items[0].id) {",
+                  "        pm.collectionVariables.set('item_id', body.items[0].id);",
+                  "        pm.environment.set('item_id', body.items[0].id);",
+                  "    }",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Idempotency-Key", "value": "{{$guid}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"mesaId\": \"{{mesa_id}}\",\n  \"items\": [\n    {\n      \"productoId\": \"{{producto_id}}\",\n      \"cantidad\": 2,\n      \"area\": \"COCINA\",\n      \"notas\": \"Sin picante\"\n    }\n  ],\n  \"cliente\": \"Cliente Mostrador\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{pedidos_url}}", "host": ["{{pedidos_url}}"], "path": [] },
+            "description": "Roles: ADMIN, SISTEMA, CAJERO, MESERO. Soporta idempotencia via header `Idempotency-Key` (mismo valor = mismo pedido, sin duplicar)."
+          },
+          "response": []
+        },
+        {
+          "name": "Listar Pedidos",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{pedidos_url}}?limit=20",
+              "host": ["{{pedidos_url}}"],
+              "path": [],
+              "query": [
+                { "key": "limit", "value": "20" },
+                { "key": "mesaId", "value": "{{mesa_id}}", "disabled": true },
+                { "key": "cursor", "value": "", "disabled": true },
+                { "key": "estado", "value": "", "disabled": true },
+                { "key": "updatedSince", "value": "", "disabled": true }
+              ]
+            },
+            "description": "Roles: ADMIN, SISTEMA, CAJERO, MESERO, COCINA. `estado`: PENDIENTE | EN_PREPARACION | LISTO | ENTREGADO | PAGADO | CANCELADO | RECHAZADO_SIN_STOCK."
+          },
+          "response": []
+        },
+        {
+          "name": "Actualizar Estado de Pedido",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"estado\": \"EN_PREPARACION\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{pedidos_url}}/{{pedido_id}}/estado", "host": ["{{pedidos_url}}"], "path": ["{{pedido_id}}", "estado"] },
+            "description": "Roles: ADMIN, SISTEMA, CAJERO, MESERO, COCINA."
+          },
+          "response": []
+        },
+        {
+          "name": "Actualizar Estado de Item",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"estado\": \"LISTO\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{pedidos_url}}/items/{{item_id}}/estado", "host": ["{{pedidos_url}}"], "path": ["items", "{{item_id}}", "estado"] },
+            "description": "Roles: ADMIN, SISTEMA, CAJERO, MESERO, COCINA. `estado`: PENDIENTE | EN_PREPARACION | LISTO | ENTREGADO | RECHAZADO_SIN_STOCK."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Cuentas",
+      "item": [
+        {
+          "name": "Health Check",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{cuentas_url}}", "host": ["{{cuentas_url}}"], "path": [] },
+            "description": "Roles: ADMIN, SISTEMA, CAJERO, MESERO, RECEPCION (requiere JWT, no es público en este servicio)."
+          },
+          "response": []
+        },
+        {
+          "name": "Abrir Cuenta",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code >= 200 && pm.response.code < 300) {",
+                  "    const body = pm.response.json();",
+                  "    if (body.id) {",
+                  "        pm.collectionVariables.set('cuenta_id', body.id);",
+                  "        pm.environment.set('cuenta_id', body.id);",
+                  "    }",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"mesaId\": \"{{mesa_id}}\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{cuentas_url}}", "host": ["{{cuentas_url}}"], "path": [] },
+            "description": "Roles: ADMIN, SISTEMA, CAJERO, MESERO, RECEPCION."
+          },
+          "response": []
+        },
+        {
+          "name": "Obtener Cuenta por Mesa",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{cuentas_url}}/mesa/{{mesa_id}}", "host": ["{{cuentas_url}}"], "path": ["mesa", "{{mesa_id}}"] },
+            "description": "Roles: ADMIN, SISTEMA, CAJERO, MESERO, RECEPCION."
+          },
+          "response": []
+        },
+        {
+          "name": "Obtener Cuenta",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{cuentas_url}}/{{cuenta_id}}", "host": ["{{cuentas_url}}"], "path": ["{{cuenta_id}}"] },
+            "description": "Roles: ADMIN, SISTEMA, CAJERO, MESERO, RECEPCION."
+          },
+          "response": []
+        },
+        {
+          "name": "Dividir Cuenta",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"metodo\": \"IGUALES\",\n  \"numPartes\": 2\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{cuentas_url}}/{{cuenta_id}}/dividir", "host": ["{{cuentas_url}}"], "path": ["{{cuenta_id}}", "dividir"] },
+            "description": "Roles: ADMIN, SISTEMA, CAJERO, MESERO, RECEPCION. `metodo`: IGUALES | POR_ITEMS."
+          },
+          "response": []
+        },
+        {
+          "name": "Cerrar Cuenta",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"descuento\": 0\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{cuentas_url}}/{{cuenta_id}}/cerrar", "host": ["{{cuentas_url}}"], "path": ["{{cuenta_id}}", "cerrar"] },
+            "description": "Roles: ADMIN, SISTEMA, CAJERO, MESERO, RECEPCION."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Caja",
+      "item": [
+        {
+          "name": "Health Check",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{caja_url}}/health", "host": ["{{caja_url}}"], "path": ["health"] },
+            "description": "Roles: ADMIN, SISTEMA, CAJERO (requiere JWT, no es público en este servicio)."
+          },
+          "response": []
+        },
+        {
+          "name": "Abrir Turno",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code >= 200 && pm.response.code < 300) {",
+                  "    const body = pm.response.json();",
+                  "    const id = body.turnoId || body.id;",
+                  "    if (id) {",
+                  "        pm.collectionVariables.set('turno_id', id);",
+                  "        pm.environment.set('turno_id', id);",
+                  "    }",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"cajaId\": \"CAJA-1\",\n  \"cajaNombre\": \"Caja Principal\",\n  \"cajeroNombre\": \"Cajero Demo\",\n  \"fondoInicial\": 100\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{caja_url}}/turnos/abrir", "host": ["{{caja_url}}"], "path": ["turnos", "abrir"] },
+            "description": "Roles: ADMIN, SISTEMA, CAJERO."
+          },
+          "response": []
+        },
+        {
+          "name": "Obtener Turno Activo",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{caja_url}}/turnos/activo", "host": ["{{caja_url}}"], "path": ["turnos", "activo"] },
+            "description": "Roles: ADMIN, SISTEMA, CAJERO."
+          },
+          "response": []
+        },
+        {
+          "name": "Resumen del Turno Activo",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{caja_url}}/turnos/activo/resumen", "host": ["{{caja_url}}"], "path": ["turnos", "activo", "resumen"] },
+            "description": "Roles: ADMIN, SISTEMA, CAJERO."
+          },
+          "response": []
+        },
+        {
+          "name": "Resumen de un Turno",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{caja_url}}/turnos/{{turno_id}}/resumen", "host": ["{{caja_url}}"], "path": ["turnos", "{{turno_id}}", "resumen"] },
+            "description": "Roles: ADMIN, SISTEMA, CAJERO."
+          },
+          "response": []
+        },
+        {
+          "name": "Movimientos de un Turno",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{caja_url}}/turnos/{{turno_id}}/movimientos", "host": ["{{caja_url}}"], "path": ["turnos", "{{turno_id}}", "movimientos"] },
+            "description": "Roles: ADMIN, SISTEMA, CAJERO."
+          },
+          "response": []
+        },
+        {
+          "name": "Crear Movimiento de Caja",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"tipo\": \"INGRESO\",\n  \"monto\": 50,\n  \"donde\": \"Caja principal\",\n  \"motivo\": \"Vuelto adicional\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{caja_url}}/turnos/{{turno_id}}/movimientos", "host": ["{{caja_url}}"], "path": ["turnos", "{{turno_id}}", "movimientos"] },
+            "description": "Roles: ADMIN, SISTEMA, CAJERO. `tipo`: INGRESO | EGRESO | AJUSTE."
+          },
+          "response": []
+        },
+        {
+          "name": "Registrar Arqueo",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"denominaciones\": {\n    \"100\": 2,\n    \"50\": 3,\n    \"20\": 5,\n    \"10\": 10\n  }\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{caja_url}}/turnos/{{turno_id}}/arqueo", "host": ["{{caja_url}}"], "path": ["turnos", "{{turno_id}}", "arqueo"] },
+            "description": "Roles: ADMIN, SISTEMA, CAJERO. `denominaciones`: mapa billete/moneda -> cantidad."
+          },
+          "response": []
+        },
+        {
+          "name": "Registrar Pago",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Idempotency-Key", "value": "{{$guid}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"cuentaId\": \"{{cuenta_id}}\",\n  \"montoRecibido\": 50,\n  \"metodo\": \"EFECTIVO\",\n  \"descuento\": 0,\n  \"propina\": 5,\n  \"mesaNumero\": \"1\",\n  \"referencia\": \"\",\n  \"notas\": \"\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{caja_url}}/pagos", "host": ["{{caja_url}}"], "path": ["pagos"] },
+            "description": "Roles: ADMIN, SISTEMA, CAJERO. `metodo`: EFECTIVO | TARJETA | TRANSFERENCIA | YAPE | PLIN. Soporta idempotencia via header `Idempotency-Key`."
+          },
+          "response": []
+        },
+        {
+          "name": "Listar Transacciones",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{caja_url}}?limit=20",
+              "host": ["{{caja_url}}"],
+              "path": [],
+              "query": [
+                { "key": "limit", "value": "20" },
+                { "key": "cursor", "value": "", "disabled": true },
+                { "key": "metodo", "value": "", "disabled": true },
+                { "key": "updatedSince", "value": "", "disabled": true }
+              ]
+            },
+            "description": "Roles: ADMIN, SISTEMA, CAJERO."
+          },
+          "response": []
+        },
+        {
+          "name": "Cerrar Turno",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"denominaciones\": {\n    \"100\": 2,\n    \"50\": 3,\n    \"20\": 5,\n    \"10\": 10\n  }\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{caja_url}}/turnos/{{turno_id}}/cerrar", "host": ["{{caja_url}}"], "path": ["turnos", "{{turno_id}}", "cerrar"] },
+            "description": "Roles: ADMIN, SISTEMA, CAJERO."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Inventario",
+      "item": [
+        {
+          "name": "Health Check",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{inventario_url}}", "host": ["{{inventario_url}}"], "path": [] },
+            "description": "Roles: ADMIN, SISTEMA, GERENCIA, CAJERO, MESERO (requiere JWT, no es público en este servicio)."
+          },
+          "response": []
+        },
+        {
+          "name": "Listar Categorías",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{inventario_url}}/categorias", "host": ["{{inventario_url}}"], "path": ["categorias"] },
+            "description": "Roles: ADMIN, SISTEMA, GERENCIA, CAJERO, MESERO."
+          },
+          "response": []
+        },
+        {
+          "name": "Crear Categoría",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code >= 200 && pm.response.code < 300) {",
+                  "    const body = pm.response.json();",
+                  "    if (body.id) {",
+                  "        pm.collectionVariables.set('categoria_id', body.id);",
+                  "        pm.environment.set('categoria_id', body.id);",
+                  "    }",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombre\": \"Bebidas\",\n  \"descripcion\": \"Bebidas frías y calientes\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{inventario_url}}/categorias", "host": ["{{inventario_url}}"], "path": ["categorias"] },
+            "description": "Roles: ADMIN, SISTEMA, GERENCIA."
+          },
+          "response": []
+        },
+        {
+          "name": "Listar Productos",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{inventario_url}}/productos?limit=20",
+              "host": ["{{inventario_url}}"],
+              "path": ["productos"],
+              "query": [
+                { "key": "limit", "value": "20" },
+                { "key": "categoriaId", "value": "{{categoria_id}}", "disabled": true },
+                { "key": "disponible", "value": "true", "disabled": true },
+                { "key": "conStock", "value": "true", "disabled": true },
+                { "key": "search", "value": "", "disabled": true },
+                { "key": "cursor", "value": "", "disabled": true },
+                { "key": "updatedSince", "value": "", "disabled": true }
+              ]
+            },
+            "description": "Roles: ADMIN, SISTEMA, GERENCIA, CAJERO, MESERO."
+          },
+          "response": []
+        },
+        {
+          "name": "Obtener Producto",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{inventario_url}}/productos/{{producto_id}}", "host": ["{{inventario_url}}"], "path": ["productos", "{{producto_id}}"] },
+            "description": "Roles: ADMIN, SISTEMA, GERENCIA, CAJERO, MESERO."
+          },
+          "response": []
+        },
+        {
+          "name": "Obtener Productos por Lote",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"ids\": [\"{{producto_id}}\"]\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{inventario_url}}/productos/lote", "host": ["{{inventario_url}}"], "path": ["productos", "lote"] },
+            "description": "Roles: ADMIN, SISTEMA, GERENCIA, CAJERO, MESERO. `ids`: array de UUIDs (mínimo 1)."
+          },
+          "response": []
+        },
+        {
+          "name": "Crear Producto",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code >= 200 && pm.response.code < 300) {",
+                  "    const body = pm.response.json();",
+                  "    if (body.id) {",
+                  "        pm.collectionVariables.set('producto_id', body.id);",
+                  "        pm.environment.set('producto_id', body.id);",
+                  "    }",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"categoriaId\": \"{{categoria_id}}\",\n  \"nombre\": \"Nacho Especial\",\n  \"descripcion\": \"Nachos con queso y guacamole\",\n  \"precio\": 25.9,\n  \"disponible\": true,\n  \"stockActual\": 50\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{inventario_url}}/productos", "host": ["{{inventario_url}}"], "path": ["productos"] },
+            "description": "Roles: ADMIN, SISTEMA, GERENCIA."
+          },
+          "response": []
+        },
+        {
+          "name": "Actualizar Stock de Producto",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"stock\": 40\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{inventario_url}}/productos/{{producto_id}}/stock", "host": ["{{inventario_url}}"], "path": ["productos", "{{producto_id}}", "stock"] },
+            "description": "Roles: ADMIN, SISTEMA, GERENCIA."
+          },
+          "response": []
+        },
+        {
+          "name": "Actualizar Producto",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombre\": \"Nacho Especial XL\",\n  \"precio\": 29.9,\n  \"disponible\": true\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{inventario_url}}/productos/{{producto_id}}", "host": ["{{inventario_url}}"], "path": ["productos", "{{producto_id}}"] },
+            "description": "Roles: ADMIN, SISTEMA, GERENCIA."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Reservas",
+      "item": [
+        {
+          "name": "Listar Reservas",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{reservas_url}}?limit=20",
+              "host": ["{{reservas_url}}"],
+              "path": [],
+              "query": [
+                { "key": "limit", "value": "20" },
+                { "key": "cursor", "value": "", "disabled": true },
+                { "key": "estado", "value": "", "disabled": true },
+                { "key": "fecha", "value": "", "disabled": true },
+                { "key": "updatedSince", "value": "", "disabled": true }
+              ]
+            },
+            "description": "Roles: ADMIN, SISTEMA, GERENCIA, MESERO, RECEPCION. `estado`: PENDIENTE | CONFIRMADA | CANCELADA | EXPIRADA."
+          },
+          "response": []
+        },
+        {
+          "name": "Consultar Disponibilidad",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{reservas_url}}/disponibilidad?fecha=2026-07-15&hora=20:00&mesaPreferida=5",
+              "host": ["{{reservas_url}}"],
+              "path": ["disponibilidad"],
+              "query": [
+                { "key": "fecha", "value": "2026-07-15" },
+                { "key": "hora", "value": "20:00" },
+                { "key": "mesaPreferida", "value": "5" }
+              ]
+            },
+            "description": "Roles: ADMIN, SISTEMA, GERENCIA, MESERO, RECEPCION."
+          },
+          "response": []
+        },
+        {
+          "name": "Crear Reserva",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code >= 200 && pm.response.code < 300) {",
+                  "    const body = pm.response.json();",
+                  "    if (body.id) {",
+                  "        pm.collectionVariables.set('reserva_id', body.id);",
+                  "        pm.environment.set('reserva_id', body.id);",
+                  "    }",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"clienteNombre\": \"Juan Pérez\",\n  \"clienteTelefono\": \"+51987654321\",\n  \"fecha\": \"2026-07-15\",\n  \"hora\": \"20:00\",\n  \"mesaPreferida\": \"5\",\n  \"numComensales\": 4\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{reservas_url}}", "host": ["{{reservas_url}}"], "path": [] },
+            "description": "Roles: ADMIN, SISTEMA, GERENCIA, MESERO, RECEPCION. `fecha`, `hora` y `mesaPreferida` son obligatorios."
+          },
+          "response": []
+        },
+        {
+          "name": "Confirmar Reserva",
+          "request": {
+            "method": "PATCH",
+            "header": [],
+            "url": { "raw": "{{reservas_url}}/{{reserva_id}}/confirmar", "host": ["{{reservas_url}}"], "path": ["{{reserva_id}}", "confirmar"] },
+            "description": "Roles: ADMIN, SISTEMA, GERENCIA, MESERO, RECEPCION."
+          },
+          "response": []
+        },
+        {
+          "name": "Cancelar Reserva",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{reservas_url}}/{{reserva_id}}?motivo=Cliente no asistira",
+              "host": ["{{reservas_url}}"],
+              "path": ["{{reserva_id}}"],
+              "query": [{ "key": "motivo", "value": "Cliente no asistira" }]
+            },
+            "description": "Roles: ADMIN, SISTEMA, GERENCIA, MESERO, RECEPCION."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Reportes",
+      "item": [
+        {
+          "name": "Health Check",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{reportes_url}}", "host": ["{{reportes_url}}"], "path": [] },
+            "description": "Público. Responde `{ status: 'OK', service: 'Reportes' }`."
+          },
+          "response": []
+        },
+        {
+          "name": "Resumen Diario",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{reportes_url}}/resumen", "host": ["{{reportes_url}}"], "path": ["resumen"] },
+            "description": "Roles: ADMIN, SISTEMA, GERENCIA."
+          },
+          "response": []
+        },
+        {
+          "name": "Reporte por Producto",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{reportes_url}}/por-producto?desde=2026-07-01&hasta=2026-07-01",
+              "host": ["{{reportes_url}}"],
+              "path": ["por-producto"],
+              "query": [
+                { "key": "desde", "value": "2026-07-01" },
+                { "key": "hasta", "value": "2026-07-01" }
+              ]
+            },
+            "description": "Roles: ADMIN, SISTEMA, GERENCIA. `desde`/`hasta` ISO-8601, opcionales."
+          },
+          "response": []
+        },
+        {
+          "name": "Reporte por Turno",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{reportes_url}}/por-turno?desde=2026-07-01&hasta=2026-07-01",
+              "host": ["{{reportes_url}}"],
+              "path": ["por-turno"],
+              "query": [
+                { "key": "desde", "value": "2026-07-01" },
+                { "key": "hasta", "value": "2026-07-01" }
+              ]
+            },
+            "description": "Roles: ADMIN, SISTEMA, GERENCIA. `desde`/`hasta` ISO-8601, opcionales."
+          },
+          "response": []
+        },
+        {
+          "name": "Reporte por Mesero",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{reportes_url}}/por-mesero?desde=2026-07-01&hasta=2026-07-01",
+              "host": ["{{reportes_url}}"],
+              "path": ["por-mesero"],
+              "query": [
+                { "key": "desde", "value": "2026-07-01" },
+                { "key": "hasta", "value": "2026-07-01" }
+              ]
+            },
+            "description": "Roles: ADMIN, SISTEMA, GERENCIA. `desde`/`hasta` ISO-8601, opcionales."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Notificaciones",
+      "item": [
+        {
+          "name": "Obtener Notificaciones",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{notificaciones_url}}", "host": ["{{notificaciones_url}}"], "path": [] },
+            "description": "Público. El resto de este servicio es consumo de eventos RabbitMQ + WebSocket (fuera del alcance HTTP de esta colección)."
+          },
+          "response": []
+        }
+      ]
+    }
+  ]
+}
