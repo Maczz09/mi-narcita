@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { getOrCreateCounter } from '@org/observabilidad';
 import { ServiceTokenService } from '@org/shared-auth';
 import { CircuitBreakerOptions } from '@org/resiliencia';
 import axios from 'axios';
@@ -20,6 +21,9 @@ export class CuentasHttpClient {
   private readonly CUENTAS_URL =
     process.env['CUENTAS_SERVICE_URL'] ?? 'http://servicio-cuentas:3000/api';
   private readonly HTTP_TIMEOUT_MS = 5000;
+  private readonly timeoutCounter = getOrCreateCounter(
+    'dependency_timeout_total', 'Timeouts en llamadas a dependencias con breaker', ['dependency'],
+  );
 
   constructor(private readonly serviceTokenService: ServiceTokenService) {}
 
@@ -28,13 +32,25 @@ export class CuentasHttpClient {
     return this.serviceTokenService.generateServiceToken('servicio-caja', 'servicio-cuentas');
   }
 
+  private contarTimeout(error: unknown): void {
+    const code = (error as { code?: string }).code;
+    if (code === 'ECONNABORTED' || code === 'ETIMEDOUT') {
+      this.timeoutCounter.inc({ dependency: 'cuentas' });
+    }
+  }
+
   @CircuitBreakerOptions({ timeout: 5000, errorThresholdPercentage: 50, resetTimeout: 30_000 })
   async fetchCuenta(cuentaId: string): Promise<CuentaRemota> {
-    const res = await axios.get<CuentaRemota>(`${this.CUENTAS_URL}/${cuentaId}`, {
-      timeout: this.HTTP_TIMEOUT_MS,
-      headers: { Authorization: `Bearer ${this.getServiceToken()}` },
-    });
-    return res.data;
+    try {
+      const res = await axios.get<CuentaRemota>(`${this.CUENTAS_URL}/${cuentaId}`, {
+        timeout: this.HTTP_TIMEOUT_MS,
+        headers: { Authorization: `Bearer ${this.getServiceToken()}` },
+      });
+      return res.data;
+    } catch (error) {
+      this.contarTimeout(error);
+      throw error;
+    }
   }
 
   // Ruta de dinero: breaker con timeout "pago" (4 s). Los 4xx no abren el
@@ -47,14 +63,19 @@ export class CuentasHttpClient {
       Boolean(error?.response?.status && error.response.status < 500),
   })
   async cerrarCuenta(cuentaId: string, descuento: number) {
-    const res = await axios.post(
-      `${this.CUENTAS_URL}/${cuentaId}/cerrar`,
-      { descuento },
-      {
-        timeout: this.HTTP_TIMEOUT_MS,
-        headers: { Authorization: `Bearer ${this.getServiceToken()}` },
-      },
-    );
-    return res.data as never;
+    try {
+      const res = await axios.post(
+        `${this.CUENTAS_URL}/${cuentaId}/cerrar`,
+        { descuento },
+        {
+          timeout: this.HTTP_TIMEOUT_MS,
+          headers: { Authorization: `Bearer ${this.getServiceToken()}` },
+        },
+      );
+      return res.data as never;
+    } catch (error) {
+      this.contarTimeout(error);
+      throw error;
+    }
   }
 }

@@ -30,8 +30,8 @@ export class InventarioHttpClient {
   private readonly INVENTARIO_URL =
     process.env['INVENTARIO_SERVICE_URL'] ?? 'http://servicio-inventario:3000/api';
 
-  private readonly erpTimeoutCounter = getOrCreateCounter(
-    'erp_timeout_rate_total', 'Timeout errors from ERP (Inventory)'
+  private readonly timeoutCounter = getOrCreateCounter(
+    'dependency_timeout_total', 'Timeouts en llamadas a dependencias con breaker', ['dependency'],
   );
 
   constructor(private readonly serviceTokenService: ServiceTokenService) {}
@@ -76,12 +76,12 @@ export class InventarioHttpClient {
       }
 
       if (axiosError.code === 'ECONNABORTED' || axiosError.code === 'ETIMEDOUT') {
-        this.erpTimeoutCounter.inc();
+        this.timeoutCounter.inc({ dependency: 'inventario' });
         this.logger.warn({
           operation: 'obtenerProductosLote',
           dependency: 'inventario-api',
           durationMs: this.HTTP_TIMEOUT_MS,
-          errorCode: 'ERP_TIMEOUT',
+          errorCode: 'DEPENDENCY_TIMEOUT',
           resultingState: 'STOCK_VALIDATION_PENDING',
           message: 'Timeout fetching from inventory. Flow marked as pending validation.'
         });

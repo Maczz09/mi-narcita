@@ -5,6 +5,7 @@ import {
   ServiceUnavailableException,
   InternalServerErrorException,
 } from '@nestjs/common';
+import { getOrCreateCounter } from '@org/observabilidad';
 import { ServiceTokenService } from '@org/shared-auth';
 import { CircuitBreakerOptions } from '@org/resiliencia';
 import axios from 'axios';
@@ -25,6 +26,9 @@ export class MesasHttpClient {
   private readonly HTTP_TIMEOUT_MS = 5000;
   private readonly MESAS_URL =
     process.env['MESAS_SERVICE_URL'] ?? 'http://servicio-mesas:3000/api';
+  private readonly timeoutCounter = getOrCreateCounter(
+    'dependency_timeout_total', 'Timeouts en llamadas a dependencias con breaker', ['dependency'],
+  );
 
   constructor(private readonly serviceTokenService: ServiceTokenService) {}
 
@@ -66,6 +70,7 @@ export class MesasHttpClient {
         throw new ServiceUnavailableException('El servicio de mesas no está disponible (circuito abierto).');
       }
       if (axiosError.code === 'ECONNABORTED' || axiosError.code === 'ETIMEDOUT') {
+        this.timeoutCounter.inc({ dependency: 'mesas' });
         throw new ServiceUnavailableException('El servicio de mesas no responde. Reintente.');
       }
       if (axiosError.code === 'ECONNREFUSED') {
