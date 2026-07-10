@@ -13,6 +13,7 @@ jest.mock('@org/resiliencia', () => {
   };
 });
 
+import { register } from 'prom-client';
 import { AppService } from './app.service';
 import { MesasHttpClient } from './mesas-http.client';
 import { InventarioHttpClient } from './inventario-http.client';
@@ -588,6 +589,26 @@ describe('AppService — Pedidos', () => {
     it('throws error if error is not P2002', async () => {
       mockPrisma.$transaction.mockRejectedValue(new Error('Random DB Error'));
       await expect((service as any).procesarEventoProducto('key', { id: 'prod-1' }, async () => {})).rejects.toThrow('Random DB Error');
+    });
+  });
+
+  describe('pedidos_rechazados_dependencia_total (R-08)', () => {
+    function rechazosDependencia(dependency: string): number {
+      const metric = register.getSingleMetric('pedidos_rechazados_dependencia_total') as any;
+      const hashMap = metric?.hashMap ?? {};
+      return Object.values(hashMap).find((v: any) => v.labels.dependency === dependency)?.value ?? 0;
+    }
+
+    it('incrementa cuando inventario está caído (503) durante la creación de pedido', async () => {
+      mockPrisma.productoLocal.findMany.mockResolvedValue([]); // todos faltantes → llama a inventario
+      // Inventario caído: axios rechaza → obtenerProductosLote lanza 503.
+      jest.spyOn(axios, 'post').mockRejectedValue(
+        Object.assign(new Error('connection refused'), { code: 'ECONNREFUSED' }),
+      );
+      const antes = rechazosDependencia('inventario');
+
+      await expect((service as any).asegurarProductosLocales(['prod-1'])).rejects.toBeDefined();
+      expect(rechazosDependencia('inventario')).toBe(antes + 1);
     });
   });
 });

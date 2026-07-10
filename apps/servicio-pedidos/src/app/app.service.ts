@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, BadRequestException, Logger } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, ServiceUnavailableException, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { 
   PedidoDto,
@@ -18,7 +18,7 @@ import {
 import { Prisma } from '../generated/prisma';
 import { getOrCreateCounter } from '@org/observabilidad';
 import { MesasHttpClient } from './mesas-http.client';
-import { InventarioHttpClient } from './inventario-http.client';
+import { InventarioHttpClient, ProductoRemotoLote } from './inventario-http.client';
 import { PedidosSagaService } from './pedidos-saga.service';
 import { mapPedidoToDto } from './pedido.mapper';
 import {
@@ -38,6 +38,11 @@ export class AppService {
   // Métricas de negocio (plan 5.2): pedidos/min vía rate(pedidos_creados_total).
   private readonly pedidosCreadosCounter = getOrCreateCounter(
     'pedidos_creados_total', 'Pedidos creados', ['modalidad'],
+  );
+  // R-08: pedidos rechazados por dependencia caída (503/breaker), hermano de
+  // pedidos_rechazados_sin_stock_total. Cierra la tasa de éxito de pedido.
+  private readonly pedidosRechazadosDependenciaCounter = getOrCreateCounter(
+    'pedidos_rechazados_dependencia_total', 'Pedidos rechazados por dependencia no disponible', ['dependency'],
   );
   constructor(
     private readonly prisma: PrismaService,
@@ -107,7 +112,17 @@ export class AppService {
     if (faltantes.length > 0) {
       this.logger.warn(`Cold-start: ${faltantes.length} productos no están en proyección local, cargando desde inventario`);
       // T-33: la llamada remota vive en InventarioHttpClient (breaker incluido).
-      const productos = await this.inventarioHttp.obtenerProductosLote(faltantes);
+      let productos: ProductoRemotoLote[];
+      try {
+        productos = await this.inventarioHttp.obtenerProductosLote(faltantes);
+      } catch (error) {
+        // Dependencia caída (timeout/breaker/refused → 503): cuenta el rechazo
+        // para la tasa de éxito de pedido y propaga.
+        if (error instanceof ServiceUnavailableException) {
+          this.pedidosRechazadosDependenciaCounter.inc({ dependency: 'inventario' });
+        }
+        throw error;
+      }
       await Promise.all(productos.map(p =>
         this.prisma.productoLocal.upsert({
           where: { id: p.id },
