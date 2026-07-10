@@ -24,7 +24,9 @@ export interface CuentaRemota {
 export class CuentasHttpClient {
   private readonly CUENTAS_URL =
     process.env['CUENTAS_SERVICE_URL'] ?? 'http://servicio-cuentas:3000/api';
-  private readonly HTTP_TIMEOUT_MS = 5000;
+  // R-15: lectura corta vs dinero (cierre) más holgado. Breaker ≥ transporte.
+  private readonly READ_TIMEOUT_MS = Number(process.env['CUENTAS_TIMEOUT_MS'] ?? 2000);
+  private readonly CIERRE_TIMEOUT_MS = Number(process.env['CUENTAS_CIERRE_TIMEOUT_MS'] ?? 4000);
   private readonly timeoutCounter = getOrCreateCounter(
     'dependency_timeout_total', 'Timeouts en llamadas a dependencias con breaker', ['dependency'],
   );
@@ -56,11 +58,15 @@ export class CuentasHttpClient {
     return this.bulkhead.run(() => this.cerrarCuentaConBreaker(cuentaId, descuento));
   }
 
-  @CircuitBreakerOptions({ timeout: 5000, errorThresholdPercentage: 50, resetTimeout: 30_000 })
+  @CircuitBreakerOptions({
+    timeout: Number(process.env['CUENTAS_TIMEOUT_MS'] ?? 2000) + 500,
+    errorThresholdPercentage: 50,
+    resetTimeout: 30_000,
+  })
   private async fetchCuentaConBreaker(cuentaId: string): Promise<CuentaRemota> {
     try {
       const res = await axios.get<CuentaRemota>(`${this.CUENTAS_URL}/${cuentaId}`, {
-        timeout: this.HTTP_TIMEOUT_MS,
+        timeout: this.READ_TIMEOUT_MS,
         headers: { Authorization: `Bearer ${this.getServiceToken()}` },
         httpAgent: this.bulkhead.httpAgent,
         httpsAgent: this.bulkhead.httpsAgent,
@@ -75,7 +81,7 @@ export class CuentasHttpClient {
   // Ruta de dinero: breaker con timeout "pago" (4 s). Los 4xx no abren el
   // circuito; si abre, el catch de app.service degrada a PAGO_SIN_CIERRE_CONFIRMADO.
   @CircuitBreakerOptions({
-    timeout: 4000,
+    timeout: Number(process.env['CUENTAS_CIERRE_TIMEOUT_MS'] ?? 4000) + 500,
     errorThresholdPercentage: 50,
     resetTimeout: 30_000,
     errorFilter: (error: { response?: { status: number } }) =>
@@ -87,7 +93,7 @@ export class CuentasHttpClient {
         `${this.CUENTAS_URL}/${cuentaId}/cerrar`,
         { descuento },
         {
-          timeout: this.HTTP_TIMEOUT_MS,
+          timeout: this.CIERRE_TIMEOUT_MS,
           headers: { Authorization: `Bearer ${this.getServiceToken()}` },
           httpAgent: this.bulkhead.httpAgent,
           httpsAgent: this.bulkhead.httpsAgent,

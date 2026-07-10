@@ -23,7 +23,8 @@ export interface MesaRemota {
 @Injectable()
 export class MesasHttpClient {
   private readonly logger = new Logger(MesasHttpClient.name);
-  private readonly HTTP_TIMEOUT_MS = 5000;
+  // R-15: lectura (GET /mesa) → timeout corto. Breaker ≥ transporte.
+  private readonly READ_TIMEOUT_MS = Number(process.env['MESAS_TIMEOUT_MS'] ?? 2000);
   private readonly MESAS_URL =
     process.env['MESAS_SERVICE_URL'] ?? 'http://servicio-mesas:3000/api';
   private readonly timeoutCounter = getOrCreateCounter(
@@ -42,7 +43,7 @@ export class MesasHttpClient {
   }
 
   @CircuitBreakerOptions({
-    timeout: 5000,
+    timeout: Number(process.env['MESAS_TIMEOUT_MS'] ?? 2000) + 500,
     errorThresholdPercentage: 50,
     resetTimeout: 30_000,
     errorFilter: (error: { response?: { status: number } }) =>
@@ -50,7 +51,7 @@ export class MesasHttpClient {
   })
   private async fetchMesaRemota(mesaId: string, token: string): Promise<MesaRemota> {
     const { data } = await axios.get<MesaRemota>(`${this.MESAS_URL}/${mesaId}`, {
-      timeout: this.HTTP_TIMEOUT_MS,
+      timeout: this.READ_TIMEOUT_MS,
       headers: { Authorization: `Bearer ${token}` },
       httpAgent: this.bulkhead.httpAgent,
       httpsAgent: this.bulkhead.httpsAgent,
