@@ -93,6 +93,9 @@ export async function bootstrapNachoppsService(options: BootstrapOptions): Promi
         exchange: 'nachopps_exchange',
         exchangeType: 'topic',
         noAck: false,
+        // Backpressure: cap de mensajes en vuelo por consumidor (R-09). No toca
+        // la declaración de colas → sin riesgo de redeclare.
+        prefetchCount: Number(process.env.RMQ_PREFETCH ?? 20),
       },
     });
   }
