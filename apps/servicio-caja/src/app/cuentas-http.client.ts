@@ -37,6 +37,15 @@ export class CuentasHttpClient {
     return res.data;
   }
 
+  // Ruta de dinero: breaker con timeout "pago" (4 s). Los 4xx no abren el
+  // circuito; si abre, el catch de app.service degrada a PAGO_SIN_CIERRE_CONFIRMADO.
+  @CircuitBreakerOptions({
+    timeout: 4000,
+    errorThresholdPercentage: 50,
+    resetTimeout: 30_000,
+    errorFilter: (error: { response?: { status: number } }) =>
+      Boolean(error?.response?.status && error.response.status < 500),
+  })
   async cerrarCuenta(cuentaId: string, descuento: number) {
     const res = await axios.post(
       `${this.CUENTAS_URL}/${cuentaId}/cerrar`,
