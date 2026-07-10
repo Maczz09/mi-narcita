@@ -1,7 +1,16 @@
 import { Logger } from '@nestjs/common';
 import CircuitBreaker from 'opossum';
+import { getOrCreateGauge } from '@org/observabilidad';
 
 export const CIRCUIT_BREAKER_REGISTRY = new Map<string, CircuitBreaker>();
+
+// Estado del circuito por breaker, dirigido por los eventos de opossum (refleja
+// también HALF_OPEN, cosa que un set manual 1/0 en el cliente no puede).
+const circuitStateGauge = getOrCreateGauge(
+  'circuit_breaker_state',
+  'Estado del circuito por breaker (0=CLOSED, 0.5=HALF_OPEN, 1=OPEN)',
+  ['breaker'],
+);
 
 export function CircuitBreakerOptions(options?: CircuitBreaker.Options) {
   return function (
@@ -28,11 +37,22 @@ export function CircuitBreakerOptions(options?: CircuitBreaker.Options) {
         const fn = originalMethod.bind(this);
         breaker = new CircuitBreaker(fn, defaultOptions);
 
-        breaker.on('open', () => logger.warn(`Circuito ABIERTO en ${breakerName}. Rechazando peticiones.`));
-        breaker.on('halfOpen', () => logger.log(`Circuito MEDIO ABIERTO en ${breakerName}. Probando conexión...`));
-        breaker.on('close', () => logger.log(`Circuito CERRADO en ${breakerName}. Tráfico normal.`));
+        breaker.on('open', () => {
+          logger.warn(`Circuito ABIERTO en ${breakerName}. Rechazando peticiones.`);
+          circuitStateGauge.set({ breaker: breakerName }, 1);
+        });
+        breaker.on('halfOpen', () => {
+          logger.log(`Circuito MEDIO ABIERTO en ${breakerName}. Probando conexión...`);
+          circuitStateGauge.set({ breaker: breakerName }, 0.5);
+        });
+        breaker.on('close', () => {
+          logger.log(`Circuito CERRADO en ${breakerName}. Tráfico normal.`);
+          circuitStateGauge.set({ breaker: breakerName }, 0);
+        });
         breaker.on('fallback', () => logger.warn(`Fallback ejecutado en ${breakerName}`));
 
+        // Estado inicial: CLOSED, para que el gauge sea visible desde el arranque.
+        circuitStateGauge.set({ breaker: breakerName }, 0);
         CIRCUIT_BREAKER_REGISTRY.set(breakerName, breaker);
       }
 

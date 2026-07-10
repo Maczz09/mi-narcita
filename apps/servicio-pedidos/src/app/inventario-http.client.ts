@@ -4,7 +4,7 @@ import {
   ServiceUnavailableException,
   InternalServerErrorException,
 } from '@nestjs/common';
-import { getOrCreateCounter, getOrCreateGauge } from '@org/observabilidad';
+import { getOrCreateCounter } from '@org/observabilidad';
 import { ServiceTokenService } from '@org/shared-auth';
 import { CircuitBreakerOptions } from '@org/resiliencia';
 import axios from 'axios';
@@ -32,9 +32,6 @@ export class InventarioHttpClient {
 
   private readonly erpTimeoutCounter = getOrCreateCounter(
     'erp_timeout_rate_total', 'Timeout errors from ERP (Inventory)'
-  );
-  private readonly circuitBreakerGauge = getOrCreateGauge(
-    'circuit_breaker_state', 'Circuit breaker state (0=CLOSED, 1=OPEN)', ['dependency']
   );
 
   constructor(private readonly serviceTokenService: ServiceTokenService) {}
@@ -75,10 +72,8 @@ export class InventarioHttpClient {
     } catch (error: unknown) {
       const axiosError = error as { response?: { status: number }; code?: string; message?: string };
       if (axiosError.code === 'EOPENBREAKER') {
-        this.circuitBreakerGauge.labels('inventario').set(1);
         throw new ServiceUnavailableException('El servicio de inventario no está disponible (circuito abierto).');
       }
-      this.circuitBreakerGauge.labels('inventario').set(0);
 
       if (axiosError.code === 'ECONNABORTED' || axiosError.code === 'ETIMEDOUT') {
         this.erpTimeoutCounter.inc();
