@@ -29,6 +29,11 @@ export class RabbitMQRetryInterceptor implements NestInterceptor {
   private readonly dlqMessagesCounter = getOrCreateCounter(
     'dlq_messages_total', 'Mensajes RabbitMQ enviados a la dead-letter queue tras agotar reintentos',
   );
+  // Reintentos ejecutados por superficie (broker aquí; http en R-16). Detecta
+  // amplificación de reintentos.
+  private readonly retryCounter = getOrCreateCounter(
+    'retry_attempts_total', 'Reintentos ejecutados', ['surface'],
+  );
 
   intercept(executionContext: ExecutionContext, next: CallHandler): Observable<unknown> {
     const ctxType = executionContext.getType();
@@ -78,6 +83,7 @@ export class RabbitMQRetryInterceptor implements NestInterceptor {
             return throwError(() => error);
           }
 
+          this.retryCounter.inc({ surface: 'broker' });
           const delayMs = backoffConJitter(retryCount, initialDelay);
           this.logger.warn(
             `Fallo en el consumidor. Reintento ${retryCount}/${maxRetries} en ${delayMs}ms. Error: ${error.message}`
