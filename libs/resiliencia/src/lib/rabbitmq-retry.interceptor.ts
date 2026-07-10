@@ -5,6 +5,15 @@ import { RmqContext } from '@nestjs/microservices';
 import { context, propagation } from '@opentelemetry/api';
 import { getOrCreateCounter, getOrCreateHistogram } from '@org/observabilidad';
 
+/**
+ * Backoff exponencial + jitter (evita reintentos sincronizados entre réplicas).
+ * delayMs ∈ [base, base + initialDelay) con base = initialDelay * 2**(retryCount-1).
+ */
+export function backoffConJitter(retryCount: number, initialDelay: number): number {
+  const base = initialDelay * Math.pow(2, retryCount - 1);
+  return base + Math.floor(Math.random() * initialDelay);
+}
+
 @Injectable()
 export class RabbitMQRetryInterceptor implements NestInterceptor {
   private readonly logger = new Logger(RabbitMQRetryInterceptor.name);
@@ -69,7 +78,7 @@ export class RabbitMQRetryInterceptor implements NestInterceptor {
             return throwError(() => error);
           }
 
-          const delayMs = initialDelay * Math.pow(2, retryCount - 1);
+          const delayMs = backoffConJitter(retryCount, initialDelay);
           this.logger.warn(
             `Fallo en el consumidor. Reintento ${retryCount}/${maxRetries} en ${delayMs}ms. Error: ${error.message}`
           );
