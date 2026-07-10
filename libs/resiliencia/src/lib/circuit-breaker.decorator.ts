@@ -1,8 +1,17 @@
 import { Logger } from '@nestjs/common';
 import CircuitBreaker from 'opossum';
-import { getOrCreateGauge } from '@org/observabilidad';
+import { getOrCreateGauge, getOrCreateHistogram } from '@org/observabilidad';
 
 export const CIRCUIT_BREAKER_REGISTRY = new Map<string, CircuitBreaker>();
+
+// Latencia de toda llamada con breaker → p95/p99 por dependencia desde un único
+// sitio. opossum no abre por percentil (R-17), pero aquí queda medido/alertable.
+const dependencyDuration = getOrCreateHistogram(
+  'dependency_request_duration_seconds',
+  'Latencia de llamadas a dependencias con breaker',
+  [0.05, 0.1, 0.3, 0.5, 1, 2, 3, 5, 10],
+  ['breaker'],
+);
 
 // Estado del circuito por breaker, dirigido por los eventos de opossum (refleja
 // también HALF_OPEN, cosa que un set manual 1/0 en el cliente no puede).
@@ -56,7 +65,12 @@ export function CircuitBreakerOptions(options?: CircuitBreaker.Options) {
         CIRCUIT_BREAKER_REGISTRY.set(breakerName, breaker);
       }
 
-      return breaker.fire(...args);
+      const start = Date.now();
+      try {
+        return await breaker.fire(...args);
+      } finally {
+        dependencyDuration.observe({ breaker: breakerName }, (Date.now() - start) / 1000);
+      }
     };
 
     return descriptor;

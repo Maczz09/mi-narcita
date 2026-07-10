@@ -14,6 +14,13 @@ class Dummy {
   }
 }
 
+class DummyOk {
+  @CircuitBreakerOptions({ timeout: 100 })
+  async llamar(): Promise<string> {
+    return 'ok';
+  }
+}
+
 function estadoGauge(breaker: string): number | undefined {
   const gauge = register.getSingleMetric('circuit_breaker_state') as Gauge<string> | undefined;
   const val = (gauge as unknown as { hashMap: Record<string, { value: number; labels: { breaker: string } }> })?.hashMap;
@@ -47,5 +54,17 @@ describe('CircuitBreakerOptions — gauge circuit_breaker_state (R-04)', () => {
 
     breaker.emit('close');
     expect(estadoGauge(breakerName)).toBe(0);
+  });
+
+  it('R-05: registra la latencia en dependency_request_duration_seconds por breaker', async () => {
+    const dummy = new DummyOk();
+    await expect(dummy.llamar()).resolves.toBe('ok');
+
+    const hist = register.getSingleMetric('dependency_request_duration_seconds')!;
+    const data = await hist.get();
+    const count = data.values.find(
+      (v) => v.metricName?.endsWith('_count') && v.labels.breaker === 'DummyOk.llamar',
+    )?.value;
+    expect(count).toBeGreaterThanOrEqual(1);
   });
 });
