@@ -46,6 +46,22 @@ describe('createBulkhead (R-11)', () => {
     expect(bh.httpsAgent.maxSockets).toBe(7);
   });
 
+  it('R-12: pools independientes — saturar un bulkhead no rechaza a otro', async () => {
+    const inventario = createBulkhead('inv-indep', { maxConcurrent: 1, maxQueue: 0 });
+    const cuentas = createBulkhead('cta-indep', { maxConcurrent: 1, maxQueue: 0 });
+    const bloqueo = deferred<string>();
+
+    // Satura el pool de inventario con una llamada que no resuelve.
+    const inv1 = inventario.run(() => bloqueo.promise);
+    await expect(inventario.run(() => Promise.resolve('x'))).rejects.toBeInstanceOf(ServiceUnavailableException);
+
+    // El pool de cuentas sigue disponible pese a inventario saturado.
+    await expect(cuentas.run(() => Promise.resolve('ok-cuentas'))).resolves.toBe('ok-cuentas');
+
+    bloqueo.resolve('fin');
+    await inv1;
+  });
+
   it('libera capacidad al resolver: tras vaciarse admite nuevas llamadas', async () => {
     const bh = createBulkhead('bh-test-3', { maxConcurrent: 1, maxQueue: 0 });
     await expect(bh.run(() => Promise.resolve('x'))).resolves.toBe('x');

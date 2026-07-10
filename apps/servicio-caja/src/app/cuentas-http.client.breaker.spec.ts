@@ -41,7 +41,7 @@ describe('CuentasHttpClient.cerrarCuenta — circuit breaker (R-03)', () => {
       await expect(client.cerrarCuenta('cuenta-1', 0)).rejects.toBeDefined();
     }
 
-    const breaker = CIRCUIT_BREAKER_REGISTRY.get('CuentasHttpClient.cerrarCuenta');
+    const breaker = CIRCUIT_BREAKER_REGISTRY.get('CuentasHttpClient.cerrarCuentaConBreaker');
     expect(breaker?.opened).toBe(true);
 
     const llamadasAntes = postSpy.mock.calls.length;
@@ -60,7 +60,7 @@ describe('CuentasHttpClient.cerrarCuenta — circuit breaker (R-03)', () => {
       await expect(client.cerrarCuenta('cuenta-1', 0)).rejects.toBeDefined();
     }
 
-    const breaker = CIRCUIT_BREAKER_REGISTRY.get('CuentasHttpClient.cerrarCuenta');
+    const breaker = CIRCUIT_BREAKER_REGISTRY.get('CuentasHttpClient.cerrarCuentaConBreaker');
     expect(breaker?.opened).toBe(false);
   });
 });

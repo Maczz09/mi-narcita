@@ -6,7 +6,7 @@ import {
 } from '@nestjs/common';
 import { getOrCreateCounter } from '@org/observabilidad';
 import { ServiceTokenService } from '@org/shared-auth';
-import { CircuitBreakerOptions } from '@org/resiliencia';
+import { CircuitBreakerOptions, createBulkhead } from '@org/resiliencia';
 import axios from 'axios';
 
 export interface ProductoRemotoLote {
@@ -33,6 +33,11 @@ export class InventarioHttpClient {
   private readonly timeoutCounter = getOrCreateCounter(
     'dependency_timeout_total', 'Timeouts en llamadas a dependencias con breaker', ['dependency'],
   );
+  // Bulkhead outbound: pool de sockets/concurrencia aislado para inventario.
+  private readonly bulkhead = createBulkhead('inventario', {
+    maxConcurrent: Number(process.env['INVENTARIO_POOL_MAX'] ?? 10),
+    maxQueue: Number(process.env['INVENTARIO_POOL_MAX'] ?? 10),
+  });
 
   constructor(private readonly serviceTokenService: ServiceTokenService) {}
 
@@ -54,6 +59,8 @@ export class InventarioHttpClient {
       {
         timeout: this.HTTP_TIMEOUT_MS,
         headers: { Authorization: `Bearer ${token}` },
+        httpAgent: this.bulkhead.httpAgent,
+        httpsAgent: this.bulkhead.httpsAgent,
       },
     );
     return Array.isArray(data) ? data : ((data as { productos?: ProductoRemotoLote[] }).productos ?? []);
@@ -68,8 +75,11 @@ export class InventarioHttpClient {
     }
 
     try {
-      return await this.fetchProductosLote(ids, token);
+      // Bulkhead por fuera del breaker: aísla el recurso antes de fallar rápido.
+      return await this.bulkhead.run(() => this.fetchProductosLote(ids, token));
     } catch (error: unknown) {
+      // Shed load del bulkhead (503): propaga tal cual, no lo degrades a 500.
+      if (error instanceof ServiceUnavailableException) throw error;
       const axiosError = error as { response?: { status: number }; code?: string; message?: string };
       if (axiosError.code === 'EOPENBREAKER') {
         throw new ServiceUnavailableException('El servicio de inventario no está disponible (circuito abierto).');

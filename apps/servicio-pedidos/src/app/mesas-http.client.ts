@@ -7,7 +7,7 @@ import {
 } from '@nestjs/common';
 import { getOrCreateCounter } from '@org/observabilidad';
 import { ServiceTokenService } from '@org/shared-auth';
-import { CircuitBreakerOptions } from '@org/resiliencia';
+import { CircuitBreakerOptions, createBulkhead } from '@org/resiliencia';
 import axios from 'axios';
 
 export interface MesaRemota {
@@ -29,6 +29,11 @@ export class MesasHttpClient {
   private readonly timeoutCounter = getOrCreateCounter(
     'dependency_timeout_total', 'Timeouts en llamadas a dependencias con breaker', ['dependency'],
   );
+  // Bulkhead outbound: pool de sockets/concurrencia aislado para mesas.
+  private readonly bulkhead = createBulkhead('mesas', {
+    maxConcurrent: Number(process.env['MESAS_POOL_MAX'] ?? 10),
+    maxQueue: Number(process.env['MESAS_POOL_MAX'] ?? 10),
+  });
 
   constructor(private readonly serviceTokenService: ServiceTokenService) {}
 
@@ -47,6 +52,8 @@ export class MesasHttpClient {
     const { data } = await axios.get<MesaRemota>(`${this.MESAS_URL}/${mesaId}`, {
       timeout: this.HTTP_TIMEOUT_MS,
       headers: { Authorization: `Bearer ${token}` },
+      httpAgent: this.bulkhead.httpAgent,
+      httpsAgent: this.bulkhead.httpsAgent,
     });
     return data;
   }
@@ -60,8 +67,11 @@ export class MesasHttpClient {
     }
 
     try {
-      return await this.fetchMesaRemota(mesaId, token);
+      // Bulkhead por fuera del breaker: aísla el recurso antes de fallar rápido.
+      return await this.bulkhead.run(() => this.fetchMesaRemota(mesaId, token));
     } catch (error: unknown) {
+      // Shed load del bulkhead (503): propaga tal cual.
+      if (error instanceof ServiceUnavailableException) throw error;
       const axiosError = error as { response?: { status: number }; code?: string; message?: string };
       if (axiosError.response?.status === 404) {
         throw new NotFoundException(`La mesa con ID ${mesaId} no existe o no está sincronizada.`);
