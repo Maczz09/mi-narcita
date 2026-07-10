@@ -62,7 +62,8 @@ describe('CircuitBreakerOptions — gauge circuit_breaker_state (R-04)', () => {
 
     const hist = register.getSingleMetric('dependency_request_duration_seconds')!;
     const data = await hist.get();
-    const count = data.values.find(
+    const values = data.values as Array<{ metricName?: string; labels: { breaker?: string }; value: number }>;
+    const count = values.find(
       (v) => v.metricName?.endsWith('_count') && v.labels.breaker === 'DummyOk.llamar',
     )?.value;
     expect(count).toBeGreaterThanOrEqual(1);
