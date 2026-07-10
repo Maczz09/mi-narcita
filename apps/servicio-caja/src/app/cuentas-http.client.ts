@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { getOrCreateCounter } from '@org/observabilidad';
 import { ServiceTokenService } from '@org/shared-auth';
-import { CircuitBreakerOptions, createBulkhead } from '@org/resiliencia';
+import { CircuitBreakerOptions, createBulkhead, retryAsync } from '@org/resiliencia';
 import axios from 'axios';
 
 export interface CuentaRemota {
@@ -65,12 +65,17 @@ export class CuentasHttpClient {
   })
   private async fetchCuentaConBreaker(cuentaId: string): Promise<CuentaRemota> {
     try {
-      const res = await axios.get<CuentaRemota>(`${this.CUENTAS_URL}/${cuentaId}`, {
-        timeout: this.READ_TIMEOUT_MS,
-        headers: { Authorization: `Bearer ${this.getServiceToken()}` },
-        httpAgent: this.bulkhead.httpAgent,
-        httpsAgent: this.bulkhead.httpsAgent,
-      });
+      // R-16: GET idempotente → 1 retry ante 5xx/red transitorio (nunca 4xx).
+      const res = await retryAsync(
+        () =>
+          axios.get<CuentaRemota>(`${this.CUENTAS_URL}/${cuentaId}`, {
+            timeout: this.READ_TIMEOUT_MS,
+            headers: { Authorization: `Bearer ${this.getServiceToken()}` },
+            httpAgent: this.bulkhead.httpAgent,
+            httpsAgent: this.bulkhead.httpsAgent,
+          }),
+        { retries: 1, baseMs: 250 },
+      );
       return res.data;
     } catch (error) {
       this.contarTimeout(error);

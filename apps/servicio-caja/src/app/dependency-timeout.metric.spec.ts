@@ -31,7 +31,8 @@ describe('dependency_timeout_total — cuentas (R-06)', () => {
 
   it('fetchCuenta: un timeout incrementa el contador con dependency=cuentas', async () => {
     const antes = timeoutCount('cuentas');
-    mockedAxios.get.mockRejectedValueOnce({ code: 'ECONNABORTED' });
+    // GET se reintenta (R-16): ambos intentos deben fallar para contar el timeout.
+    mockedAxios.get.mockRejectedValue({ code: 'ECONNABORTED' });
     const client = new CuentasHttpClient(tokenService);
 
     await expect(client.fetchCuenta('cuenta-1')).rejects.toBeDefined();

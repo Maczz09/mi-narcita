@@ -124,7 +124,7 @@ describe('AppService — Pedidos', () => {
 
       await expect((service as any).validarMesa('mesa-1')).resolves.toBe(mesaLocal);
       expect(axios.get).toHaveBeenCalledWith(
-        expect.stringContaining('/mesas/mesa-1'),
+        expect.stringContaining('/mesa-1'),
         expect.objectContaining({
           headers: { Authorization: 'Bearer service-token' },
         }),

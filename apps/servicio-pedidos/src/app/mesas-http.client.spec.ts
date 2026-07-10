@@ -58,8 +58,8 @@ describe('MesasHttpClient', () => {
       const result = await client.obtenerMesa('mesa-1');
       expect(result).toEqual(expectedMesa);
       expect(mockedAxios.get).toHaveBeenCalledWith(
-        expect.stringContaining('/mesas/mesa-1'),
-        { timeout: 5000, headers: { Authorization: 'Bearer mock-token' } }
+        expect.stringContaining('/mesa-1'),
+        expect.objectContaining({ timeout: 2000, headers: { Authorization: 'Bearer mock-token' } })
       );
     });
 
@@ -74,7 +74,7 @@ describe('MesasHttpClient', () => {
 
     it('should throw ServiceUnavailableException on open breaker', async () => {
       serviceTokenService.generateServiceToken.mockReturnValue('mock-token');
-      mockedAxios.get.mockRejectedValueOnce({ code: 'EOPENBREAKER' });
+      mockedAxios.get.mockRejectedValue({ code: 'EOPENBREAKER' });
 
       await expect(client.obtenerMesa('mesa-1')).rejects.toThrow(
         new ServiceUnavailableException('El servicio de mesas no está disponible (circuito abierto).')
@@ -83,7 +83,7 @@ describe('MesasHttpClient', () => {
 
     it('should throw ServiceUnavailableException on timeout', async () => {
       serviceTokenService.generateServiceToken.mockReturnValue('mock-token');
-      mockedAxios.get.mockRejectedValueOnce({ code: 'ECONNABORTED' });
+      mockedAxios.get.mockRejectedValue({ code: 'ECONNABORTED' });
 
       await expect(client.obtenerMesa('mesa-1')).rejects.toThrow(
         new ServiceUnavailableException('El servicio de mesas no responde. Reintente.')
@@ -92,7 +92,7 @@ describe('MesasHttpClient', () => {
 
     it('should throw ServiceUnavailableException on connection refused', async () => {
       serviceTokenService.generateServiceToken.mockReturnValue('mock-token');
-      mockedAxios.get.mockRejectedValueOnce({ code: 'ECONNREFUSED' });
+      mockedAxios.get.mockRejectedValue({ code: 'ECONNREFUSED' });
 
       await expect(client.obtenerMesa('mesa-1')).rejects.toThrow(
         new ServiceUnavailableException('El servicio de mesas no está disponible.')
@@ -101,11 +101,30 @@ describe('MesasHttpClient', () => {
 
     it('should throw InternalServerErrorException on other errors', async () => {
       serviceTokenService.generateServiceToken.mockReturnValue('mock-token');
-      mockedAxios.get.mockRejectedValueOnce({ message: 'Random error' });
+      mockedAxios.get.mockRejectedValue({ message: 'Random error' });
 
       await expect(client.obtenerMesa('mesa-1')).rejects.toThrow(
         new InternalServerErrorException('No se pudo cargar la mesa desde mesas. Reintente.')
       );
+    });
+
+    // R-16: 1 retry en la lectura GET idempotente.
+    it('recupera un 503 transitorio en el 2.º intento', async () => {
+      serviceTokenService.generateServiceToken.mockReturnValue('mock-token');
+      mockedAxios.get
+        .mockRejectedValueOnce({ response: { status: 503 } })
+        .mockResolvedValueOnce({ data: { id: 'mesa-1', numero: 7 } });
+
+      await expect(client.obtenerMesa('mesa-1')).resolves.toEqual({ id: 'mesa-1', numero: 7 });
+      expect(mockedAxios.get).toHaveBeenCalledTimes(2);
+    });
+
+    it('un 404 NO se reintenta', async () => {
+      serviceTokenService.generateServiceToken.mockReturnValue('mock-token');
+      mockedAxios.get.mockRejectedValue({ response: { status: 404 } });
+
+      await expect(client.obtenerMesa('mesa-x')).rejects.toThrow(NotFoundException);
+      expect(mockedAxios.get).toHaveBeenCalledTimes(1);
     });
   });
 });

@@ -7,7 +7,7 @@ import {
 } from '@nestjs/common';
 import { getOrCreateCounter } from '@org/observabilidad';
 import { ServiceTokenService } from '@org/shared-auth';
-import { CircuitBreakerOptions, createBulkhead } from '@org/resiliencia';
+import { CircuitBreakerOptions, createBulkhead, retryAsync } from '@org/resiliencia';
 import axios from 'axios';
 
 export interface MesaRemota {
@@ -50,12 +50,18 @@ export class MesasHttpClient {
       Boolean(error?.response?.status && error.response.status < 500),
   })
   private async fetchMesaRemota(mesaId: string, token: string): Promise<MesaRemota> {
-    const { data } = await axios.get<MesaRemota>(`${this.MESAS_URL}/${mesaId}`, {
-      timeout: this.READ_TIMEOUT_MS,
-      headers: { Authorization: `Bearer ${token}` },
-      httpAgent: this.bulkhead.httpAgent,
-      httpsAgent: this.bulkhead.httpsAgent,
-    });
+    // R-16: GET idempotente → 1 retry ante 5xx/red transitorio (nunca 4xx).
+    // Retry dentro del breaker: éste cuenta el resultado final, no cada intento.
+    const { data } = await retryAsync(
+      () =>
+        axios.get<MesaRemota>(`${this.MESAS_URL}/${mesaId}`, {
+          timeout: this.READ_TIMEOUT_MS,
+          headers: { Authorization: `Bearer ${token}` },
+          httpAgent: this.bulkhead.httpAgent,
+          httpsAgent: this.bulkhead.httpsAgent,
+        }),
+      { retries: 1, baseMs: 250 },
+    );
     return data;
   }
 

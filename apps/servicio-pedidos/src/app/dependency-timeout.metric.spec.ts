@@ -41,7 +41,8 @@ describe('dependency_timeout_total (R-06)', () => {
 
   it('mesas: un timeout incrementa el contador con dependency=mesas', async () => {
     const antes = timeoutCount('mesas');
-    mockedAxios.get.mockRejectedValueOnce({ code: 'ETIMEDOUT' });
+    // GET se reintenta (R-16): ambos intentos deben fallar para contar el timeout.
+    mockedAxios.get.mockRejectedValue({ code: 'ETIMEDOUT' });
     const client = new MesasHttpClient(tokenService);
 
     await expect(client.obtenerMesa('mesa-1')).rejects.toBeDefined();
