@@ -137,3 +137,34 @@ sum(rate(pedidos_creados_total[5m]))
 | `INVENTARIO_POOL_MAX` / `MESAS_POOL_MAX` / `CUENTAS_POOL_MAX` | 10 | concurrencia + cola del bulkhead por dependencia |
 | `INVENTARIO_TIMEOUT_MS` / `MESAS_TIMEOUT_MS` / `CUENTAS_TIMEOUT_MS` | 2000 | timeout de lectura (breaker = +500 ms) |
 | `CUENTAS_CIERRE_TIMEOUT_MS` | 4000 | timeout de cierre / dinero (breaker = +500 ms) |
+
+---
+
+## 7. Notas de verificación en runtime
+
+Verificado contra el stack Docker completo (2026-07-12): DLQ (round-trip real
+contra RabbitMQ) y `/metrics` con tráfico real vía Kong, incluida la ruta de
+dinero (`cerrarCuentaConBreaker`). Dos hallazgos a tener en cuenta al probar:
+
+1. **Las métricas con labels no aparecen en `/metrics` hasta la primera
+   observación.** `getOrCreateHistogram`/`Counter`/`Gauge` registran el
+   `HELP`/`TYPE` en el arranque, pero `prom-client` no emite ninguna línea de
+   datos para una combinación de labels hasta que se llama `.observe()`/`.inc()`/
+   `.set()` con esa combinación. No es un bug: si `dependency_request_duration_seconds`
+   aparece vacío, falta tráfico real, no falta código.
+2. **El cold-start real es difícil de disparar manualmente.** `servicio-pedidos`
+   consume `mesa.creada`/`producto.creado` por RabbitMQ y sincroniza la
+   proyección local casi al instante — más rápido que crear una mesa/producto y
+   pedir inmediatamente después. Para forzar la llamada remota real (y así
+   ejercitar breaker/bulkhead/retry) hay que borrar la fila de
+   `mesas_local`/`productos_locales` en la DB de pedidos antes de crear el
+   pedido.
+
+**Bug de tooling e2e corregido de paso:** `tools/e2e/kong-axios-setup.ts` firmaba
+el JWT de prueba con `process.env.JWT_PRIVATE_KEY` si estaba presente — pero Nx
+autocarga el `.env` de la raíz (par de claves de **prod**,
+`docker-compose.prod.yml`) en todo `nx run`, que no coincide con el par dev fijo
+de `infra/secrets/jwt-dev.env` que usa el stack local. Resultado: todo test e2e
+autenticado contra el stack dev fallaba con 401 "Invalid signature". Fix: la
+función ya solo acepta el override explícito `E2E_JWT_PRIVATE_KEY`, cayendo por
+defecto a leer la clave real del contenedor `servicio-identidad` en ejecución.
