@@ -94,7 +94,12 @@ function userJwt(): string {
 }
 
 function privateKey(): string {
-  const fromEnv = process.env.E2E_JWT_PRIVATE_KEY ?? process.env.JWT_PRIVATE_KEY;
+  // Solo el override explícito de e2e, NUNCA el JWT_PRIVATE_KEY genérico: ese
+  // nombre lo carga Nx automáticamente desde el `.env` de la raíz, que es el
+  // par de PROD (docker-compose.prod.yml) y NO coincide con el par dev fijo
+  // de infra/secrets/jwt-dev.env que usa el stack local — firmar con el
+  // equivocado produce "Invalid signature" en Kong/servicios.
+  const fromEnv = process.env.E2E_JWT_PRIVATE_KEY;
   if (fromEnv) return normalizePem(fromEnv);
 
   const fromDocker = dockerEnv('nachopps-servicio-identidad', 'JWT_PRIVATE_KEY');
