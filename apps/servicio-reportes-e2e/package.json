@@ -14,7 +14,7 @@
           "{projectRoot}/test-output/jest/coverage"
         ],
         "options": {
-          "jestConfig": "apps/servicio-reportes-e2e/jest.config.cts"
+          "jestConfig": "apps/servicio-reportes-e2e/jest.config.ts"
         }
       }
     }

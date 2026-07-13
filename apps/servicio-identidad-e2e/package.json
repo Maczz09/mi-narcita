@@ -14,7 +14,7 @@
           "{projectRoot}/test-output/jest/coverage"
         ],
         "options": {
-          "jestConfig": "apps/servicio-identidad-e2e/jest.config.cts"
+          "jestConfig": "apps/servicio-identidad-e2e/jest.config.ts"
         }
       }
     }
