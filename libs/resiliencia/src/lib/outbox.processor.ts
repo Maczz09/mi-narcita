@@ -94,7 +94,9 @@ export class OutboxProcessor {
   ) {
     this.producer = config.producer;
     this.maxAttempts = config.maxAttempts ?? 5;
-    this.batchSize = config.batchSize ?? 50;
+    // B-5: el tick de 1 s × batchSize impone un techo de eventos/s por productor
+    // (~50 con el default). Calibrable por env para pruebas de carga de escritura.
+    this.batchSize = config.batchSize ?? Number(process.env.OUTBOX_BATCH_SIZE ?? 50);
     this.retencionProcessedHoras = config.retencionProcessedHoras ?? 24;
     this.retencionFailedHoras = config.retencionFailedHoras ?? 168;
     this.injectEventId = config.injectEventId ?? false;

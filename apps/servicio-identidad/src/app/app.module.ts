@@ -5,11 +5,12 @@ import { PrismaModule } from '../prisma/prisma.module';
 import { OutboxAdminModule, OutboxModule } from '@org/resiliencia';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuthModule } from '../auth/auth.module';
-import { ObservabilidadModule } from '@org/observabilidad';
+import { ObservabilidadModule, HealthModule } from '@org/observabilidad';
 
 @Module({
   imports: [
     ObservabilidadModule,
+    HealthModule.forRoot(PrismaService),
     PrismaModule,
     OutboxAdminModule.forRoot(PrismaService),
     OutboxModule.forService(PrismaService, { producer: 'servicio-identidad' }),

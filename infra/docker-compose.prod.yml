@@ -184,7 +184,7 @@ services:
       REFRESH_TOKEN_TTL_DAYS: ${REFRESH_TOKEN_TTL_DAYS:-7}
       JWT_PRIVATE_KEY: ${JWT_PRIVATE_KEY:?JWT_PRIVATE_KEY es obligatorio en identidad (PEM RS256)}
     healthcheck:
-      test: ['CMD', 'wget', '-qO-', 'http://localhost:3000/api/telemetry/metrics']
+      test: ['CMD', 'wget', '-qO-', 'http://localhost:3000/api/health/live']
       interval: 10s
       timeout: 5s
       retries: 3
@@ -212,7 +212,7 @@ services:
       NODE_ENV: 'production'
       CORS_ORIGIN: ${CORS_ORIGIN:?CORS_ORIGIN es obligatorio, p.ej. https://app.tudominio.com}
     healthcheck:
-      test: ['CMD', 'wget', '-qO-', 'http://localhost:3000/api/telemetry/metrics']
+      test: ['CMD', 'wget', '-qO-', 'http://localhost:3000/api/health/live']
       interval: 10s
       timeout: 5s
       retries: 3
@@ -242,7 +242,7 @@ services:
       NODE_ENV: 'production'
       CORS_ORIGIN: ${CORS_ORIGIN:?CORS_ORIGIN es obligatorio, p.ej. https://app.tudominio.com}
     healthcheck:
-      test: ['CMD', 'wget', '-qO-', 'http://localhost:3000/api/telemetry/metrics']
+      test: ['CMD', 'wget', '-qO-', 'http://localhost:3000/api/health/live']
       interval: 10s
       timeout: 5s
       retries: 3
@@ -271,7 +271,7 @@ services:
       NODE_ENV: 'production'
       CORS_ORIGIN: ${CORS_ORIGIN:?CORS_ORIGIN es obligatorio, p.ej. https://app.tudominio.com}
     healthcheck:
-      test: ['CMD', 'wget', '-qO-', 'http://localhost:3000/api/telemetry/metrics']
+      test: ['CMD', 'wget', '-qO-', 'http://localhost:3000/api/health/live']
       interval: 10s
       timeout: 5s
       retries: 3
@@ -299,7 +299,7 @@ services:
       NODE_ENV: 'production'
       CORS_ORIGIN: ${CORS_ORIGIN:?CORS_ORIGIN es obligatorio, p.ej. https://app.tudominio.com}
     healthcheck:
-      test: ['CMD', 'wget', '-qO-', 'http://localhost:3000/api/telemetry/metrics']
+      test: ['CMD', 'wget', '-qO-', 'http://localhost:3000/api/health/live']
       interval: 10s
       timeout: 5s
       retries: 3
@@ -327,7 +327,7 @@ services:
       NODE_ENV: 'production'
       CORS_ORIGIN: ${CORS_ORIGIN:?CORS_ORIGIN es obligatorio, p.ej. https://app.tudominio.com}
     healthcheck:
-      test: ['CMD', 'wget', '-qO-', 'http://localhost:3000/api/telemetry/metrics']
+      test: ['CMD', 'wget', '-qO-', 'http://localhost:3000/api/health/live']
       interval: 10s
       timeout: 5s
       retries: 3
@@ -355,7 +355,7 @@ services:
       NODE_ENV: 'production'
       CORS_ORIGIN: ${CORS_ORIGIN:?CORS_ORIGIN es obligatorio, p.ej. https://app.tudominio.com}
     healthcheck:
-      test: ['CMD', 'wget', '-qO-', 'http://localhost:3000/api/telemetry/metrics']
+      test: ['CMD', 'wget', '-qO-', 'http://localhost:3000/api/health/live']
       interval: 10s
       timeout: 5s
       retries: 3
@@ -384,7 +384,7 @@ services:
       NODE_ENV: 'production'
       CORS_ORIGIN: ${CORS_ORIGIN:?CORS_ORIGIN es obligatorio, p.ej. https://app.tudominio.com}
     healthcheck:
-      test: ['CMD', 'wget', '-qO-', 'http://localhost:3000/api/telemetry/metrics']
+      test: ['CMD', 'wget', '-qO-', 'http://localhost:3000/api/health/live']
       interval: 10s
       timeout: 5s
       retries: 3
@@ -412,7 +412,7 @@ services:
       NODE_ENV: 'production'
       CORS_ORIGIN: ${CORS_ORIGIN:?CORS_ORIGIN es obligatorio, p.ej. https://app.tudominio.com}
     healthcheck:
-      test: ['CMD', 'wget', '-qO-', 'http://localhost:3000/api/telemetry/metrics']
+      test: ['CMD', 'wget', '-qO-', 'http://localhost:3000/api/health/live']
       interval: 10s
       timeout: 5s
       retries: 3

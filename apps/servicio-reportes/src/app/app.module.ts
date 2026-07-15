@@ -6,7 +6,7 @@ import { AppService } from './app.service';
 import { PrismaModule } from '../prisma/prisma.module';
 import { PrismaService } from '../prisma/prisma.service';
 import { RabbitMQModule } from '@org/shared-rabbitmq';
-import { ObservabilidadModule } from '@org/observabilidad';
+import { ObservabilidadModule, HealthModule } from '@org/observabilidad';
 import { IdempotencyPurgeModule } from '@org/resiliencia';
 import { RoutingKeys } from '@org/contracts';
 import { SharedAuthModule, JwtAuthGuard } from '@org/shared-auth';
@@ -22,7 +22,8 @@ import { SharedAuthModule, JwtAuthGuard } from '@org/shared-auth';
       queue: 'reportes_queue',
       bindings: [RoutingKeys.CuentaCerrada]
     }),
-    ObservabilidadModule
+    ObservabilidadModule,
+    HealthModule.forRoot(PrismaService),
   ],
   controllers: [AppController],
   providers: [

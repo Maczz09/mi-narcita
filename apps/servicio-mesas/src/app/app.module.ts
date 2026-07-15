@@ -8,12 +8,13 @@ import { PrismaModule } from '../prisma/prisma.module';
 import { OutboxAdminModule, OutboxModule, IdempotencyPurgeModule } from '@org/resiliencia';
 import { PrismaService } from '../prisma/prisma.service';
 import { RabbitMQModule } from '@org/shared-rabbitmq';
-import { ObservabilidadModule } from '@org/observabilidad';
+import { ObservabilidadModule, HealthModule } from '@org/observabilidad';
 import { SharedAuthModule, JwtAuthGuard } from '@org/shared-auth';
 
 @Module({
   imports: [
     ObservabilidadModule,
+    HealthModule.forRoot(PrismaService),
     SharedAuthModule,
     PrismaModule,
     OutboxAdminModule.forRoot(PrismaService),

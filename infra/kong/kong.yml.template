@@ -58,6 +58,15 @@ plugins:
       max_entries: 10000
       degraded_mode: true
 
+  # A-3 (auditoría de carga): expone métricas del gateway en :8001/metrics —
+  # única forma de ver los 429 del rate-limiting y la latencia añadida por Kong.
+  - name: prometheus
+    config:
+      status_code_metrics: true
+      latency_metrics: true
+      bandwidth_metrics: false
+      upstream_health_metrics: true
+
 # ── Consumers (JWT) ──────────────────────────────────────────────
 
 consumers:

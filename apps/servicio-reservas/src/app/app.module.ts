@@ -7,12 +7,13 @@ import { OutboxAdminModule, OutboxModule } from '@org/resiliencia';
 import { PrismaService } from '../prisma/prisma.service';
 import { AppController } from './app.controller';
 import { ReservasService } from './reservas.service';
-import { ObservabilidadModule } from '@org/observabilidad';
+import { ObservabilidadModule, HealthModule } from '@org/observabilidad';
 import { SharedAuthModule, JwtAuthGuard } from '@org/shared-auth';
 
 @Module({
   imports: [
     ObservabilidadModule,
+    HealthModule.forRoot(PrismaService),
     SharedAuthModule,
     PrismaModule,
     OutboxAdminModule.forRoot(PrismaService),

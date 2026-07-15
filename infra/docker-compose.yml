@@ -10,12 +10,20 @@ services:
   rabbitmq:
     image: rabbitmq:3-management
     container_name: nachopps-rabbitmq
+    # A-4: sin mem_limit el memory watermark del broker (40 % de la RAM) depende
+    # del host → backpressure irreproducible en pruebas. 1g fija el umbral en ~400MB.
+    mem_limit: 1g
+    restart: unless-stopped # la VM de Docker Desktop murió bajo carga: el broker debe autolevantar
     ports:
       - '5672:5672'
       - '15672:15672'
+      - '15692:15692' # A-2: métricas Prometheus del broker
     environment:
       RABBITMQ_DEFAULT_USER: nachopps
       RABBITMQ_DEFAULT_PASS: nachopps_secret
+    volumes:
+      # A-2: habilita rabbitmq_prometheus (profundidad de colas/DLQ visible en Grafana)
+      - ./rabbitmq/enabled_plugins:/etc/rabbitmq/enabled_plugins:ro
     profiles: ['infra', 'all', 'dev']
     healthcheck:
       test: ['CMD', 'rabbitmq-diagnostics', 'check_running']
@@ -33,6 +41,12 @@ services:
       POSTGRES_DB: reservas_db
     ports: ['5441:5432']
     profiles: ['infra', 'all', 'dev']
+    # Hallazgo de carga (2026-07-13): sin restart, una caída por presión de
+    # memoria del host deja al servicio dueño en loop de "Database not ready"
+    # indefinido — el resto del stack sí se autorecupera, la BD no lo hacía.
+    # mem_limit contiene el fallo a UN contenedor en vez de arrastrar a los 9.
+    restart: unless-stopped
+    mem_limit: 512m
     volumes:
       - nachopps-db-reservas:/var/lib/postgresql/data
     healthcheck:
@@ -50,6 +64,8 @@ services:
       POSTGRES_DB: mesas_db
     ports: ['5433:5432']
     profiles: ['infra', 'all', 'dev']
+    restart: unless-stopped
+    mem_limit: 512m
     volumes:
       - nachopps-db-mesas:/var/lib/postgresql/data
     healthcheck:
@@ -67,6 +83,8 @@ services:
       POSTGRES_DB: pedidos_db
     ports: ['5434:5432']
     profiles: ['infra', 'all', 'dev']
+    restart: unless-stopped
+    mem_limit: 512m
     volumes:
       - nachopps-db-pedidos:/var/lib/postgresql/data
     healthcheck:
@@ -84,6 +102,8 @@ services:
       POSTGRES_DB: cuentas_db
     ports: ['5435:5432']
     profiles: ['infra', 'all', 'dev']
+    restart: unless-stopped
+    mem_limit: 512m
     volumes:
       - nachopps-db-cuentas:/var/lib/postgresql/data
     healthcheck:
@@ -101,6 +121,8 @@ services:
       POSTGRES_DB: inventario_db
     ports: ['5436:5432']
     profiles: ['infra', 'all', 'dev']
+    restart: unless-stopped
+    mem_limit: 512m
     volumes:
       - nachopps-db-inventario:/var/lib/postgresql/data
     healthcheck:
@@ -118,6 +140,8 @@ services:
       POSTGRES_DB: reportes_db
     ports: ['5438:5432']
     profiles: ['infra', 'all', 'dev']
+    restart: unless-stopped
+    mem_limit: 512m
     volumes:
       - nachopps-db-reportes:/var/lib/postgresql/data
     healthcheck:
@@ -135,6 +159,8 @@ services:
       POSTGRES_DB: caja_db
     ports: ['5437:5432']
     profiles: ['infra', 'all', 'dev']
+    restart: unless-stopped
+    mem_limit: 512m
     volumes:
       - nachopps-db-caja:/var/lib/postgresql/data
     healthcheck:
@@ -152,6 +178,8 @@ services:
       POSTGRES_DB: identidad_db
     ports: ['5439:5432']
     profiles: ['infra', 'all', 'dev']
+    restart: unless-stopped
+    mem_limit: 512m
     volumes:
       - nachopps-db-identidad:/var/lib/postgresql/data
     healthcheck:
@@ -169,6 +197,8 @@ services:
       POSTGRES_DB: notificaciones_db
     ports: ['5440:5432']
     profiles: ['infra', 'all', 'dev']
+    restart: unless-stopped
+    mem_limit: 512m
     volumes:
       - nachopps-db-notificaciones:/var/lib/postgresql/data
     healthcheck:
@@ -187,6 +217,32 @@ services:
     env_file: *jwt_dev_env
     environment:
       PORT: '3000'
+      NODE_OPTIONS: '--max-old-space-size=400'
+      # Hallazgo de carga (2026-07-13): prefetch 20 > pool pg de 10 → bajo
+      # tormenta de eventos (pedidos L1) los consumidores no consiguen iniciar
+      # transacción (P2028), agotan los 3 reintentos y mandan miles de mensajes
+      # a la DLQ. Con 5, los mensajes esperan en el broker (backpressure
+      # durable) en vez de morir: en vuelo ≤ 5 conexiones, quedan 5 para HTTP.
+      RMQ_PREFETCH: '5'
+      # Hallazgo de carga (2026-07-13): con pool=10, 1000 escrituras concurrentes
+      # → P2028 (transacción no consigue conexión) → ~10k respuestas 500 en L1.
+      # 25 por servicio deja margen amplio frente a max_connections=100 de su
+      # Postgres dedicado (1 servicio por BD + crons de outbox/purga).
+      PG_POOL_MAX: '40'
+      # Medido en L1 final: con maxWait 10s quedaba un tail de 5.4% de P2028 en
+      # pedidos (~150 escritores concurrentes). 30s convierte ese tail en
+      # respuestas lentas (backpressure) en vez de 500; 40 conexiones suben el
+      # ritmo de servicio de tx (Postgres dedicado: max_connections=100).
+      PG_TX_MAXWAIT_MS: '30000'
+      # Medido: el connectionTimeoutMillis del pg.Pool (5s, B-1) salta ANTES que
+      # el maxWait de Prisma cuando los GETs concurrentes retienen las 40
+      # conexiones (sort de listados sin índice) → P2028 en escrituras. En
+      # sesión de carga: esperar = backpressure; 5s solo tiene sentido con
+      # tráfico normal.
+      PG_POOL_CONN_TIMEOUT_MS: '30000'
+      # B-5: 200 ev/s de drenado por productor (el default de 50 dejaba backlogs
+      # de >10 min tras ráfagas de escritura de los niveles L2/L3).
+      OUTBOX_BATCH_SIZE: '200'
       DATABASE_URL: 'postgresql://nachopps:secret@db-identidad:5432/identidad_db?schema=public'
       SERVICE_NAME: 'servicio-identidad'
       SERVICE_AUD_ENFORCE: 'true'
@@ -194,13 +250,27 @@ services:
       OTEL_EXPORTER_OTLP_ENDPOINT: 'http://otel-collector:4318'
       SERVICE_JWT_SECRET: 'nachopps_service_secret_dev'
       CORS_ORIGIN: 'http://localhost:4200'
-      JWT_EXPIRES_IN: '15m'
+      # Parametrizable: la suite k6 (stress-tests/k6) sube esto en la sesión de
+      # pruebas (JWT_EXPIRES_IN=60m) para que el token no caduque a mitad de un
+      # run L2/L3 largo. Default sin cambios para uso normal.
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-15m}
       REFRESH_TOKEN_TTL_DAYS: '7'
       COOKIE_SECURE: 'false'
       COOKIE_SAMESITE: 'strict'
     profiles: ['all']
+    restart: unless-stopped # A-4: paridad con prod; `docker compose stop` manual sigue funcionando
+    # Hallazgo de carga (2026-07-13): sin mem_limit, un contenedor que crece
+    # bajo saturación puede agotar el presupuesto compartido de la VM de Docker
+    # Desktop (~7.7GB) y arrastrar a los 9 Postgres consigo (visto en runtime:
+    # los 9 db-* murieron a la vez, exit 255, sin OOM de cgroup individual).
+    # 512m×9 servicios: la suma debe caber en la VM de Docker Desktop (~7.7GB);
+    # con 768m la VM entera murió dos veces bajo L1 de pedidos (fan-out de
+    # escrituras). NODE_OPTIONS fuerza a V8 a hacer GC antes del cap del cgroup
+    # (V8 no siempre respeta límites de contenedor) → presión de GC en vez de
+    # OOM-kill.
+    mem_limit: 512m
     healthcheck:
-      test: ['CMD', 'wget', '-qO-', 'http://localhost:3000/api/telemetry/metrics']
+      test: ['CMD', 'wget', '-qO-', 'http://localhost:3000/api/health/live']
       interval: 10s
       timeout: 5s
       retries: 5
@@ -218,6 +288,32 @@ services:
     env_file: *jwt_dev_env
     environment:
       PORT: '3000'
+      NODE_OPTIONS: '--max-old-space-size=400'
+      # Hallazgo de carga (2026-07-13): prefetch 20 > pool pg de 10 → bajo
+      # tormenta de eventos (pedidos L1) los consumidores no consiguen iniciar
+      # transacción (P2028), agotan los 3 reintentos y mandan miles de mensajes
+      # a la DLQ. Con 5, los mensajes esperan en el broker (backpressure
+      # durable) en vez de morir: en vuelo ≤ 5 conexiones, quedan 5 para HTTP.
+      RMQ_PREFETCH: '5'
+      # Hallazgo de carga (2026-07-13): con pool=10, 1000 escrituras concurrentes
+      # → P2028 (transacción no consigue conexión) → ~10k respuestas 500 en L1.
+      # 25 por servicio deja margen amplio frente a max_connections=100 de su
+      # Postgres dedicado (1 servicio por BD + crons de outbox/purga).
+      PG_POOL_MAX: '40'
+      # Medido en L1 final: con maxWait 10s quedaba un tail de 5.4% de P2028 en
+      # pedidos (~150 escritores concurrentes). 30s convierte ese tail en
+      # respuestas lentas (backpressure) en vez de 500; 40 conexiones suben el
+      # ritmo de servicio de tx (Postgres dedicado: max_connections=100).
+      PG_TX_MAXWAIT_MS: '30000'
+      # Medido: el connectionTimeoutMillis del pg.Pool (5s, B-1) salta ANTES que
+      # el maxWait de Prisma cuando los GETs concurrentes retienen las 40
+      # conexiones (sort de listados sin índice) → P2028 en escrituras. En
+      # sesión de carga: esperar = backpressure; 5s solo tiene sentido con
+      # tráfico normal.
+      PG_POOL_CONN_TIMEOUT_MS: '30000'
+      # B-5: 200 ev/s de drenado por productor (el default de 50 dejaba backlogs
+      # de >10 min tras ráfagas de escritura de los niveles L2/L3).
+      OUTBOX_BATCH_SIZE: '200'
       DATABASE_URL: 'postgresql://nachopps:secret@db-mesas:5432/mesas_db?schema=public'
       SERVICE_NAME: 'servicio-mesas'
       SERVICE_AUD_ENFORCE: 'true'
@@ -226,8 +322,19 @@ services:
       SERVICE_JWT_SECRET: 'nachopps_service_secret_dev'
       CORS_ORIGIN: 'http://localhost:4200'
     profiles: ['all']
+    restart: unless-stopped # A-4: paridad con prod; `docker compose stop` manual sigue funcionando
+    # Hallazgo de carga (2026-07-13): sin mem_limit, un contenedor que crece
+    # bajo saturación puede agotar el presupuesto compartido de la VM de Docker
+    # Desktop (~7.7GB) y arrastrar a los 9 Postgres consigo (visto en runtime:
+    # los 9 db-* murieron a la vez, exit 255, sin OOM de cgroup individual).
+    # 512m×9 servicios: la suma debe caber en la VM de Docker Desktop (~7.7GB);
+    # con 768m la VM entera murió dos veces bajo L1 de pedidos (fan-out de
+    # escrituras). NODE_OPTIONS fuerza a V8 a hacer GC antes del cap del cgroup
+    # (V8 no siempre respeta límites de contenedor) → presión de GC en vez de
+    # OOM-kill.
+    mem_limit: 512m
     healthcheck:
-      test: ['CMD', 'wget', '-qO-', 'http://localhost:3000/api/telemetry/metrics']
+      test: ['CMD', 'wget', '-qO-', 'http://localhost:3000/api/health/live']
       interval: 10s
       timeout: 5s
       retries: 5
@@ -245,6 +352,32 @@ services:
     env_file: *jwt_dev_env
     environment:
       PORT: '3000'
+      NODE_OPTIONS: '--max-old-space-size=400'
+      # Hallazgo de carga (2026-07-13): prefetch 20 > pool pg de 10 → bajo
+      # tormenta de eventos (pedidos L1) los consumidores no consiguen iniciar
+      # transacción (P2028), agotan los 3 reintentos y mandan miles de mensajes
+      # a la DLQ. Con 5, los mensajes esperan en el broker (backpressure
+      # durable) en vez de morir: en vuelo ≤ 5 conexiones, quedan 5 para HTTP.
+      RMQ_PREFETCH: '5'
+      # Hallazgo de carga (2026-07-13): con pool=10, 1000 escrituras concurrentes
+      # → P2028 (transacción no consigue conexión) → ~10k respuestas 500 en L1.
+      # 25 por servicio deja margen amplio frente a max_connections=100 de su
+      # Postgres dedicado (1 servicio por BD + crons de outbox/purga).
+      PG_POOL_MAX: '40'
+      # Medido en L1 final: con maxWait 10s quedaba un tail de 5.4% de P2028 en
+      # pedidos (~150 escritores concurrentes). 30s convierte ese tail en
+      # respuestas lentas (backpressure) en vez de 500; 40 conexiones suben el
+      # ritmo de servicio de tx (Postgres dedicado: max_connections=100).
+      PG_TX_MAXWAIT_MS: '30000'
+      # Medido: el connectionTimeoutMillis del pg.Pool (5s, B-1) salta ANTES que
+      # el maxWait de Prisma cuando los GETs concurrentes retienen las 40
+      # conexiones (sort de listados sin índice) → P2028 en escrituras. En
+      # sesión de carga: esperar = backpressure; 5s solo tiene sentido con
+      # tráfico normal.
+      PG_POOL_CONN_TIMEOUT_MS: '30000'
+      # B-5: 200 ev/s de drenado por productor (el default de 50 dejaba backlogs
+      # de >10 min tras ráfagas de escritura de los niveles L2/L3).
+      OUTBOX_BATCH_SIZE: '200'
       DATABASE_URL: 'postgresql://nachopps:secret@db-pedidos:5432/pedidos_db?schema=public'
       SERVICE_NAME: 'servicio-pedidos'
       SERVICE_AUD_ENFORCE: 'true'
@@ -255,8 +388,19 @@ services:
       SERVICE_JWT_SECRET: 'nachopps_service_secret_dev'
       CORS_ORIGIN: 'http://localhost:4200'
     profiles: ['all']
+    restart: unless-stopped # A-4: paridad con prod; `docker compose stop` manual sigue funcionando
+    # Hallazgo de carga (2026-07-13): sin mem_limit, un contenedor que crece
+    # bajo saturación puede agotar el presupuesto compartido de la VM de Docker
+    # Desktop (~7.7GB) y arrastrar a los 9 Postgres consigo (visto en runtime:
+    # los 9 db-* murieron a la vez, exit 255, sin OOM de cgroup individual).
+    # 512m×9 servicios: la suma debe caber en la VM de Docker Desktop (~7.7GB);
+    # con 768m la VM entera murió dos veces bajo L1 de pedidos (fan-out de
+    # escrituras). NODE_OPTIONS fuerza a V8 a hacer GC antes del cap del cgroup
+    # (V8 no siempre respeta límites de contenedor) → presión de GC en vez de
+    # OOM-kill.
+    mem_limit: 512m
     healthcheck:
-      test: ['CMD', 'wget', '-qO-', 'http://localhost:3000/api/telemetry/metrics']
+      test: ['CMD', 'wget', '-qO-', 'http://localhost:3000/api/health/live']
       interval: 10s
       timeout: 5s
       retries: 5
@@ -274,6 +418,32 @@ services:
     env_file: *jwt_dev_env
     environment:
       PORT: '3000'
+      NODE_OPTIONS: '--max-old-space-size=400'
+      # Hallazgo de carga (2026-07-13): prefetch 20 > pool pg de 10 → bajo
+      # tormenta de eventos (pedidos L1) los consumidores no consiguen iniciar
+      # transacción (P2028), agotan los 3 reintentos y mandan miles de mensajes
+      # a la DLQ. Con 5, los mensajes esperan en el broker (backpressure
+      # durable) en vez de morir: en vuelo ≤ 5 conexiones, quedan 5 para HTTP.
+      RMQ_PREFETCH: '5'
+      # Hallazgo de carga (2026-07-13): con pool=10, 1000 escrituras concurrentes
+      # → P2028 (transacción no consigue conexión) → ~10k respuestas 500 en L1.
+      # 25 por servicio deja margen amplio frente a max_connections=100 de su
+      # Postgres dedicado (1 servicio por BD + crons de outbox/purga).
+      PG_POOL_MAX: '40'
+      # Medido en L1 final: con maxWait 10s quedaba un tail de 5.4% de P2028 en
+      # pedidos (~150 escritores concurrentes). 30s convierte ese tail en
+      # respuestas lentas (backpressure) en vez de 500; 40 conexiones suben el
+      # ritmo de servicio de tx (Postgres dedicado: max_connections=100).
+      PG_TX_MAXWAIT_MS: '30000'
+      # Medido: el connectionTimeoutMillis del pg.Pool (5s, B-1) salta ANTES que
+      # el maxWait de Prisma cuando los GETs concurrentes retienen las 40
+      # conexiones (sort de listados sin índice) → P2028 en escrituras. En
+      # sesión de carga: esperar = backpressure; 5s solo tiene sentido con
+      # tráfico normal.
+      PG_POOL_CONN_TIMEOUT_MS: '30000'
+      # B-5: 200 ev/s de drenado por productor (el default de 50 dejaba backlogs
+      # de >10 min tras ráfagas de escritura de los niveles L2/L3).
+      OUTBOX_BATCH_SIZE: '200'
       DATABASE_URL: 'postgresql://nachopps:secret@db-cuentas:5432/cuentas_db?schema=public'
       SERVICE_NAME: 'servicio-cuentas'
       SERVICE_AUD_ENFORCE: 'true'
@@ -283,8 +453,19 @@ services:
       SERVICE_JWT_SECRET: 'nachopps_service_secret_dev'
       CORS_ORIGIN: 'http://localhost:4200'
     profiles: ['all']
+    restart: unless-stopped # A-4: paridad con prod; `docker compose stop` manual sigue funcionando
+    # Hallazgo de carga (2026-07-13): sin mem_limit, un contenedor que crece
+    # bajo saturación puede agotar el presupuesto compartido de la VM de Docker
+    # Desktop (~7.7GB) y arrastrar a los 9 Postgres consigo (visto en runtime:
+    # los 9 db-* murieron a la vez, exit 255, sin OOM de cgroup individual).
+    # 512m×9 servicios: la suma debe caber en la VM de Docker Desktop (~7.7GB);
+    # con 768m la VM entera murió dos veces bajo L1 de pedidos (fan-out de
+    # escrituras). NODE_OPTIONS fuerza a V8 a hacer GC antes del cap del cgroup
+    # (V8 no siempre respeta límites de contenedor) → presión de GC en vez de
+    # OOM-kill.
+    mem_limit: 512m
     healthcheck:
-      test: ['CMD', 'wget', '-qO-', 'http://localhost:3000/api/telemetry/metrics']
+      test: ['CMD', 'wget', '-qO-', 'http://localhost:3000/api/health/live']
       interval: 10s
       timeout: 5s
       retries: 5
@@ -302,6 +483,32 @@ services:
     env_file: *jwt_dev_env
     environment:
       PORT: '3000'
+      NODE_OPTIONS: '--max-old-space-size=400'
+      # Hallazgo de carga (2026-07-13): prefetch 20 > pool pg de 10 → bajo
+      # tormenta de eventos (pedidos L1) los consumidores no consiguen iniciar
+      # transacción (P2028), agotan los 3 reintentos y mandan miles de mensajes
+      # a la DLQ. Con 5, los mensajes esperan en el broker (backpressure
+      # durable) en vez de morir: en vuelo ≤ 5 conexiones, quedan 5 para HTTP.
+      RMQ_PREFETCH: '5'
+      # Hallazgo de carga (2026-07-13): con pool=10, 1000 escrituras concurrentes
+      # → P2028 (transacción no consigue conexión) → ~10k respuestas 500 en L1.
+      # 25 por servicio deja margen amplio frente a max_connections=100 de su
+      # Postgres dedicado (1 servicio por BD + crons de outbox/purga).
+      PG_POOL_MAX: '40'
+      # Medido en L1 final: con maxWait 10s quedaba un tail de 5.4% de P2028 en
+      # pedidos (~150 escritores concurrentes). 30s convierte ese tail en
+      # respuestas lentas (backpressure) en vez de 500; 40 conexiones suben el
+      # ritmo de servicio de tx (Postgres dedicado: max_connections=100).
+      PG_TX_MAXWAIT_MS: '30000'
+      # Medido: el connectionTimeoutMillis del pg.Pool (5s, B-1) salta ANTES que
+      # el maxWait de Prisma cuando los GETs concurrentes retienen las 40
+      # conexiones (sort de listados sin índice) → P2028 en escrituras. En
+      # sesión de carga: esperar = backpressure; 5s solo tiene sentido con
+      # tráfico normal.
+      PG_POOL_CONN_TIMEOUT_MS: '30000'
+      # B-5: 200 ev/s de drenado por productor (el default de 50 dejaba backlogs
+      # de >10 min tras ráfagas de escritura de los niveles L2/L3).
+      OUTBOX_BATCH_SIZE: '200'
       DATABASE_URL: 'postgresql://nachopps:secret@db-reservas:5432/reservas_db?schema=public'
       SERVICE_NAME: 'servicio-reservas'
       SERVICE_AUD_ENFORCE: 'true'
@@ -310,8 +517,19 @@ services:
       SERVICE_JWT_SECRET: 'nachopps_service_secret_dev'
       CORS_ORIGIN: 'http://localhost:4200'
     profiles: ['all']
+    restart: unless-stopped # A-4: paridad con prod; `docker compose stop` manual sigue funcionando
+    # Hallazgo de carga (2026-07-13): sin mem_limit, un contenedor que crece
+    # bajo saturación puede agotar el presupuesto compartido de la VM de Docker
+    # Desktop (~7.7GB) y arrastrar a los 9 Postgres consigo (visto en runtime:
+    # los 9 db-* murieron a la vez, exit 255, sin OOM de cgroup individual).
+    # 512m×9 servicios: la suma debe caber en la VM de Docker Desktop (~7.7GB);
+    # con 768m la VM entera murió dos veces bajo L1 de pedidos (fan-out de
+    # escrituras). NODE_OPTIONS fuerza a V8 a hacer GC antes del cap del cgroup
+    # (V8 no siempre respeta límites de contenedor) → presión de GC en vez de
+    # OOM-kill.
+    mem_limit: 512m
     healthcheck:
-      test: ['CMD', 'wget', '-qO-', 'http://localhost:3000/api/telemetry/metrics']
+      test: ['CMD', 'wget', '-qO-', 'http://localhost:3000/api/health/live']
       interval: 10s
       timeout: 5s
       retries: 5
@@ -329,6 +547,32 @@ services:
     env_file: *jwt_dev_env
     environment:
       PORT: '3000'
+      NODE_OPTIONS: '--max-old-space-size=400'
+      # Hallazgo de carga (2026-07-13): prefetch 20 > pool pg de 10 → bajo
+      # tormenta de eventos (pedidos L1) los consumidores no consiguen iniciar
+      # transacción (P2028), agotan los 3 reintentos y mandan miles de mensajes
+      # a la DLQ. Con 5, los mensajes esperan en el broker (backpressure
+      # durable) en vez de morir: en vuelo ≤ 5 conexiones, quedan 5 para HTTP.
+      RMQ_PREFETCH: '5'
+      # Hallazgo de carga (2026-07-13): con pool=10, 1000 escrituras concurrentes
+      # → P2028 (transacción no consigue conexión) → ~10k respuestas 500 en L1.
+      # 25 por servicio deja margen amplio frente a max_connections=100 de su
+      # Postgres dedicado (1 servicio por BD + crons de outbox/purga).
+      PG_POOL_MAX: '40'
+      # Medido en L1 final: con maxWait 10s quedaba un tail de 5.4% de P2028 en
+      # pedidos (~150 escritores concurrentes). 30s convierte ese tail en
+      # respuestas lentas (backpressure) en vez de 500; 40 conexiones suben el
+      # ritmo de servicio de tx (Postgres dedicado: max_connections=100).
+      PG_TX_MAXWAIT_MS: '30000'
+      # Medido: el connectionTimeoutMillis del pg.Pool (5s, B-1) salta ANTES que
+      # el maxWait de Prisma cuando los GETs concurrentes retienen las 40
+      # conexiones (sort de listados sin índice) → P2028 en escrituras. En
+      # sesión de carga: esperar = backpressure; 5s solo tiene sentido con
+      # tráfico normal.
+      PG_POOL_CONN_TIMEOUT_MS: '30000'
+      # B-5: 200 ev/s de drenado por productor (el default de 50 dejaba backlogs
+      # de >10 min tras ráfagas de escritura de los niveles L2/L3).
+      OUTBOX_BATCH_SIZE: '200'
       DATABASE_URL: 'postgresql://nachopps:secret@db-inventario:5432/inventario_db?schema=public'
       SERVICE_NAME: 'servicio-inventario'
       SERVICE_AUD_ENFORCE: 'true'
@@ -337,8 +581,19 @@ services:
       SERVICE_JWT_SECRET: 'nachopps_service_secret_dev'
       CORS_ORIGIN: 'http://localhost:4200'
     profiles: ['all']
+    restart: unless-stopped # A-4: paridad con prod; `docker compose stop` manual sigue funcionando
+    # Hallazgo de carga (2026-07-13): sin mem_limit, un contenedor que crece
+    # bajo saturación puede agotar el presupuesto compartido de la VM de Docker
+    # Desktop (~7.7GB) y arrastrar a los 9 Postgres consigo (visto en runtime:
+    # los 9 db-* murieron a la vez, exit 255, sin OOM de cgroup individual).
+    # 512m×9 servicios: la suma debe caber en la VM de Docker Desktop (~7.7GB);
+    # con 768m la VM entera murió dos veces bajo L1 de pedidos (fan-out de
+    # escrituras). NODE_OPTIONS fuerza a V8 a hacer GC antes del cap del cgroup
+    # (V8 no siempre respeta límites de contenedor) → presión de GC en vez de
+    # OOM-kill.
+    mem_limit: 512m
     healthcheck:
-      test: ['CMD', 'wget', '-qO-', 'http://localhost:3000/api/telemetry/metrics']
+      test: ['CMD', 'wget', '-qO-', 'http://localhost:3000/api/health/live']
       interval: 10s
       timeout: 5s
       retries: 5
@@ -356,6 +611,32 @@ services:
     env_file: *jwt_dev_env
     environment:
       PORT: '3000'
+      NODE_OPTIONS: '--max-old-space-size=400'
+      # Hallazgo de carga (2026-07-13): prefetch 20 > pool pg de 10 → bajo
+      # tormenta de eventos (pedidos L1) los consumidores no consiguen iniciar
+      # transacción (P2028), agotan los 3 reintentos y mandan miles de mensajes
+      # a la DLQ. Con 5, los mensajes esperan en el broker (backpressure
+      # durable) en vez de morir: en vuelo ≤ 5 conexiones, quedan 5 para HTTP.
+      RMQ_PREFETCH: '5'
+      # Hallazgo de carga (2026-07-13): con pool=10, 1000 escrituras concurrentes
+      # → P2028 (transacción no consigue conexión) → ~10k respuestas 500 en L1.
+      # 25 por servicio deja margen amplio frente a max_connections=100 de su
+      # Postgres dedicado (1 servicio por BD + crons de outbox/purga).
+      PG_POOL_MAX: '40'
+      # Medido en L1 final: con maxWait 10s quedaba un tail de 5.4% de P2028 en
+      # pedidos (~150 escritores concurrentes). 30s convierte ese tail en
+      # respuestas lentas (backpressure) en vez de 500; 40 conexiones suben el
+      # ritmo de servicio de tx (Postgres dedicado: max_connections=100).
+      PG_TX_MAXWAIT_MS: '30000'
+      # Medido: el connectionTimeoutMillis del pg.Pool (5s, B-1) salta ANTES que
+      # el maxWait de Prisma cuando los GETs concurrentes retienen las 40
+      # conexiones (sort de listados sin índice) → P2028 en escrituras. En
+      # sesión de carga: esperar = backpressure; 5s solo tiene sentido con
+      # tráfico normal.
+      PG_POOL_CONN_TIMEOUT_MS: '30000'
+      # B-5: 200 ev/s de drenado por productor (el default de 50 dejaba backlogs
+      # de >10 min tras ráfagas de escritura de los niveles L2/L3).
+      OUTBOX_BATCH_SIZE: '200'
       DATABASE_URL: 'postgresql://nachopps:secret@db-notificaciones:5432/notificaciones_db?schema=public'
       SERVICE_NAME: 'servicio-notificaciones'
       SERVICE_AUD_ENFORCE: 'true'
@@ -364,8 +645,19 @@ services:
       SERVICE_JWT_SECRET: 'nachopps_service_secret_dev'
       CORS_ORIGIN: 'http://localhost:4200'
     profiles: ['all']
+    restart: unless-stopped # A-4: paridad con prod; `docker compose stop` manual sigue funcionando
+    # Hallazgo de carga (2026-07-13): sin mem_limit, un contenedor que crece
+    # bajo saturación puede agotar el presupuesto compartido de la VM de Docker
+    # Desktop (~7.7GB) y arrastrar a los 9 Postgres consigo (visto en runtime:
+    # los 9 db-* murieron a la vez, exit 255, sin OOM de cgroup individual).
+    # 512m×9 servicios: la suma debe caber en la VM de Docker Desktop (~7.7GB);
+    # con 768m la VM entera murió dos veces bajo L1 de pedidos (fan-out de
+    # escrituras). NODE_OPTIONS fuerza a V8 a hacer GC antes del cap del cgroup
+    # (V8 no siempre respeta límites de contenedor) → presión de GC en vez de
+    # OOM-kill.
+    mem_limit: 512m
     healthcheck:
-      test: ['CMD', 'wget', '-qO-', 'http://localhost:3000/api/telemetry/metrics']
+      test: ['CMD', 'wget', '-qO-', 'http://localhost:3000/api/health/live']
       interval: 10s
       timeout: 5s
       retries: 5
@@ -383,17 +675,57 @@ services:
     env_file: *jwt_dev_env
     environment:
       PORT: '3000'
+      NODE_OPTIONS: '--max-old-space-size=400'
+      # Hallazgo de carga (2026-07-13): prefetch 20 > pool pg de 10 → bajo
+      # tormenta de eventos (pedidos L1) los consumidores no consiguen iniciar
+      # transacción (P2028), agotan los 3 reintentos y mandan miles de mensajes
+      # a la DLQ. Con 5, los mensajes esperan en el broker (backpressure
+      # durable) en vez de morir: en vuelo ≤ 5 conexiones, quedan 5 para HTTP.
+      RMQ_PREFETCH: '5'
+      # Hallazgo de carga (2026-07-13): con pool=10, 1000 escrituras concurrentes
+      # → P2028 (transacción no consigue conexión) → ~10k respuestas 500 en L1.
+      # 25 por servicio deja margen amplio frente a max_connections=100 de su
+      # Postgres dedicado (1 servicio por BD + crons de outbox/purga).
+      PG_POOL_MAX: '40'
+      # Medido en L1 final: con maxWait 10s quedaba un tail de 5.4% de P2028 en
+      # pedidos (~150 escritores concurrentes). 30s convierte ese tail en
+      # respuestas lentas (backpressure) en vez de 500; 40 conexiones suben el
+      # ritmo de servicio de tx (Postgres dedicado: max_connections=100).
+      PG_TX_MAXWAIT_MS: '30000'
+      # Medido: el connectionTimeoutMillis del pg.Pool (5s, B-1) salta ANTES que
+      # el maxWait de Prisma cuando los GETs concurrentes retienen las 40
+      # conexiones (sort de listados sin índice) → P2028 en escrituras. En
+      # sesión de carga: esperar = backpressure; 5s solo tiene sentido con
+      # tráfico normal.
+      PG_POOL_CONN_TIMEOUT_MS: '30000'
+      # B-5: 200 ev/s de drenado por productor (el default de 50 dejaba backlogs
+      # de >10 min tras ráfagas de escritura de los niveles L2/L3).
+      OUTBOX_BATCH_SIZE: '200'
       DATABASE_URL: 'postgresql://nachopps:secret@db-caja:5432/caja_db?schema=public'
       SERVICE_NAME: 'servicio-caja'
       SERVICE_AUD_ENFORCE: 'true'
       RABBITMQ_URI: 'amqp://nachopps:nachopps_secret@rabbitmq:5672'
       OTEL_EXPORTER_OTLP_ENDPOINT: 'http://otel-collector:4318'
       CUENTAS_SERVICE_URL: 'http://servicio-cuentas:3000/api'
+      # Micro-caché del resumen de turno (dato de dashboard): bajo consulta
+      # concurrente masiva evita recomputar la agregación por request.
+      CAJA_RESUMEN_TTL_MS: '5000'
       SERVICE_JWT_SECRET: 'nachopps_service_secret_dev'
       CORS_ORIGIN: 'http://localhost:4200'
     profiles: ['all']
+    restart: unless-stopped # A-4: paridad con prod; `docker compose stop` manual sigue funcionando
+    # Hallazgo de carga (2026-07-13): sin mem_limit, un contenedor que crece
+    # bajo saturación puede agotar el presupuesto compartido de la VM de Docker
+    # Desktop (~7.7GB) y arrastrar a los 9 Postgres consigo (visto en runtime:
+    # los 9 db-* murieron a la vez, exit 255, sin OOM de cgroup individual).
+    # 512m×9 servicios: la suma debe caber en la VM de Docker Desktop (~7.7GB);
+    # con 768m la VM entera murió dos veces bajo L1 de pedidos (fan-out de
+    # escrituras). NODE_OPTIONS fuerza a V8 a hacer GC antes del cap del cgroup
+    # (V8 no siempre respeta límites de contenedor) → presión de GC en vez de
+    # OOM-kill.
+    mem_limit: 512m
     healthcheck:
-      test: ['CMD', 'wget', '-qO-', 'http://localhost:3000/api/telemetry/metrics']
+      test: ['CMD', 'wget', '-qO-', 'http://localhost:3000/api/health/live']
       interval: 10s
       timeout: 5s
       retries: 5
@@ -411,6 +743,32 @@ services:
     env_file: *jwt_dev_env
     environment:
       PORT: '3000'
+      NODE_OPTIONS: '--max-old-space-size=400'
+      # Hallazgo de carga (2026-07-13): prefetch 20 > pool pg de 10 → bajo
+      # tormenta de eventos (pedidos L1) los consumidores no consiguen iniciar
+      # transacción (P2028), agotan los 3 reintentos y mandan miles de mensajes
+      # a la DLQ. Con 5, los mensajes esperan en el broker (backpressure
+      # durable) en vez de morir: en vuelo ≤ 5 conexiones, quedan 5 para HTTP.
+      RMQ_PREFETCH: '5'
+      # Hallazgo de carga (2026-07-13): con pool=10, 1000 escrituras concurrentes
+      # → P2028 (transacción no consigue conexión) → ~10k respuestas 500 en L1.
+      # 25 por servicio deja margen amplio frente a max_connections=100 de su
+      # Postgres dedicado (1 servicio por BD + crons de outbox/purga).
+      PG_POOL_MAX: '40'
+      # Medido en L1 final: con maxWait 10s quedaba un tail de 5.4% de P2028 en
+      # pedidos (~150 escritores concurrentes). 30s convierte ese tail en
+      # respuestas lentas (backpressure) en vez de 500; 40 conexiones suben el
+      # ritmo de servicio de tx (Postgres dedicado: max_connections=100).
+      PG_TX_MAXWAIT_MS: '30000'
+      # Medido: el connectionTimeoutMillis del pg.Pool (5s, B-1) salta ANTES que
+      # el maxWait de Prisma cuando los GETs concurrentes retienen las 40
+      # conexiones (sort de listados sin índice) → P2028 en escrituras. En
+      # sesión de carga: esperar = backpressure; 5s solo tiene sentido con
+      # tráfico normal.
+      PG_POOL_CONN_TIMEOUT_MS: '30000'
+      # B-5: 200 ev/s de drenado por productor (el default de 50 dejaba backlogs
+      # de >10 min tras ráfagas de escritura de los niveles L2/L3).
+      OUTBOX_BATCH_SIZE: '200'
       DATABASE_URL: 'postgresql://nachopps:secret@db-reportes:5432/reportes_db?schema=public'
       SERVICE_NAME: 'servicio-reportes'
       SERVICE_AUD_ENFORCE: 'true'
@@ -419,8 +777,19 @@ services:
       SERVICE_JWT_SECRET: 'nachopps_service_secret_dev'
       CORS_ORIGIN: 'http://localhost:4200'
     profiles: ['all']
+    restart: unless-stopped # A-4: paridad con prod; `docker compose stop` manual sigue funcionando
+    # Hallazgo de carga (2026-07-13): sin mem_limit, un contenedor que crece
+    # bajo saturación puede agotar el presupuesto compartido de la VM de Docker
+    # Desktop (~7.7GB) y arrastrar a los 9 Postgres consigo (visto en runtime:
+    # los 9 db-* murieron a la vez, exit 255, sin OOM de cgroup individual).
+    # 512m×9 servicios: la suma debe caber en la VM de Docker Desktop (~7.7GB);
+    # con 768m la VM entera murió dos veces bajo L1 de pedidos (fan-out de
+    # escrituras). NODE_OPTIONS fuerza a V8 a hacer GC antes del cap del cgroup
+    # (V8 no siempre respeta límites de contenedor) → presión de GC en vez de
+    # OOM-kill.
+    mem_limit: 512m
     healthcheck:
-      test: ['CMD', 'wget', '-qO-', 'http://localhost:3000/api/telemetry/metrics']
+      test: ['CMD', 'wget', '-qO-', 'http://localhost:3000/api/health/live']
       interval: 10s
       timeout: 5s
       retries: 5
@@ -457,12 +826,20 @@ services:
       KONG_RATE_LIMIT_HOUR: ${KONG_RATE_LIMIT_HOUR:-30000}
       KONG_CORS_ORIGINS: ${KONG_CORS_ORIGINS:-["http://localhost:4200","http://localhost:4201","http://localhost:5173","http://127.0.0.1:4200","http://127.0.0.1:4201","http://127.0.0.1:5173"]}
       KONG_NGINX_HTTP_LUA_SHARED_DICT: 'jwt_cache 12m'
+      # Medido 2026-07-13: con `auto`, nginx levanta 1 worker/CPU (12) y el
+      # conjunto no cabe en el mem_limit → el kernel mata workers (signal 9) y
+      # Kong se recicla en plena carga. 4 workers sobran para este throughput.
+      KONG_NGINX_WORKER_PROCESSES: '4'
     ports:
       - '8000:8000'
       - '8001:8001'
     volumes:
       - ./kong/kong.yml.template:/tmp/kong.yml.template:ro
     profiles: ['infra', 'all', 'dev']
+    restart: unless-stopped # la VM de Docker Desktop murió bajo carga: el gateway debe autolevantar
+    # 768m (medido en L2: con 512m el gateway rozaba el 97% con 4 workers y
+    # perdía workers por OOM-kill bajo meseta sostenida).
+    mem_limit: 768m
     healthcheck:
       test: ['CMD', 'kong', 'health']
       interval: 10s
@@ -481,6 +858,8 @@ services:
       - '4318:4318'
       - '4317:4317'
     profiles: ['infra', 'all', 'dev']
+    restart: unless-stopped
+    mem_limit: 512m
 
   prometheus:
     image: prom/prometheus:latest
@@ -491,6 +870,8 @@ services:
       - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - ./prometheus/alert.rules.yml:/etc/prometheus/alert.rules.yml:ro
     profiles: ['infra', 'all', 'dev']
+    restart: unless-stopped
+    mem_limit: 512m
 
   alertmanager:
     image: prom/alertmanager:latest
@@ -500,6 +881,8 @@ services:
     volumes:
       - ./alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
     profiles: ['infra', 'all', 'dev']
+    restart: unless-stopped
+    mem_limit: 128m
 
   grafana:
     image: grafana/grafana:latest
@@ -512,6 +895,8 @@ services:
       - ./grafana/provisioning:/etc/grafana/provisioning:ro
       - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
     profiles: ['infra', 'all', 'dev']
+    restart: unless-stopped
+    mem_limit: 384m
 
   # Agregación de logs estructurados (plan 5.1): Loki almacena, Promtail recoge
   # el stdout JSON (con trace_id/correlationId) de los contenedores.
@@ -524,6 +909,8 @@ services:
     volumes:
       - ./loki/loki-config.yml:/etc/loki/loki-config.yml:ro
     profiles: ['infra', 'all', 'dev']
+    restart: unless-stopped
+    mem_limit: 384m
 
   promtail:
     image: grafana/promtail:2.9.0
@@ -535,6 +922,8 @@ services:
     depends_on:
       - loki
     profiles: ['infra', 'all', 'dev']
+    restart: unless-stopped
+    mem_limit: 128m
 
   pwa-cliente:
     build:
@@ -545,6 +934,8 @@ services:
     ports:
       - '4200:8080'
     profiles: ['all']
+    restart: unless-stopped
+    mem_limit: 128m
 
 volumes:
   nachopps-db-reservas:

@@ -27,7 +27,9 @@ export class MetricsInterceptor implements NestInterceptor {
       name: 'http_request_duration_seconds',
       help: 'Duración de peticiones HTTP en segundos',
       labelNames: ['method', 'route', 'status_code'],
-      buckets: [0.01, 0.05, 0.1, 0.5, 1, 2, 5],
+      // Buckets extendidos (B-3): bajo saturación todo caía en +Inf y el p99
+      // perdía resolución justo durante las pruebas de carga.
+      buckets: [0.01, 0.05, 0.1, 0.5, 1, 2, 5, 10, 30],
     });
 
     this.rmqCounter = new Counter({
@@ -40,7 +42,7 @@ export class MetricsInterceptor implements NestInterceptor {
       name: 'rabbitmq_message_processing_duration_seconds',
       help: 'Duración de procesamiento de mensajes RabbitMQ en segundos',
       labelNames: ['queue', 'routing_key'],
-      buckets: [0.01, 0.05, 0.1, 0.5, 1, 2, 5],
+      buckets: [0.01, 0.05, 0.1, 0.5, 1, 2, 5, 10, 30],
     });
   }
 

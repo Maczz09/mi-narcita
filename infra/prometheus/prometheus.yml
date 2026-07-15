@@ -12,6 +12,20 @@ alerting:
             - 'alertmanager:9093'
 
 scrape_configs:
+  # A-2: broker RabbitMQ (plugin rabbitmq_prometheus). /metrics/per-object incluye
+  # profundidad por cola (rabbitmq_queue_messages{queue="dlq.*"}) — imprescindible
+  # para verificar "DLQ sin crecimiento" tras las pruebas de carga/caos.
+  - job_name: 'rabbitmq'
+    metrics_path: '/metrics/per-object'
+    static_configs:
+      - targets: ['rabbitmq:15692']
+
+  # A-3: gateway Kong (plugin prometheus, expuesto en el admin API).
+  - job_name: 'kong'
+    metrics_path: '/metrics'
+    static_configs:
+      - targets: ['kong:8001']
+
   - job_name: 'nestjs-microservices'
     metrics_path: '/api/telemetry/metrics'
     static_configs:

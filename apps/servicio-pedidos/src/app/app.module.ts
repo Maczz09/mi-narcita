@@ -10,7 +10,7 @@ import { PedidosSagaService } from './pedidos-saga.service';
 import { PrismaModule } from '../prisma/prisma.module';
 import { OutboxAdminModule, OutboxModule, IdempotencyPurgeModule, IdempotencyInterceptor, IDEMPOTENCY_DB } from '@org/resiliencia';
 import { RabbitMQModule } from '@org/shared-rabbitmq';
-import { ObservabilidadModule } from '@org/observabilidad';
+import { ObservabilidadModule, HealthModule } from '@org/observabilidad';
 import { SharedAuthModule, JwtAuthGuard } from '@org/shared-auth';
 import { PrismaService } from '../prisma/prisma.service';
 import { RoutingKeys } from '@org/contracts';
@@ -18,6 +18,7 @@ import { RoutingKeys } from '@org/contracts';
 @Module({
   imports: [
     ObservabilidadModule,
+    HealthModule.forRoot(PrismaService),
     SharedAuthModule,
     PrismaModule,
     OutboxAdminModule.forRoot(PrismaService),

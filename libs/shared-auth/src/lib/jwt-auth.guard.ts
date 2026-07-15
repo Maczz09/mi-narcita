@@ -16,7 +16,12 @@ export class JwtAuthGuard extends AuthGuard('jwt') {
     const request = context.switchToHttp().getRequest<Request & { cookies?: Record<string, string> }>();
     if (
       request.path === '/api/telemetry/metrics' ||
-      request.path === '/telemetry/metrics'
+      request.path === '/telemetry/metrics' ||
+      // Health checks (S33): sondas de liveness/readiness sin auth.
+      request.path === '/api/health' ||
+      request.path.startsWith('/api/health/') ||
+      request.path === '/health' ||
+      request.path.startsWith('/health/')
     ) {
       return true;
     }

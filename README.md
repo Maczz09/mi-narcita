@@ -97,10 +97,49 @@ El `OutboxProcessor` (en `libs/resiliencia`) reclama cada lote con un `UPDATE �
 ## Observabilidad
 Jaeger (trazas OTEL), Prometheus (métricas en `/api/telemetry/metrics`) y Grafana. Todos los servicios exportan a `OTEL_EXPORTER_OTLP_ENDPOINT`. En producción Jaeger no publica `16686`; usar túnel SSH/red interna (`docs/operacion/jaeger-prod.md`).
 
+## Flujo principal
+
+Caso central **mesa → pedido → cuenta → pago** (la apertura de cuenta es asíncrona vía outbox→RabbitMQ):
+
+```sh
+POST /mesas          # 201 → mesaId (mesa LIBRE)
+POST /pedidos        # 201 → pedidoId + correlationId; mesa OCUPADA; evento pedido.creado
+#                    → (async) cuenta.abierta → cuenta ABIERTA
+POST /caja/pagos     # 201 → pago.registrado; cuenta CERRADA; mesa LIBRE; ticket
+```
+
+Implementado y ejecutado en CI: `stress-tests/run-all-stress-tests.js` (`testFullFlowConcurrent`) + suites `*-e2e`. Detalle y estados en [docs/ficha-validacion-operativa-s33.md](docs/ficha-validacion-operativa-s33.md).
+
+## Prueba de resiliencia
+
+Cada escenario de falla tiene un script ejecutable (requiere el stack levantado):
+
+```sh
+node stress-tests/run-chaos-db-down.js --db inventario   # dependencia caída
+node stress-tests/run-stock-idempotency-dlq.js           # 503→retry→DLQ, duplicados, compensación
+node stress-tests/run-security-limits.js                 # 429 rate limit (Kong)
+node stress-tests/run-chaos-suite.js                     # suite completa de caos
+```
+
+Health en vivo por servicio: `GET /api/health/live · /ready · /dependencies`. Mapa falla→mecanismo→evidencia en [docs/matriz-resiliencia.md](docs/matriz-resiliencia.md).
+
+## Brechas conocidas
+
+- **Compras/Proveedores** es **mock** en la PWA (`apps/pwa-cliente/src/data/compras.mock.ts`), sin microservicio.
+- El arranque requiere `-f infra/docker-compose.yml --profile all` (no `docker compose up` pelado).
+- Jaeger no publica `16686` en producción (usar túnel — `docs/operacion/jaeger-prod.md`).
+- Alertmanager sin receiver activo.
+- Métricas de resiliencia sin el nombre canónico exacto del material (`webhook_duplicates_total`, etc.); la señal existe con otros nombres.
+
+Lista viva con owner y acción: [docs/ficha-validacion-operativa-s33.md §10](docs/ficha-validacion-operativa-s33.md).
+
 ## Desarrollo local solamente
 `infra/docker-compose.yml` y `scripts/poblar-datos.ts` son solo para desarrollo: contienen credenciales demo y datos de prueba. Producción usa `infra/docker-compose.prod.yml` con `.env` real.
 
 ## Documentación
-- `docs/production-audit-report.md` — auditoría de producción y correcciones aplicadas.
-- `docs/operacion/` — levantar el sistema, base de datos, RabbitMQ, resiliencia.
+- `docs/ficha-validacion-operativa-s33.md` — **ficha de validación operativa (S33)**: gates, fitness functions y brechas.
+- `docs/catalogo-servicios.md` — catálogo de los 9 servicios (puertos, BD, eventos, health).
+- `docs/matriz-resiliencia.md` — falla → mecanismo → evidencia → script.
+- `docs/matriz-auditoria.md` — evento crítico → correlationId → estado → actor → eventId.
+- `docs/operacion/` — levantar el sistema, base de datos, RabbitMQ, resiliencia, runbooks.
 - `docs/decisiones/` — ADRs.

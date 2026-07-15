@@ -6,7 +6,7 @@ import { AppService } from './app.service';
 import { NotificationsGateway } from './notifications.gateway';
 import { PrismaModule } from '../prisma/prisma.module';
 import { PrismaService } from '../prisma/prisma.service';
-import { ObservabilidadModule } from '@org/observabilidad';
+import { ObservabilidadModule, HealthModule } from '@org/observabilidad';
 import { RabbitMQModule } from '@org/shared-rabbitmq';
 import { IdempotencyPurgeModule } from '@org/resiliencia';
 import { SharedAuthModule, JwtAuthGuard } from '@org/shared-auth';
@@ -16,6 +16,7 @@ import { RoutingKeys } from '@org/contracts';
   imports: [
     PrismaModule,
     ObservabilidadModule,
+    HealthModule.forRoot(PrismaService),
     SharedAuthModule,
     ScheduleModule.forRoot(),
     IdempotencyPurgeModule.forService(PrismaService),

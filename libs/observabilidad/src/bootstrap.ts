@@ -117,6 +117,12 @@ export async function bootstrapNachoppsService(options: BootstrapOptions): Promi
     await app.startAllMicroservices();
   }
   await app.listen(port);
+  // B-4: keepAliveTimeout de Node (5 s default) por debajo del keepalive de
+  // upstream de Kong (60 s) provoca 502 esporádicos bajo carga: Kong reutiliza
+  // un socket que Node acaba de cerrar. Debe ser SIEMPRE mayor que el del proxy.
+  const server = app.getHttpServer() as import('node:http').Server;
+  server.keepAliveTimeout = 65_000;
+  server.headersTimeout = 66_000;
   const nombre = serviceName.replace('servicio-', '');
   Logger.log(`🚀 Servicio ${nombre} corriendo en: http://localhost:${port}/${globalPrefix}`);
   if (queue) {

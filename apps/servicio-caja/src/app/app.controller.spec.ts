@@ -25,10 +25,6 @@ describe('AppController — Caja', () => {
     controller = new AppController(service as any);
   });
 
-  it('healthCheck reporta el servicio', () => {
-    expect(controller.healthCheck()).toEqual({ status: 'OK', service: 'Caja' });
-  });
-
   it('registrarPago delega con el usuario actual', async () => {
     const body = { cuentaId: 'c-1', montoRecibido: 50, metodo: 'EFECTIVO' } as any;
     await controller.registrarPago(body, 'u-1');

@@ -13,5 +13,9 @@
     "skipLibCheck": true
   },
   "include": ["src/**/*.ts"],
-  "references": []
+  "references": [
+    {
+      "path": "../observabilidad/tsconfig.lib.json"
+    }
+  ]
 }

@@ -19,10 +19,7 @@ import {
 export class AppController {
   constructor(private readonly appService: AppService) {}
 
-  @Get('health')
-  healthCheck() {
-    return { status: 'OK', service: 'Caja' };
-  }
+  // /api/health lo sirve el HealthController compartido (@org/observabilidad).
 
   // Idempotencia HTTP (plan 1.3): evita pagos duplicados por doble-click/retry.
   @UseInterceptors(IdempotencyInterceptor)

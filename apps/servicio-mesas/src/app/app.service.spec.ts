@@ -49,7 +49,7 @@ describe('AppService — Mesas', () => {
       mockPrisma.mesa.findMany.mockResolvedValue([mesaBase]);
       const result = await service.listarMesas();
       expect(result.mesas).toHaveLength(1);
-      expect(mockPrisma.mesa.findMany).toHaveBeenCalledWith({ orderBy: { numero: 'asc' } });
+      expect(mockPrisma.mesa.findMany).toHaveBeenCalledWith({ orderBy: { numero: 'asc' }, take: 200 });
     });
 
     it('debe retornar array vacio si no hay mesas', async () => {
