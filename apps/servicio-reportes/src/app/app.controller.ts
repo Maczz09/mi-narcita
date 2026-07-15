@@ -4,6 +4,7 @@ import { Roles, RolesGuard } from '@org/shared-auth';
 import { AppService } from './app.service';
 import { CuentaCerradaPayload, RoutingKeys } from '@org/contracts';
 import { RabbitMQRetryInterceptor } from '@org/resiliencia';
+import { OperableLog } from '@org/observabilidad';
 import { ReporteRangoQuery } from './reporte.dto';
 
 // RBAC por método: el controller también atiende eventos RMQ (@EventPattern),
@@ -52,7 +53,11 @@ export class AppController {
 
   @EventPattern(RoutingKeys.CuentaCerrada)
   async handleCuentaCerrada(@Payload() payload: CuentaCerradaPayload) {
-    this.logger.log(`Procesando evento de reporte: ${RoutingKeys.CuentaCerrada}`);
+    this.logger.log({
+      operation: RoutingKeys.CuentaCerrada,
+      aggregateId: payload.cuentaId,
+      message: 'Procesando evento de reporte.',
+    } satisfies OperableLog);
     await this.appService.registrarVenta(payload);
   }
 }

@@ -17,10 +17,23 @@ datasources:
     editable: true
     jsonData:
       derivedFields:
+        # Nuestros logs son JSON ("trace_id":"...", no key=value) — el regex
+        # anterior nunca matcheaba (0% en el panel de campos de Explore).
+        # `datasourceUid` rutea el link interno a Jaeger; `url` es lo que
+        # Grafana interpola con el grupo capturado del regex para llenar el
+        # campo "Trace ID" del datasource destino — sin él el link abre
+        # Jaeger pero con el campo vacío.
+        # El doble $$ NO es un typo: Grafana interpola ${VAR} en archivos de
+        # provisioning como variable de entorno (para secretos) ANTES de que
+        # el motor de derived fields vea el archivo. Con un solo $, Grafana
+        # busca la env var __value.raw (no existe) y la reemplaza por vacío
+        # — eso es lo que acaba de pasar. $$ escapa a un $ literal, dejando
+        # "${__value.raw}" intacto para que el motor de derived fields lo
+        # interprete recién al hacer clic, con el valor capturado del regex.
         - datasourceUid: jaeger
-          matcherRegex: "trace_id=(\\w+)"
+          matcherRegex: '"trace_id":"(\w+)"'
           name: TraceID
-          url: "$${__value.raw}"
+          url: '$${__value.raw}'
   - name: Jaeger
     type: jaeger
     uid: jaeger

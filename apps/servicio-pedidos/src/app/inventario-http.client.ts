@@ -4,7 +4,7 @@ import {
   ServiceUnavailableException,
   InternalServerErrorException,
 } from '@nestjs/common';
-import { getOrCreateCounter } from '@org/observabilidad';
+import { getOrCreateCounter, OperableLog } from '@org/observabilidad';
 import { ServiceTokenService } from '@org/shared-auth';
 import { CircuitBreakerOptions, createBulkhead } from '@org/resiliencia';
 import axios from 'axios';
@@ -76,6 +76,7 @@ export class InventarioHttpClient {
       throw new ServiceUnavailableException('No se pudo generar token para inventario. Reintente.');
     }
 
+    const start = Date.now();
     try {
       // Bulkhead por fuera del breaker: aísla el recurso antes de fallar rápido.
       return await this.bulkhead.run(() => this.fetchProductosLote(ids, token));
@@ -84,25 +85,40 @@ export class InventarioHttpClient {
       if (error instanceof ServiceUnavailableException) throw error;
       const axiosError = error as { response?: { status: number }; code?: string; message?: string };
       if (axiosError.code === 'EOPENBREAKER') {
+        this.logger.warn({
+          operation: 'obtenerProductosLote',
+          dependency: 'inventario',
+          durationMs: Date.now() - start,
+          errorCode: 'CIRCUIT_OPEN',
+          circuitBreakerState: 'OPEN',
+          message: 'Pedido no pudo validar stock: circuito de inventario abierto.',
+        } satisfies OperableLog);
         throw new ServiceUnavailableException('El servicio de inventario no está disponible (circuito abierto).');
       }
 
       if (axiosError.code === 'ECONNABORTED' || axiosError.code === 'ETIMEDOUT') {
         this.timeoutCounter.inc({ dependency: 'inventario' });
+        // El POST /productos/lote no se reintenta (no idempotente): tras el
+        // timeout el pedido se RECHAZA (503), no queda en estado pendiente.
         this.logger.warn({
           operation: 'obtenerProductosLote',
-          dependency: 'inventario-api',
-          durationMs: this.READ_TIMEOUT_MS,
+          dependency: 'inventario',
+          durationMs: Date.now() - start,
           errorCode: 'DEPENDENCY_TIMEOUT',
-          resultingState: 'STOCK_VALIDATION_PENDING',
-          message: 'Timeout fetching from inventory. Flow marked as pending validation.'
-        });
+          message: 'Timeout consultando inventario; pedido rechazado por dependencia caída.',
+        } satisfies OperableLog);
         throw new ServiceUnavailableException('El servicio de inventario no responde. Reintente.');
       }
       if (axiosError.code === 'ECONNREFUSED') {
         throw new ServiceUnavailableException('El servicio de inventario no está disponible.');
       }
-      this.logger.error(`Error en cold-start de productos: ${axiosError.message}`);
+      this.logger.error({
+        operation: 'obtenerProductosLote',
+        dependency: 'inventario',
+        durationMs: Date.now() - start,
+        errorCode: axiosError.code ?? 'UNKNOWN',
+        message: `Error inesperado consultando inventario: ${axiosError.message}`,
+      } satisfies OperableLog);
       throw new InternalServerErrorException('No se pudieron cargar productos desde inventario. Reintente.');
     }
   }

@@ -1,4 +1,5 @@
 import { Injectable, NotFoundException, Logger, BadRequestException } from '@nestjs/common';
+import { OperableLog } from '@org/observabilidad';
 import { PrismaService } from '../prisma/prisma.service';
 import { 
   CategoriaDto, 
@@ -277,7 +278,12 @@ export class AppService {
     const producto = await prisma.producto.findUnique({ where: { id }, include: { categoria: true } });
 
     if (!producto) {
-      this.logger.warn(`Producto ${id} no encontrado para reducción de stock`);
+      this.logger.warn({
+        operation: 'reducirStockAutomatico',
+        aggregateId: id,
+        errorCode: 'PRODUCTO_NO_ENCONTRADO',
+        message: 'Producto no encontrado para reducción de stock.',
+      } satisfies OperableLog);
       return;
     }
 
@@ -296,7 +302,12 @@ export class AppService {
     });
 
     if (actualizado.count === 0) {
-      this.logger.warn(`Stock insuficiente para producto ${id} — no se pudo decrementar ${cantidad}`);
+      this.logger.warn({
+        operation: 'reducirStockAutomatico',
+        aggregateId: id,
+        errorCode: 'STOCK_INSUFICIENTE',
+        message: `Stock insuficiente — no se pudo decrementar ${cantidad}.`,
+      } satisfies OperableLog);
       // Compensación de saga: la proyección de pedidos quedó por delante del stock
       // real (lag de ProductoActualizado), así que el pedido se creó sobre stock
       // inexistente. Emitimos StockInsuficiente en el MISMO $transaction que el
@@ -344,13 +355,22 @@ export class AppService {
       }
     });
 
-    this.logger.log(`Stock reducido para ${productoFinal?.nombre ?? id}: -> ${productoFinal?.stockActual}`);
+    this.logger.log({
+      operation: 'reducirStockAutomatico',
+      aggregateId: id,
+      resultingState: `stockActual=${productoFinal?.stockActual}`,
+      message: `Stock reducido para ${productoFinal?.nombre ?? id}.`,
+    } satisfies OperableLog);
   }
 
   // A2: idempotencia por pedido.id — reclama la clave atómicamente
   async procesarPedidoCreado(pedido: PedidoCreadoPayload['pedido']): Promise<void> {
     if (!pedido?.id || !Array.isArray(pedido.items)) {
-      this.logger.warn('PedidoCreado sin id/items — ignorado');
+      this.logger.warn({
+        operation: 'procesarPedidoCreado',
+        errorCode: 'PAYLOAD_INVALIDO',
+        message: 'Evento PedidoCreado sin id/items — ignorado.',
+      } satisfies OperableLog);
       return;
     }
     if (pedido.items.some((item) => item?.notas === '__QA_INVENTARIO_FORCE_DLQ__')) {
@@ -372,7 +392,11 @@ export class AppService {
       });
     } catch (e: unknown) {
       if ((e as { code?: string })?.code === 'P2002') {
-        this.logger.warn(`Pedido ${pedido.id} ya procesado — stock no se reduce de nuevo`);
+        this.logger.warn({
+          operation: 'procesarPedidoCreado',
+          aggregateId: pedido.id,
+          message: 'Evento PedidoCreado ya procesado — stock no se reduce de nuevo (idempotente).',
+        } satisfies OperableLog);
         return;
       }
       throw e;

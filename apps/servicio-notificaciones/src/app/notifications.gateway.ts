@@ -7,6 +7,7 @@ import {
 import { Server, Socket } from 'socket.io';
 import { Logger } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
+import { OperableLog } from '@org/observabilidad';
 import { getJwtPublicKey, getServiceJwtSecret } from '@org/shared-auth';
 import { wsRoomForRole, wsRoomsForPattern } from '@org/contracts';
 
@@ -62,16 +63,30 @@ export class NotificationsGateway
       if (user?.rol) {
         await client.join(wsRoomForRole(user.rol));
       }
-      this.logger.log(`Cliente KDS conectado: ${client.id} (rol:${user?.rol ?? '?'})`);
+      this.logger.log({
+        operation: 'handleConnection',
+        aggregateId: client.id,
+        resultingState: user?.rol ?? 'SIN_ROL',
+        message: 'Cliente KDS conectado.',
+      } satisfies OperableLog);
     } catch {
-      this.logger.warn(`Conexión WebSocket no autorizada: ${client.id}`);
+      this.logger.warn({
+        operation: 'handleConnection',
+        aggregateId: client.id,
+        errorCode: 'WS_NO_AUTORIZADO',
+        message: 'Conexión WebSocket no autorizada.',
+      } satisfies OperableLog);
       client.emit('auth:error', { message: 'unauthorized' });
       client.disconnect(true);
     }
   }
 
   handleDisconnect(client: Socket) {
-    this.logger.log(`Cliente KDS desconectado: ${client.id}`);
+    this.logger.log({
+      operation: 'handleDisconnect',
+      aggregateId: client.id,
+      message: 'Cliente KDS desconectado.',
+    } satisfies OperableLog);
   }
 
   // T-19: emite el evento solo a los roles autorizados a verlo (matriz en @org/contracts),
@@ -79,10 +94,17 @@ export class NotificationsGateway
   emitPedidoUpdate(evento: NotificacionEvento) {
     const rooms = wsRoomsForPattern(evento.pattern);
     if (rooms.length === 0) {
-      this.logger.warn(`Evento "${evento.pattern}" sin roles en la matriz WS; no se emite`);
+      this.logger.warn({
+        operation: evento.pattern,
+        errorCode: 'SIN_ROLES_WS',
+        message: 'Evento sin roles configurados en la matriz WS; no se emite.',
+      } satisfies OperableLog);
       return;
     }
-    this.logger.log(`Emitiendo "${evento.pattern}" por WebSocket a ${rooms.join(', ')}`);
+    this.logger.log({
+      operation: evento.pattern,
+      message: `Emitiendo evento por WebSocket a las rooms: ${rooms.join(', ')}.`,
+    } satisfies OperableLog);
     this.server.to(rooms).emit('pedidoUpdate', evento);
   }
 

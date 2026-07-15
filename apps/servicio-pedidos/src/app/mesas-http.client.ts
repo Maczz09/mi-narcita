@@ -5,9 +5,9 @@ import {
   ServiceUnavailableException,
   InternalServerErrorException,
 } from '@nestjs/common';
-import { getOrCreateCounter } from '@org/observabilidad';
+import { getOrCreateCounter, OperableLog } from '@org/observabilidad';
 import { ServiceTokenService } from '@org/shared-auth';
-import { CircuitBreakerOptions, createBulkhead, retryAsync } from '@org/resiliencia';
+import { CircuitBreakerOptions, createBulkhead, retryAsync, retryAttemptsOf } from '@org/resiliencia';
 import axios from 'axios';
 
 export interface MesaRemota {
@@ -73,6 +73,7 @@ export class MesasHttpClient {
       throw new ServiceUnavailableException('No se pudo generar token para consultar mesas. Reintente.');
     }
 
+    const start = Date.now();
     try {
       // Bulkhead por fuera del breaker: aísla el recurso antes de fallar rápido.
       return await this.bulkhead.run(() => this.fetchMesaRemota(mesaId, token));
@@ -84,16 +85,42 @@ export class MesasHttpClient {
         throw new NotFoundException(`La mesa con ID ${mesaId} no existe o no está sincronizada.`);
       }
       if (axiosError.code === 'EOPENBREAKER') {
+        // El breaker rechazó sin llamar: la dependencia ya está marcada caída.
+        this.logger.warn({
+          operation: 'obtenerMesa',
+          aggregateId: mesaId,
+          dependency: 'mesas',
+          durationMs: Date.now() - start,
+          errorCode: 'CIRCUIT_OPEN',
+          circuitBreakerState: 'OPEN',
+          message: 'Pedido no pudo validar la mesa: circuito de mesas abierto.',
+        } satisfies OperableLog);
         throw new ServiceUnavailableException('El servicio de mesas no está disponible (circuito abierto).');
       }
       if (axiosError.code === 'ECONNABORTED' || axiosError.code === 'ETIMEDOUT') {
         this.timeoutCounter.inc({ dependency: 'mesas' });
+        this.logger.warn({
+          operation: 'obtenerMesa',
+          aggregateId: mesaId,
+          dependency: 'mesas',
+          durationMs: Date.now() - start,
+          errorCode: 'DEPENDENCY_TIMEOUT',
+          retryAttempt: retryAttemptsOf(error),
+          message: 'Timeout consultando mesa; pedido rechazado por dependencia caída.',
+        } satisfies OperableLog);
         throw new ServiceUnavailableException('El servicio de mesas no responde. Reintente.');
       }
       if (axiosError.code === 'ECONNREFUSED') {
         throw new ServiceUnavailableException('El servicio de mesas no está disponible.');
       }
-      this.logger.error(`Error en cold-start de mesa ${mesaId}: ${axiosError.message}`);
+      this.logger.error({
+        operation: 'obtenerMesa',
+        aggregateId: mesaId,
+        dependency: 'mesas',
+        durationMs: Date.now() - start,
+        errorCode: axiosError.code ?? 'UNKNOWN',
+        message: `Error inesperado consultando mesa: ${axiosError.message}`,
+      } satisfies OperableLog);
       throw new InternalServerErrorException('No se pudo cargar la mesa desde mesas. Reintente.');
     }
   }

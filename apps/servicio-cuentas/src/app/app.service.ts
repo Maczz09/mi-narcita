@@ -1,4 +1,5 @@
 import { Injectable, NotFoundException, BadRequestException, Logger } from '@nestjs/common';
+import { OperableLog } from '@org/observabilidad';
 import { PrismaService } from '../prisma/prisma.service';
 import {
   CuentaDto,
@@ -49,7 +50,12 @@ export class AppService {
 
   async listarCuentas(): Promise<{ cuentas: CuentaDto[] }> {
     const cuentas = await this.prisma.cuenta.findMany({
-      orderBy: { createdAt: 'desc' }
+      orderBy: { createdAt: 'desc' },
+      // Tope de seguridad (hallazgo pruebas de carga 2026-07-13): listado sin
+      // límite + snapshots JSON de pedidos por fila = respuestas multi-MB bajo
+      // carga. 200 cubre de sobra las cuentas activas de un restobar real.
+      // ponytail: cap fijo; paginación cursor+limit real pendiente (task chip).
+      take: 200,
     });
     return {
       cuentas: cuentas.map(c => ({
@@ -101,7 +107,11 @@ export class AppService {
       return c;
     });
 
-    this.logger.log(`Cuenta abierta para la mesa ${command.mesaId} (origen: ${origen})`);
+    this.logger.log({
+      operation: 'abrirCuenta',
+      aggregateId: cuenta.id,
+      message: `Cuenta abierta para la mesa ${command.mesaId} (origen: ${origen}).`,
+    } satisfies OperableLog);
     return { message: 'Cuenta abierta exitosamente', cuenta: this.mapToDto(cuenta) };
   }
 
@@ -109,7 +119,11 @@ export class AppService {
   async procesarPedidoCreado(payload: PedidoCreadoPayload): Promise<void> {
     const pedidoDto = payload.pedido;
     if (!pedidoDto?.mesaId || !pedidoDto.id) {
-      this.logger.warn('PedidoCreado sin mesaId/id — ignorado');
+      this.logger.warn({
+        operation: 'procesarPedidoCreado',
+        errorCode: 'PAYLOAD_INVALIDO',
+        message: 'Evento PedidoCreado sin mesaId/id — ignorado.',
+      } satisfies OperableLog);
       return;
     }
 
@@ -147,7 +161,12 @@ export class AppService {
 
       // A2: dedup por pedido.id — una reentrega no duplica el cobro
       if (snapshot.some((p) => p.id === pedidoDto.id)) {
-        this.logger.warn(`Pedido ${pedidoDto.id} ya está en la cuenta ${cuenta.id} — ignorado (idempotente)`);
+        this.logger.warn({
+          operation: 'procesarPedidoCreado',
+          aggregateId: cuenta.id,
+          idempotencyKey: pedidoDto.id,
+          message: 'Pedido ya está en la cuenta — reentrega ignorada (idempotente).',
+        } satisfies OperableLog);
         return;
       }
 
@@ -168,13 +187,21 @@ export class AppService {
       });
     } catch (e: unknown) {
       if ((e as { code?: string })?.code === 'P2002') {
-        this.logger.warn(`PedidoCreado ${pedidoDto.id} ya procesado — idempotente`);
+        this.logger.warn({
+          operation: 'procesarPedidoCreado',
+          aggregateId: pedidoDto.id,
+          message: 'Evento PedidoCreado ya procesado — idempotente.',
+        } satisfies OperableLog);
         return;
       }
       throw e;
     }
 
-    this.logger.log(`Pedido ${pedidoDto.id} consolidado en cuenta de mesa ${pedidoDto.mesaId}`);
+    this.logger.log({
+      operation: 'procesarPedidoCreado',
+      aggregateId: pedidoDto.id,
+      message: `Pedido consolidado en cuenta de mesa ${pedidoDto.mesaId}.`,
+    } satisfies OperableLog);
   }
 
   // A2+M5: idempotencia + advisory lock + recompute Decimal para actualizaciones
@@ -218,13 +245,22 @@ export class AppService {
       });
     } catch (e: unknown) {
       if ((e as { code?: string })?.code === 'P2002') {
-        this.logger.warn(`PedidoActualizado ${pedidoDto.id} ya procesado — idempotente`);
+        this.logger.warn({
+          operation: 'procesarPedidoActualizado',
+          aggregateId: pedidoDto.id,
+          message: 'Evento PedidoActualizado ya procesado — idempotente.',
+        } satisfies OperableLog);
         return;
       }
       throw e;
     }
 
-    this.logger.log(`Snapshot de pedido ${pedidoDto.id} actualizado en cuenta de mesa ${pedidoDto.mesaId}`);
+    this.logger.log({
+      operation: 'procesarPedidoActualizado',
+      aggregateId: pedidoDto.id,
+      resultingState: pedidoDto.estado,
+      message: `Snapshot de pedido actualizado en cuenta de mesa ${pedidoDto.mesaId}.`,
+    } satisfies OperableLog);
   }
 
   async procesarPagoRegistrado(payload: PagoRegistradoPayload): Promise<void> {
@@ -233,21 +269,32 @@ export class AppService {
     });
 
     if (!cuenta) {
-      this.logger.warn(`Cuenta ${payload.cuentaId} no encontrada — ignorado`);
+      this.logger.warn({
+        operation: 'procesarPagoRegistrado',
+        aggregateId: payload.cuentaId,
+        errorCode: 'CUENTA_NO_ENCONTRADA',
+        message: 'Cuenta no encontrada — evento PagoRegistrado ignorado.',
+      } satisfies OperableLog);
       return;
     }
 
     if (cuenta.estado !== CuentaEstado.Abierta) {
-      this.logger.warn(
-        `Cuenta ${payload.cuentaId} ya está ${cuenta.estado} — ignorado`
-      );
+      this.logger.warn({
+        operation: 'procesarPagoRegistrado',
+        aggregateId: payload.cuentaId,
+        resultingState: cuenta.estado,
+        message: `Cuenta ya está ${cuenta.estado} — evento PagoRegistrado ignorado.`,
+      } satisfies OperableLog);
       return;
     }
 
     await this.cerrarCuenta(cuenta.id, {});
-    this.logger.log(
-      `Cuenta ${cuenta.id} cerrada automáticamente por PagoRegistrado`
-    );
+    this.logger.log({
+      operation: 'procesarPagoRegistrado',
+      aggregateId: cuenta.id,
+      resultingState: 'CERRADA',
+      message: 'Cuenta cerrada automáticamente por evento PagoRegistrado.',
+    } satisfies OperableLog);
   }
 
   async obtenerCuenta(id: string): Promise<CuentaDto> {
@@ -360,7 +407,12 @@ export class AppService {
       fecha: new Date().toISOString()
     };
 
-    this.logger.log(`Cuenta ${id} cerrada. Ticket ${cierre.ticketId} generado. Total: S/ ${cierre.total.toNumber()}`);
+    this.logger.log({
+      operation: 'cerrarCuenta',
+      aggregateId: id,
+      resultingState: 'CERRADA',
+      message: `Cuenta cerrada. Ticket ${cierre.ticketId} generado. Total: S/ ${cierre.total.toNumber()}.`,
+    } satisfies OperableLog);
 
     return { message: 'Cuenta cerrada exitosamente', ticket };
   }
@@ -483,7 +535,12 @@ export class AppService {
 
   private requireDate(value: unknown, field: 'createdAt' | 'updatedAt', cuentaId: string): Date {
     if (value instanceof Date && !Number.isNaN(value.getTime())) return value;
-    this.logger.error(`Cuenta ${cuentaId} sin ${field} valido`);
+    this.logger.error({
+      operation: 'requireDate',
+      aggregateId: cuentaId,
+      errorCode: 'FECHA_INVALIDA',
+      message: `Cuenta con campo ${field} inválido o ausente.`,
+    } satisfies OperableLog);
     throw new BadRequestException(`Cuenta ${cuentaId} tiene ${field} invalido`);
   }
 }

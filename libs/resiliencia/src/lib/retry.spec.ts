@@ -1,5 +1,8 @@
+/* eslint-disable @typescript-eslint/require-await, @typescript-eslint/only-throw-error --
+   Los mocks simulan errores con forma de axios (objetos planos, no instancias de
+   Error) y funciones async sin await para calzar la firma Promise bajo prueba. */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { retryAsync, defaultIsRetryable } from './retry';
+import { retryAsync, defaultIsRetryable, retryAttemptsOf } from './retry';
 
 describe('retryAsync (R-14)', () => {
   beforeEach(() => vi.useFakeTimers());
@@ -49,5 +52,34 @@ describe('retryAsync (R-14)', () => {
     expect(defaultIsRetryable({ code: 'ETIMEDOUT' })).toBe(true);
     expect(defaultIsRetryable({ response: { status: 400 } })).toBe(false);
     expect(defaultIsRetryable({ response: { status: 404 } })).toBe(false);
+  });
+
+  // Log operable (sesión 29): el call site debe poder registrar `retryAttempt`.
+  it('adjunta al error los reintentos ejecutados y retryAttemptsOf los lee', async () => {
+    const err = { code: 'ECONNRESET' } as { code: string; retryAttempts?: number };
+    const fn = vi.fn(async () => {
+      throw err;
+    });
+
+    const p = retryAsync(fn, { retries: 2, baseMs: 10 });
+    const assertion = expect(p).rejects.toBe(err);
+    await vi.advanceTimersByTimeAsync(5000);
+    await assertion;
+
+    expect(retryAttemptsOf(err)).toBe(2); // 2 reintentos tras el intento inicial
+  });
+
+  it('retryAttemptsOf devuelve 0 en un error sin reintentos (4xx)', async () => {
+    const err = { response: { status: 404 } };
+    const fn = vi.fn(async () => {
+      throw err;
+    });
+
+    const p = retryAsync(fn, { retries: 3, baseMs: 10 });
+    const assertion = expect(p).rejects.toBe(err);
+    await vi.advanceTimersByTimeAsync(1000);
+    await assertion;
+
+    expect(retryAttemptsOf(err)).toBe(0);
   });
 });

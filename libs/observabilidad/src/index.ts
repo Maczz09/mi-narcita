@@ -3,5 +3,7 @@ export * from './lib/tracing';
 export * from './lib/metrics.interceptor';
 export * from './lib/metrics';
 export * from './lib/log-trace.format';
+export * from './lib/operable-log';
 export * from './lib/user.decorator';
 export * from './lib/global-exception.filter';
+export * from './lib/health.controller';

@@ -1,4 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { OperableLog } from '@org/observabilidad';
 import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
@@ -18,7 +19,10 @@ export class AppService {
 
   async registrarNotificacion(pattern: string, data: unknown) {
     const contenido = this.formatContenido(pattern, data);
-    this.logger.log(`Guardando notificación en BD para el evento: ${pattern}`);
+    this.logger.log({
+      operation: pattern,
+      message: 'Guardando notificación en BD para el evento.',
+    } satisfies OperableLog);
 
     try {
       const notificacion = await this.prisma.notificacion.create({
@@ -32,7 +36,11 @@ export class AppService {
       });
       return notificacion;
     } catch (err) {
-      this.logger.error(`Error al persistir notificación: ${err instanceof Error ? err.message : String(err)}`);
+      this.logger.error({
+        operation: pattern,
+        errorCode: 'PERSISTENCIA_FALLIDA',
+        message: `Error al persistir notificación: ${err instanceof Error ? err.message : String(err)}`,
+      } satisfies OperableLog);
       return null;
     }
   }

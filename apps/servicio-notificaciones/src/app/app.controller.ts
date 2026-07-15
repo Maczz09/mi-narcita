@@ -13,6 +13,7 @@ import {
   RoutingKeys,
 } from '@org/contracts';
 import { RabbitMQRetryInterceptor } from '@org/resiliencia';
+import { OperableLog } from '@org/observabilidad';
 import { AppService } from './app.service';
 import { NotificationsGateway } from './notifications.gateway';
 
@@ -94,12 +95,31 @@ export class AppController {
     await this.handleEvent(RoutingKeys.ReservaCancelada, payload);
   }
 
+  /**
+   * Extrae un id de negocio reconocible sin asumir la forma exacta del
+   * payload (cada RoutingKey trae una distinta). Deliberadamente NO se loguea
+   * el payload completo (sesión 29: "los logs guardan todo el payload" es el
+   * anti-patrón a evitar) — solo el id necesario para buscar el caso.
+   */
+  private extractAggregateId(data: unknown): string | undefined {
+    if (!data || typeof data !== 'object') return undefined;
+    const d = data as Record<string, unknown>;
+    const pedido = d['pedido'] as Record<string, unknown> | undefined;
+    const mesa = d['mesa'] as Record<string, unknown> | undefined;
+    const candidato =
+      pedido?.['id'] ?? d['cuentaId'] ?? d['mesaId'] ?? mesa?.['id'] ?? d['ticketId'] ?? d['reservaId'];
+    return typeof candidato === 'string' ? candidato : undefined;
+  }
+
   private async handleEvent(
     pattern: string,
     data: unknown,
   ): Promise<void> {
-    this.logger.log(`✅ Evento recibido: ${pattern}`);
-    this.logger.log(` Datos: ${JSON.stringify(data)}`);
+    this.logger.log({
+      operation: pattern,
+      aggregateId: this.extractAggregateId(data),
+      message: 'Evento de negocio recibido; se registra y notifica en tiempo real.',
+    } satisfies OperableLog);
 
     // Guardar en la base de datos de manera persistente
     const notif = await this.appService.registrarNotificacion(pattern, data);

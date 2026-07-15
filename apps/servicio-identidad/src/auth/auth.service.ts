@@ -6,6 +6,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
+import { OperableLog } from '@org/observabilidad';
 import { createHash, randomBytes } from 'node:crypto';
 import * as bcrypt from 'bcrypt';
 import {
@@ -118,7 +119,11 @@ export class AuthService {
       }),
     ]);
 
-    this.logger.log(`✅ Login exitoso: ${usuario.id} (${usuario.rol})`);
+    this.logger.log({
+      operation: 'login',
+      aggregateId: usuario.id,
+      message: `Login exitoso (rol ${usuario.rol}).`,
+    } satisfies OperableLog);
 
     return {
       access_token,
@@ -194,7 +199,13 @@ export class AuthService {
       }
       // Reuso detectado: alguien presentó un token ya rotado → revocar la cadena completa.
       await this.revocarCadenaRefresh(existing.userId);
-      this.logger.warn(`Reuso de refresh token detectado para usuario ${existing.userId}; cadena revocada`);
+      this.logger.warn({
+        operation: 'rotateRefreshToken',
+        aggregateId: existing.userId,
+        errorCode: 'REFRESH_TOKEN_REUSE',
+        resultingState: 'CADENA_REVOCADA',
+        message: 'Reuso de refresh token detectado (token ya revocado); cadena completa revocada.',
+      } satisfies OperableLog);
       throw new UnauthorizedException('Refresh token ya utilizado');
     }
     if (existing.expiresAt.getTime() < Date.now()) {
@@ -236,7 +247,13 @@ export class AuthService {
       }
 
       await this.revocarCadenaRefresh(existing.userId);
-      this.logger.warn(`Reuso de refresh token detectado para usuario ${existing.userId}; cadena revocada`);
+      this.logger.warn({
+        operation: 'rotateRefreshToken',
+        aggregateId: existing.userId,
+        errorCode: 'REFRESH_TOKEN_REUSE',
+        resultingState: 'CADENA_REVOCADA',
+        message: 'Reuso de refresh token detectado (carrera de rotación perdida); cadena completa revocada.',
+      } satisfies OperableLog);
       throw new UnauthorizedException('Refresh token ya utilizado');
     }
 
@@ -294,7 +311,12 @@ export class AuthService {
 
     await this.registrarAuditoria('CREAR_USUARIO', usuario.id, 'servicio-identidad');
 
-    this.logger.log(`✅ Usuario creado: ${usuario.email} (${usuario.rol})`);
+    this.logger.log({
+      operation: 'crearUsuario',
+      aggregateId: usuario.id,
+      resultingState: usuario.rol,
+      message: 'Usuario creado.',
+    } satisfies OperableLog);
     return toUsuarioDto(usuario);
   }
 
@@ -384,7 +406,12 @@ export class AuthService {
       await this.registrarAuditoria(`CAMBIAR_ROL:${command.rol}:por:${ejecutadoPor}`, id, 'servicio-identidad');
     }
 
-    this.logger.log(`✅ Rol actualizado: ${actualizado.email} → ${command.rol}`);
+    this.logger.log({
+      operation: 'cambiarRol',
+      aggregateId: actualizado.id,
+      resultingState: command.rol,
+      message: 'Rol de usuario actualizado.',
+    } satisfies OperableLog);
     return toUsuarioDto(actualizado);
   }
 

@@ -1,4 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { OperableLog } from '@org/observabilidad';
 import { PrismaService } from '../prisma/prisma.service';
 import { CuentaCerradaPayload, PedidoSnapshotItem } from '@org/contracts';
 
@@ -9,7 +10,11 @@ export class AppService {
   constructor(private readonly prisma: PrismaService) {}
 
   async registrarVenta(data: CuentaCerradaPayload) {
-    this.logger.log(`Registrando venta para cuenta ${data.cuentaId} (Mesa ${data.mesaId}) por total $${data.total}`);
+    this.logger.log({
+      operation: 'registrarVenta',
+      aggregateId: data.cuentaId,
+      message: `Registrando venta para mesa ${data.mesaId} por total S/ ${data.total}.`,
+    } satisfies OperableLog);
 
     await this.prisma.ventaDiaria.upsert({
       where: { cuentaId: data.cuentaId },

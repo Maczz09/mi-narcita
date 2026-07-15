@@ -5,7 +5,7 @@ import {
   NotFoundException,
   ServiceUnavailableException,
 } from '@nestjs/common';
-import { getOrCreateCounter, getOrCreateHistogram } from '@org/observabilidad';
+import { getOrCreateCounter, getOrCreateHistogram, OperableLog } from '@org/observabilidad';
 import { PrismaService } from '../prisma/prisma.service';
 import {
   ListarTransaccionesQuery,
@@ -110,7 +110,11 @@ export class AppService {
       throw error;
     }
 
-    this.logger.log(`Turno de caja ${turno.id} abierto`);
+    this.logger.log({
+      operation: 'abrirTurno',
+      aggregateId: turno.id,
+      message: 'Turno de caja abierto.',
+    } satisfies OperableLog);
     return this.mapTurno(turno);
   }
 
@@ -153,7 +157,33 @@ export class AppService {
     return this.obtenerResumenTurno(turno.id);
   }
 
+  // Micro-caché TTL single-flight del resumen (hallazgo pruebas de carga
+  // 2026-07-13): el resumen trae TODOS los movimientos del turno y agrega en
+  // JS por request; bajo consulta concurrente masiva degrada a timeouts. Se
+  // cachea la PROMESA (no el valor): al expirar el TTL solo el primer caller
+  // recomputa y el resto espera esa misma promesa — sin estampida (medido:
+  // cachear el valor dejaba un p99 de timeout por la manada de misses en cada
+  // ventana). Dato de dashboard: segundos de staleness aceptables. Opt-in por
+  // env (CAJA_RESUMEN_TTL_MS>0) para no alterar tests ni semántica por defecto.
+  // ponytail: stopgap; el fix real (SUM en SQL o caché con invalidación) tiene tarea propia.
+  private readonly resumenCache = new Map<string, { at: number; promise: Promise<unknown> }>();
+
   async obtenerResumenTurno(id: string) {
+    const ttl = Number(process.env.CAJA_RESUMEN_TTL_MS ?? 0);
+    if (ttl <= 0) return this.computeResumenTurno(id);
+
+    const hit = this.resumenCache.get(id);
+    if (hit && Date.now() - hit.at < ttl) {
+      return hit.promise as ReturnType<AppService['computeResumenTurno']>;
+    }
+    const promise = this.computeResumenTurno(id);
+    this.resumenCache.set(id, { at: Date.now(), promise });
+    // Un fallo no debe quedar cacheado como resultado del resto de la ventana.
+    promise.catch(() => this.resumenCache.delete(id));
+    return promise;
+  }
+
+  private async computeResumenTurno(id: string) {
     const turno = await this.prisma.turnoCaja.findUnique({
       where: { id },
       include: {
@@ -279,7 +309,11 @@ export class AppService {
       return { turno: turnoCerrado, arqueo, cierre: cierreCreado, resumen };
     });
 
-    this.logger.log(`Turno de caja ${id} cerrado`);
+    this.logger.log({
+      operation: 'cerrarTurno',
+      aggregateId: id,
+      message: 'Turno de caja cerrado.',
+    } satisfies OperableLog);
     return {
       turno: this.mapTurno(cierre.turno),
       arqueo: this.mapArqueo(cierre.arqueo),
@@ -417,22 +451,29 @@ export class AppService {
       });
     } catch (error) {
       this.pagosCierrePendienteCounter.inc();
+      // Ruta de dinero: el pago SÍ se persistió, la cuenta queda en un estado
+      // degradado real (PAGO_SIN_CIERRE_CONFIRMADO) → resultingState es fiel y
+      // dispara la reconciliación. aggregateId=cuentaId es la clave de búsqueda
+      // de soporte; el id de transacción queda en el message.
       this.logger.warn({
         operation: 'cerrarCuenta',
-        transaccionId: transaccion.id,
-        cuentaId: command.cuentaId,
+        aggregateId: command.cuentaId,
         dependency: 'cuentas',
         durationMs: Date.now() - cierreStart,
         errorCode: 'CIERRE_REMOTO_FAILED',
         resultingState: 'PAGO_SIN_CIERRE_CONFIRMADO',
         message: `Pago ${transaccion.id} registrado; cierre remoto de cuenta pendiente: ${(error as Error).message}`,
-      });
+      } satisfies OperableLog);
     }
 
     const transaccionDto = this.mapTransaccion(transaccion);
     this.pagosCounter.inc({ metodo: command.metodo });
     this.pagoMontoHistogram.observe({ metodo: command.metodo }, montoRecibido.toNumber());
-    this.logger.log(`Pago registrado para cuenta ${command.cuentaId}`);
+    this.logger.log({
+      operation: 'registrarPago',
+      aggregateId: command.cuentaId,
+      message: 'Pago registrado para la cuenta.',
+    } satisfies OperableLog);
     return {
       message: ticket ? 'Pago registrado, cuenta cerrada y ticket generado' : 'Pago registrado; cierre de cuenta en proceso',
       transaccion: transaccionDto,

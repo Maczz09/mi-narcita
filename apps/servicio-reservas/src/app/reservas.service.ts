@@ -2,6 +2,7 @@ import {
   BadRequestException,
   ConflictException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import {
@@ -14,12 +15,14 @@ import {
   ReservaDisponibilidadResponse,
   RoutingKeys,
 } from '@org/contracts';
+import { OperableLog } from '@org/observabilidad';
 import { PrismaService } from '../prisma/prisma.service';
 import { toReservaDto } from './reservas.mapper';
 import { Reserva } from '../generated/prisma';
 
 @Injectable()
 export class ReservasService {
+  private readonly logger = new Logger(ReservasService.name);
   constructor(
     private readonly prisma: PrismaService,
   ) {}
@@ -100,6 +103,12 @@ export class ReservasService {
     }
 
     const dto = toReservaDto(reserva);
+    this.logger.log({
+      operation: 'crear',
+      aggregateId: reserva.id,
+      resultingState: ReservaEstado.Pendiente,
+      message: `Reserva creada para ${clienteNombre} (mesa ${mesaPreferida}, ${command.fecha} ${command.hora}).`,
+    } satisfies OperableLog);
     return { message: 'Reserva creada', reserva: dto };
   }
 
@@ -114,6 +123,12 @@ export class ReservasService {
       data: { estado: ReservaEstado.Confirmada },
     });
 
+    this.logger.log({
+      operation: 'confirmar',
+      aggregateId: id,
+      resultingState: ReservaEstado.Confirmada,
+      message: 'Reserva confirmada.',
+    } satisfies OperableLog);
     return { message: 'Reserva confirmada', reserva: toReservaDto(updated) };
   }
 
@@ -138,6 +153,12 @@ export class ReservasService {
       return r;
     });
 
+    this.logger.log({
+      operation: 'cancelar',
+      aggregateId: id,
+      resultingState: ReservaEstado.Cancelada,
+      message: `Reserva cancelada${motivo ? ` (motivo: ${motivo})` : ''}.`,
+    } satisfies OperableLog);
     return { message: 'Reserva cancelada', reserva: toReservaDto(updated) };
   }
 

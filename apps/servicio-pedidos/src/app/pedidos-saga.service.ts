@@ -8,7 +8,7 @@ import {
   RoutingKeys,
   StockInsuficientePayload,
 } from '@org/contracts';
-import { getOrCreateCounter } from '@org/observabilidad';
+import { getOrCreateCounter, OperableLog } from '@org/observabilidad';
 import { PrismaService } from '../prisma/prisma.service';
 import { mapPedidoToDto } from './pedido.mapper';
 import { Prisma } from '../generated/prisma';
@@ -221,7 +221,11 @@ export class PedidosSagaService {
   async procesarStockInsuficiente(payload: StockInsuficientePayload): Promise<void> {
     const { pedidoId, productoId } = payload;
     if (!pedidoId || !productoId) {
-      this.logger.warn('StockInsuficiente sin pedidoId/productoId — ignorado');
+      this.logger.warn({
+        operation: 'procesarStockInsuficiente',
+        errorCode: 'PAYLOAD_INVALIDO',
+        message: 'Evento StockInsuficiente sin pedidoId/productoId — ignorado.',
+      } satisfies OperableLog);
       return;
     }
     const idempotencyKey = `${RoutingKeys.StockInsuficiente}:${pedidoId}:${productoId}`;
@@ -239,7 +243,12 @@ export class PedidosSagaService {
           include: { items: true },
         });
         if (!pedido) {
-          this.logger.warn(`StockInsuficiente: pedido ${pedidoId} no encontrado`);
+          this.logger.warn({
+            operation: 'procesarStockInsuficiente',
+            aggregateId: pedidoId,
+            errorCode: 'PEDIDO_NO_ENCONTRADO',
+            message: 'Pedido no encontrado al procesar StockInsuficiente.',
+          } satisfies OperableLog);
           return;
         }
 
@@ -269,12 +278,12 @@ export class PedidosSagaService {
 
         this.logger.warn({
           operation: 'procesarStockInsuficiente',
-          orderId: pedidoId,
+          aggregateId: pedidoId,
           dependency: 'inventario',
           errorCode: 'STOCK_VALIDATION_FAILED',
           resultingState: 'RECHAZADO_SIN_STOCK',
-          message: `Stock validation failed for product ${productoId}; order items marked as rejected`
-        });
+          message: `Validación de stock falló para el producto ${productoId}; ítems del pedido marcados como rechazados.`,
+        } satisfies OperableLog);
         if (rechazados.count > 0) this.pedidosRechazadosCounter.inc(rechazados.count);
 
         await prisma.outboxEvent.create({
@@ -287,7 +296,12 @@ export class PedidosSagaService {
       });
     } catch (error: unknown) {
       if ((error as { code?: string })?.code === 'P2002') {
-        this.logger.warn(`StockInsuficiente ${idempotencyKey} ya procesado — sin cambios`);
+        this.logger.warn({
+          operation: 'procesarStockInsuficiente',
+          aggregateId: pedidoId,
+          idempotencyKey,
+          message: 'Evento StockInsuficiente ya procesado — sin cambios (idempotente).',
+        } satisfies OperableLog);
         return;
       }
       throw error;

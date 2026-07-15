@@ -1,5 +1,9 @@
-import { describe, expect, it, beforeEach, afterEach } from 'vitest';
+/* eslint-disable @typescript-eslint/require-await --
+   Los métodos dummy son async sin await a propósito: solo existen para que el
+   decorador los envuelva y para forzar el rechazo del breaker bajo prueba. */
+import { describe, expect, it, beforeEach, afterEach, vi } from 'vitest';
 import { register, Gauge } from 'prom-client';
+import { Logger } from '@nestjs/common';
 import { CircuitBreakerOptions, CIRCUIT_BREAKER_REGISTRY } from './circuit-breaker.decorator';
 
 /**
@@ -54,6 +58,25 @@ describe('CircuitBreakerOptions — gauge circuit_breaker_state (R-04)', () => {
 
     breaker.emit('close');
     expect(estadoGauge(breakerName)).toBe(0);
+  });
+
+  // Log operable (sesión 29): al abrir, emite circuitBreakerState + dependency
+  // derivada del nombre de la clase ('Dummy' → 'dummy').
+  it('loguea el cambio de estado del circuito de forma estructurada', async () => {
+    const warnSpy = vi.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
+    const dummy = new Dummy();
+    await expect(dummy.llamar()).rejects.toBeDefined();
+
+    CIRCUIT_BREAKER_REGISTRY.get(breakerName)!.emit('open');
+
+    expect(warnSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        operation: breakerName,
+        dependency: 'dummy',
+        circuitBreakerState: 'OPEN',
+      }),
+    );
+    warnSpy.mockRestore();
   });
 
   it('R-05: registra la latencia en dependency_request_duration_seconds por breaker', async () => {

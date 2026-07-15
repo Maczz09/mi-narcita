@@ -39,11 +39,24 @@ export async function retryAsync<T>(fn: () => Promise<T>, options: RetryOptions 
     try {
       return await fn();
     } catch (error) {
-      if (attempt >= retries || !isRetryable(error)) throw error;
+      if (attempt >= retries || !isRetryable(error)) {
+        // Expone los reintentos ya ejecutados para que el call site lo loguee
+        // como `retryAttempt` (log operable, sesión 29). No altera el tipo del
+        // error ni su propagación.
+        if (attempt > 0 && error && typeof error === 'object') {
+          (error as { retryAttempts?: number }).retryAttempts = attempt;
+        }
+        throw error;
+      }
       attempt++;
       retryCounter.inc({ surface: 'http' });
       const backoff = baseMs * 2 ** (attempt - 1) + Math.floor(Math.random() * baseMs);
       await sleep(backoff);
     }
   }
+}
+
+/** Lee los reintentos que `retryAsync` adjuntó a un error propagado (0 si ninguno). */
+export function retryAttemptsOf(error: unknown): number {
+  return (error as { retryAttempts?: number })?.retryAttempts ?? 0;
 }

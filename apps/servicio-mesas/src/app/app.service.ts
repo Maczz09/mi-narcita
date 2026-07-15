@@ -1,4 +1,5 @@
 import { Injectable, ConflictException, NotFoundException, Logger } from '@nestjs/common';
+import { OperableLog } from '@org/observabilidad';
 import { PrismaService } from '../prisma/prisma.service';
 import { MesaDto, CrearMesaCommand, ActualizarEstadoMesaCommand, MesaEstado, RoutingKeys } from '@org/contracts';
 
@@ -11,7 +12,13 @@ export class AppService {
 
   async listarMesas(): Promise<{ mesas: MesaDto[] }> {
     const mesas = await this.prisma.mesa.findMany({
-      orderBy: { numero: 'asc' }
+      orderBy: { numero: 'asc' },
+      // Tope de seguridad (hallazgo pruebas de carga 2026-07-13): sin límite,
+      // este listado serializa la tabla entera por request y bajo carga el
+      // event loop degenera (p95 42s con ~500 filas × cientos req/s). Un
+      // restobar real tiene decenas de mesas — 200 nunca trunca datos reales.
+      // ponytail: cap fijo; paginación cursor+limit real pendiente (task chip).
+      take: 200,
     });
     return { mesas: mesas as unknown as MesaDto[] };
   }
@@ -88,7 +95,13 @@ export class AppService {
     });
 
     if (resultado.conflicto) {
-      this.logger.warn(`Conflicto de estado en mesa ${id}: esperado ${mesa.estado}`);
+      this.logger.warn({
+        operation: 'actualizarEstado',
+        aggregateId: id,
+        errorCode: 'CONFLICTO_CONCURRENCIA',
+        resultingState: mesa.estado,
+        message: `Conflicto de estado en mesa: se esperaba ${mesa.estado}, otra transacción ya la modificó.`,
+      } satisfies OperableLog);
       throw new ConflictException(`El estado de la mesa fue modificado por otra transacción.`);
     }
 

@@ -16,7 +16,7 @@ import {
   StockInsuficientePayload,
 } from '@org/contracts';
 import { Prisma } from '../generated/prisma';
-import { getOrCreateCounter } from '@org/observabilidad';
+import { getOrCreateCounter, OperableLog } from '@org/observabilidad';
 import { MesasHttpClient } from './mesas-http.client';
 import { InventarioHttpClient, ProductoRemotoLote } from './inventario-http.client';
 import { PedidosSagaService } from './pedidos-saga.service';
@@ -68,7 +68,11 @@ export class AppService {
       mesero,
     });
 
-    this.logger.log(`Pedido ${pedido.id} creado con eventos en Outbox`);
+    this.logger.log({
+      operation: 'crearPedido',
+      aggregateId: pedido.id,
+      message: 'Pedido creado con eventos en Outbox.',
+    } satisfies OperableLog);
     this.pedidosCreadosCounter.inc({ modalidad: command.modalidad ?? 'MESA' });
     return {
       message: 'Pedido creado exitosamente',
@@ -110,7 +114,12 @@ export class AppService {
     const faltantes = productoIds.filter(id => !existentesIds.has(id));
 
     if (faltantes.length > 0) {
-      this.logger.warn(`Cold-start: ${faltantes.length} productos no están en proyección local, cargando desde inventario`);
+      this.logger.warn({
+        operation: 'asegurarProductosLocales',
+        dependency: 'inventario',
+        resultingState: `${faltantes.length} productos en cold-start`,
+        message: 'Productos no están en proyección local; cargando desde inventario.',
+      } satisfies OperableLog);
       // T-33: la llamada remota vive en InventarioHttpClient (breaker incluido).
       let productos: ProductoRemotoLote[];
       try {
@@ -410,7 +419,12 @@ export class AppService {
       });
     } catch (error: unknown) {
       if ((error as { code?: string })?.code === 'P2002') {
-        this.logger.warn(`Evento ${idempotencyKey} ya procesado — proyeccion de productos no se aplica de nuevo`);
+        this.logger.warn({
+          operation: 'procesarEventoProducto',
+          aggregateId: payload.id,
+          idempotencyKey,
+          message: 'Evento ya procesado — proyección de productos no se aplica de nuevo (idempotente).',
+        } satisfies OperableLog);
         return;
       }
       throw error;
@@ -471,7 +485,11 @@ export class AppService {
   }
 
   async procesarPagoRecibido(payload: PagoRegistradoPayload): Promise<void> {
-    this.logger.log(`Procesando pago recibido para cuenta ${payload.cuentaId} y mesa ${payload.mesaId}`);
+    this.logger.log({
+      operation: 'procesarPagoRecibido',
+      aggregateId: payload.cuentaId,
+      message: `Procesando pago recibido para la mesa ${payload.mesaId}.`,
+    } satisfies OperableLog);
 
     try {
       await this.prisma.$transaction(async (prisma) => {
@@ -492,7 +510,11 @@ export class AppService {
       });
     } catch (e: unknown) {
       if ((e as { code?: string })?.code === 'P2002') {
-         this.logger.warn(`Pago ${payload.cuentaId} ya procesado — idempotente`);
+         this.logger.warn({
+           operation: 'procesarPagoRecibido',
+           aggregateId: payload.cuentaId,
+           message: 'Evento PagoRegistrado ya procesado — idempotente.',
+         } satisfies OperableLog);
          return;
       }
       throw e;

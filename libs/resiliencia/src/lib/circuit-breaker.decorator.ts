@@ -1,6 +1,6 @@
 import { Logger } from '@nestjs/common';
 import CircuitBreaker from 'opossum';
-import { getOrCreateGauge, getOrCreateHistogram } from '@org/observabilidad';
+import { getOrCreateGauge, getOrCreateHistogram, OperableLog } from '@org/observabilidad';
 
 export const CIRCUIT_BREAKER_REGISTRY = new Map<string, CircuitBreaker>();
 
@@ -30,6 +30,10 @@ export function CircuitBreakerOptions(options?: CircuitBreaker.Options) {
     const originalMethod = descriptor.value as (...args: unknown[]) => Promise<unknown>;
     const breakerName = `${target.constructor.name}.${propertyKey}`;
     const logger = new Logger('CircuitBreaker');
+    // Nombre canónico de la dependencia = clase sin sufijo HttpClient, en
+    // minúsculas ('CuentasHttpClient' → 'cuentas'). Coincide con el label
+    // `dependency` de las métricas para poder cruzar log ↔ métrica.
+    const dependency = target.constructor.name.replace(/HttpClient$/, '').toLowerCase();
 
     const defaultOptions: CircuitBreaker.Options = {
       timeout: 3000, 
@@ -47,18 +51,39 @@ export function CircuitBreakerOptions(options?: CircuitBreaker.Options) {
         breaker = new CircuitBreaker(fn, defaultOptions);
 
         breaker.on('open', () => {
-          logger.warn(`Circuito ABIERTO en ${breakerName}. Rechazando peticiones.`);
+          logger.warn({
+            operation: breakerName,
+            dependency,
+            circuitBreakerState: 'OPEN',
+            message: 'Circuito abierto; rechazando peticiones a la dependencia.',
+          } satisfies OperableLog);
           circuitStateGauge.set({ breaker: breakerName }, 1);
         });
         breaker.on('halfOpen', () => {
-          logger.log(`Circuito MEDIO ABIERTO en ${breakerName}. Probando conexión...`);
+          logger.log({
+            operation: breakerName,
+            dependency,
+            circuitBreakerState: 'HALF_OPEN',
+            message: 'Circuito medio abierto; probando una petición de sondeo.',
+          } satisfies OperableLog);
           circuitStateGauge.set({ breaker: breakerName }, 0.5);
         });
         breaker.on('close', () => {
-          logger.log(`Circuito CERRADO en ${breakerName}. Tráfico normal.`);
+          logger.log({
+            operation: breakerName,
+            dependency,
+            circuitBreakerState: 'CLOSED',
+            message: 'Circuito cerrado; tráfico normal restablecido.',
+          } satisfies OperableLog);
           circuitStateGauge.set({ breaker: breakerName }, 0);
         });
-        breaker.on('fallback', () => logger.warn(`Fallback ejecutado en ${breakerName}`));
+        breaker.on('fallback', () =>
+          logger.warn({
+            operation: breakerName,
+            dependency,
+            message: 'Fallback ejecutado por el circuito.',
+          } satisfies OperableLog),
+        );
 
         // Estado inicial: CLOSED, para que el gauge sea visible desde el arranque.
         circuitStateGauge.set({ breaker: breakerName }, 0);
