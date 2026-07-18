@@ -66,6 +66,8 @@ export class ReservasService {
       throw new BadRequestException('Selecciona una mesa para crear la reserva');
     }
 
+    this.assertFechaFutura(command.fecha, command.hora);
+
     await this.assertMesaDisponible(command.fecha, command.hora, mesaPreferida);
 
     let reserva: Reserva;
@@ -195,6 +197,18 @@ export class ReservasService {
     const { disponible } = await this.consultarDisponibilidad(fecha, hora, mesaPreferida);
     if (!disponible) {
       throw new ConflictException('La mesa ya está reservada para la fecha y hora solicitadas');
+    }
+  }
+
+  // Rechaza reservas cuyo instante (fecha + hora) ya pasó: no tiene sentido
+  // reservar en el pasado y hasta ahora el backend las aceptaba en silencio.
+  private assertFechaFutura(fecha: string, hora: string): void {
+    const cuando = new Date(`${fecha}T${hora}`);
+    if (Number.isNaN(cuando.getTime())) {
+      throw new BadRequestException('Fecha u hora de reserva inválida');
+    }
+    if (cuando.getTime() <= Date.now()) {
+      throw new BadRequestException('No se puede reservar en una fecha u hora que ya pasó');
     }
   }
 

@@ -27,6 +27,12 @@ describe('ReservasService — Reservas', () => {
   let service: ReservasService;
   let mockPrisma: ReturnType<typeof createMockPrismaService>;
 
+  // Fecha siempre futura (+30 días) para que los tests de `crear` no caduquen:
+  // el servicio ahora rechaza reservas en fecha/hora pasada.
+  const fechaFutura = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+    .toISOString()
+    .slice(0, 10);
+
   const reservaBase = {
     id: 'r-001',
     clienteId: 'c-001',
@@ -125,7 +131,7 @@ describe('ReservasService — Reservas', () => {
         clienteId: 'c-001',
         clienteNombre: 'Juan Perez',
         clienteTelefono: '999888777',
-        fecha: '2026-06-15',
+        fecha: fechaFutura,
         hora: '19:00',
         mesaPreferida: 'mesa-005',
         numComensales: 4,
@@ -148,7 +154,7 @@ describe('ReservasService — Reservas', () => {
         clienteId: 'c-001',
         clienteNombre: 'Juan',
         clienteTelefono: '999',
-        fecha: '2026-06-15',
+        fecha: fechaFutura,
         hora: '19:00',
         mesaPreferida: 'mesa-005',
         numComensales: 4,
@@ -163,11 +169,23 @@ describe('ReservasService — Reservas', () => {
         clienteId: 'c-001',
         clienteNombre: 'Juan',
         clienteTelefono: '999',
-        fecha: '2026-06-15',
+        fecha: fechaFutura,
         hora: '19:00',
         mesaPreferida: 'mesa-005',
         numComensales: 4,
       })).rejects.toThrow('La mesa ya está reservada');
+    });
+
+    it('debe lanzar BadRequestException si la fecha ya pasó', async () => {
+      await expect(service.crear({
+        clienteId: 'c-001',
+        clienteNombre: 'Juan',
+        clienteTelefono: '999',
+        fecha: '2020-01-01',
+        hora: '19:00',
+        mesaPreferida: 'mesa-005',
+        numComensales: 4,
+      })).rejects.toThrow('ya pasó');
     });
 
     it('debe lanzar BadRequestException si no se selecciona mesa', async () => {
@@ -175,7 +193,7 @@ describe('ReservasService — Reservas', () => {
         clienteId: 'c-001',
         clienteNombre: 'Juan',
         clienteTelefono: '999',
-        fecha: '2026-06-15',
+        fecha: fechaFutura,
         hora: '19:00',
         mesaPreferida: ' ',
         numComensales: 4,
@@ -190,7 +208,7 @@ describe('ReservasService — Reservas', () => {
         clienteId: 'c-001',
         clienteNombre: 'Juan',
         clienteTelefono: '999',
-        fecha: '2026-06-15',
+        fecha: fechaFutura,
         hora: '19:00',
         mesaPreferida: 'mesa-005',
         numComensales: 4,
@@ -205,7 +223,7 @@ describe('ReservasService — Reservas', () => {
         clienteId: 'c-001',
         clienteNombre: 'Juan',
         clienteTelefono: '999',
-        fecha: '2026-06-15',
+        fecha: fechaFutura,
         hora: '19:00',
         mesaPreferida: 'mesa-005',
         numComensales: 4,
