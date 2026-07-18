@@ -80,6 +80,11 @@ consumers:
         rsa_public_key: "${KONG_JWT_PUBLIC_KEY}"
 
 # ── Servicios ────────────────────────────────────────────────────
+# T-07: presupuestos de tiempo por servicio (connect 2s / read·write 10s,
+# retries 1) para que Kong falle rápido ante un upstream muerto o una IP
+# cacheada obsoleta, en vez de colgarse 60s conectando. Coherente con los
+# timeouts de 2–4s por operación de los clientes HTTP internos.
+# Ver docs/operacion/runbooks/kong-dns-upstream.md.
 
 services:
   # ── T-16: bloquear /telemetry/metrics para todos los servicios ──
@@ -164,6 +169,10 @@ services:
 
   - name: servicio-identidad
     url: http://servicio-identidad:3000/api
+    connect_timeout: 2000
+    read_timeout: 10000
+    write_timeout: 10000
+    retries: 1
     plugins:
       - name: jwt
         config:
@@ -180,6 +189,10 @@ services:
   # ── Mesas ──
   - name: servicio-mesas
     url: http://servicio-mesas:3000/api
+    connect_timeout: 2000
+    read_timeout: 10000
+    write_timeout: 10000
+    retries: 1
     plugins:
       - name: jwt
         config:
@@ -196,6 +209,10 @@ services:
   # ── Pedidos ──
   - name: servicio-pedidos
     url: http://servicio-pedidos:3000/api
+    connect_timeout: 2000
+    read_timeout: 10000
+    write_timeout: 10000
+    retries: 1
     plugins:
       - name: jwt
         config:
@@ -212,6 +229,10 @@ services:
   # ── Cuentas ──
   - name: servicio-cuentas
     url: http://servicio-cuentas:3000/api
+    connect_timeout: 2000
+    read_timeout: 10000
+    write_timeout: 10000
+    retries: 1
     plugins:
       - name: jwt
         config:
@@ -228,6 +249,10 @@ services:
   # ── Reservas ──
   - name: servicio-reservas
     url: http://servicio-reservas:3000/api
+    connect_timeout: 2000
+    read_timeout: 10000
+    write_timeout: 10000
+    retries: 1
     plugins:
       - name: jwt
         config:
@@ -244,6 +269,10 @@ services:
   # ── Inventario ──
   - name: servicio-inventario
     url: http://servicio-inventario:3000/api
+    connect_timeout: 2000
+    read_timeout: 10000
+    write_timeout: 10000
+    retries: 1
     plugins:
       - name: jwt
         config:
@@ -260,6 +289,10 @@ services:
   # ── Notificaciones ──
   - name: servicio-notificaciones
     url: http://servicio-notificaciones:3000/api
+    connect_timeout: 2000
+    read_timeout: 10000
+    write_timeout: 10000
+    retries: 1
     plugins:
       - name: jwt
         config:
@@ -276,6 +309,10 @@ services:
   # ── Caja ──
   - name: servicio-caja
     url: http://servicio-caja:3000/api
+    connect_timeout: 2000
+    read_timeout: 10000
+    write_timeout: 10000
+    retries: 1
     plugins:
       - name: jwt
         config:
@@ -292,6 +329,10 @@ services:
   # ── Reportes ──
   - name: servicio-reportes
     url: http://servicio-reportes:3000/api
+    connect_timeout: 2000
+    read_timeout: 10000
+    write_timeout: 10000
+    retries: 1
     plugins:
       - name: jwt
         config:
