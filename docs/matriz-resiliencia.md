@@ -48,4 +48,8 @@ Extracto de [resiliencia-politica.md §1](resiliencia-politica.md); ver ahí la 
 > El estado de las dependencias síncronas también se ve en vivo en
 > `GET /api/health/dependencies` de cada servicio (lee `circuit_breaker_state`).
 
+Modo de fallo del gateway "reinicié el servicio y Kong sigue diciendo `name
+resolution failed`": ver el runbook
+[caché DNS de Kong tras reinicio de upstream](operacion/runbooks/kong-dns-upstream.md).
+
 Ver también: [runbooks](operacion/runbooks/) · [invariantes de resiliencia](invariantes/).
