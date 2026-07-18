@@ -1,0 +1,9 @@
+# Scripts que se ejecutan dentro de contenedores Linux (Docker) deben
+# mantener terminadores de línea LF sin importar el sistema operativo donde
+# se clone el repo. En Windows, sin esta regla, `core.autocrlf=true`
+# convierte estos archivos a CRLF en el checkout y rompe el shebang dentro
+# del contenedor (exec: no such file or directory).
+*.sh text eol=lf
+Dockerfile text eol=lf
+*.dockerfile text eol=lf
+entrypoint* text eol=lf
