@@ -94,7 +94,8 @@ async function waitMetricZero(query, timeoutSec, pollSec = 5) {
 /**
  * T-18: no solo demostrar que el sistema sobrevive, sino que se OBSERVÓ
  * sobrevivir. Tras el caos, las métricas de resiliencia deben volver a reposo:
- *  - circuit_breaker_state == 0 (todos los circuitos cerrados);
+ *  - circuit_breaker_state sin circuitos en OPEN (HALF_OPEN es reposo válido:
+ *    opossum solo prueba con tráfico real, así que puede persistir sin tráfico);
  *  - outbox_pending_total ~0 (la cola de outbox drenó);
  *  - dependency_timeout_total / retry_attempts_total: informativos (contadores
  *    que crecieron durante el caos; se reportan, no se exigen en cero).
@@ -107,11 +108,17 @@ async function verifyResilienceMetrics(opts = {}) {
   const timeoutSec = opts.timeoutSec ?? Number(process.env.RESILIENCE_TIMEOUT_SEC ?? 60);
   const checks = [];
 
-  const breaker = await waitMetricZero('sum(circuit_breaker_state)', timeoutSec);
+  // circuit_breaker_state: 0=CLOSED, 0.5=HALF_OPEN, 1=OPEN
+  // (libs/resiliencia/src/lib/circuit-breaker.decorator.ts). HALF_OPEN es un
+  // reposo legítimo tras el caos: opossum solo prueba el circuito con tráfico
+  // real, así que un breaker puede quedar en 0.5 indefinidamente si nadie lo
+  // vuelve a invocar — no significa "atascado abierto". Solo cuenta como fallo
+  // un breaker en OPEN (1); HALF_OPEN/CLOSED pasan.
+  const breaker = await waitMetricZero('sum(circuit_breaker_state == 1)', timeoutSec);
   checks.push({
-    name: 'circuit_breaker_state vuelve a 0 (circuitos cerrados)',
+    name: 'circuit_breaker_state sin circuitos abiertos (OPEN)',
     pass: breaker === 0,
-    detail: breaker == null ? 'métrica no disponible' : `suma=${breaker}`,
+    detail: breaker == null ? 'métrica no disponible' : `circuitos OPEN=${breaker}`,
   });
 
   const pending = await waitMetricZero('sum(outbox_pending_total)', timeoutSec);

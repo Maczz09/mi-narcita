@@ -104,9 +104,16 @@ async function main() {
   execFileSync('docker', ['start', ...CAIDOS], { stdio: 'ignore' });
   record('pedidos + inventario reanudados', true);
 
+  // Presupuesto amplio: no es solo el arranque en frío del contenedor
+  // (entrypoint.sh espera la BD + prisma migrate deploy + boot de Nest), sino
+  // también la caché de resolución/conexión de Kong hacia el upstream, que
+  // puede seguir apuntando a la IP vieja del contenedor detenido hasta que su
+  // TTL expira — confirmado en pruebas de caos con ~90s de 404 vía Kong
+  // mientras el mismo path respondía 200 en directo al contenedor (ver
+  // docs/operacion/runbooks/kong-dns-upstream.md). 60×3s = 180s da margen 2x.
   let ambosArriba = false;
-  for (let i = 0; i < 40 && !ambosArriba; i += 1) {
-    await sleep(2000);
+  for (let i = 0; i < 60 && !ambosArriba; i += 1) {
+    await sleep(3000);
     const rp = await req('GET', '/pedidos');
     const ri = await req('GET', '/inventario/productos');
     ambosArriba = rp.ok && ri.ok;
