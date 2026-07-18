@@ -229,6 +229,16 @@ async function handleErrorResponse<T>(
     throw new ApiError(res.status, 'Demasiadas solicitudes. Intenta de nuevo en unos segundos.', body);
   }
 
+  // T-02: los errores de gateway/infra (Kong/nginx: 502/503/504) traen bodies
+  // crudos como "name resolution failed". Se mapean a un mensaje humano; el body
+  // original queda en `detalle` solo para depuración/console, nunca para la UI.
+  if (res.status === 502 || res.status === 503 || res.status === 504) {
+    throw new ApiError(res.status, res.statusText, {
+      message: 'El servicio no está disponible en este momento. Reintentando…',
+      detalle: body,
+    });
+  }
+
   throw new ApiError(res.status, res.statusText, body);
 }
 

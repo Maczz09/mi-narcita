@@ -181,6 +181,24 @@ describe('client', () => {
       expect(fetch).toHaveBeenCalledTimes(3);
     });
 
+    it('mapea un 503 del gateway a mensaje humano y conserva el body crudo en detalle', async () => {
+      const mockRes503 = { ok: false, status: 503, statusText: 'Service Unavailable', json: vi.fn().mockResolvedValue({ message: 'name resolution failed' }) };
+      vi.mocked(fetch).mockResolvedValue(mockRes503 as any);
+
+      const promise = client.get('/test');
+      promise.catch(() => {});
+      await vi.advanceTimersByTimeAsync(10000);
+
+      // El .message es el texto amigable; el crudo de Kong queda en body.detalle.
+      await expect(promise).rejects.toMatchObject({
+        status: 503,
+        message: 'El servicio no está disponible en este momento. Reintentando…',
+      });
+      await promise.catch((err) => {
+        expect((err.body as { detalle: { message: string } }).detalle.message).toBe('name resolution failed');
+      });
+    });
+
     it('reintenta un POST (lleva Idempotency-Key) tras un 5xx', async () => {
       const mockRes500 = { ok: false, status: 500, statusText: 'Internal Server Error', json: vi.fn().mockResolvedValue({}) };
       const mockOk = { ok: true, status: 201, json: vi.fn().mockResolvedValue({ id: 2 }) };
