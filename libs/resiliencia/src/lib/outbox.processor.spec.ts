@@ -45,7 +45,7 @@ function createProcessor(config: Partial<OutboxProcessorConfig> = {}) {
     $queryRawUnsafe: vi.fn().mockResolvedValue([]),
     $executeRawUnsafe: vi.fn().mockResolvedValue(0),
   };
-  const rabbitmq = { publish: vi.fn().mockResolvedValue(undefined) };
+  const rabbitmq = { publish: vi.fn().mockResolvedValue(undefined), isConnected: vi.fn().mockReturnValue(true) };
   return {
     prisma,
     rabbitmq,
@@ -228,6 +228,32 @@ describe('OutboxProcessor — processOutboxEvents', () => {
       where: { id: 'evt-1' },
       data: { status: 'FAILED', attempts: 2, claimedAt: null },
     });
+  });
+
+  it('H-4: broker desconectado → no reclama el lote ni hace update (eventos quedan PENDING)', async () => {
+    const { prisma, rabbitmq, processor } = createProcessor();
+    rabbitmq.isConnected.mockReturnValue(false);
+
+    await processor.processOutboxEvents();
+
+    expect(prisma.$queryRawUnsafe).not.toHaveBeenCalled();
+    expect(prisma.outboxEvent.update).not.toHaveBeenCalled();
+    expect(rabbitmq.publish).not.toHaveBeenCalled();
+    // El lock se liberó pese al retorno temprano.
+    expect((processor as unknown as { isProcessing: boolean }).isProcessing).toBe(false);
+  });
+
+  it('H-4: reconectado tras una pausa → el flujo normal procede', async () => {
+    const { prisma, rabbitmq, processor } = createProcessor();
+    prisma.$queryRawUnsafe.mockResolvedValue([makeEvent()]);
+    rabbitmq.isConnected.mockReturnValueOnce(false).mockReturnValue(true);
+
+    await processor.processOutboxEvents(); // desconectado: pausa
+    expect(prisma.$queryRawUnsafe).not.toHaveBeenCalled();
+
+    await processor.processOutboxEvents(); // reconectado: procede
+    expect(prisma.$queryRawUnsafe).toHaveBeenCalledTimes(1);
+    expect(rabbitmq.publish).toHaveBeenCalledWith('pedido.creado', { pedidoId: 'p1' }, PRODUCER);
   });
 
   it('bloqueo concurrente: segunda llamada vuelve sin reclamar', async () => {

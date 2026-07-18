@@ -61,6 +61,15 @@ export class RabbitMQPublisherService implements OnModuleInit {
     });
   }
 
+  /**
+   * H-4: ¿hay conexión viva con el broker? (API pública de
+   * amqp-connection-manager). El outbox la consulta para pausar su tick mientras
+   * RabbitMQ está caído, en vez de quemar `attempts` publicando al vacío.
+   */
+  isConnected(): boolean {
+    return this.connection.isConnected();
+  }
+
   async publish<TPayload>(
     routingKey: RoutingKey,
     data: TPayload,

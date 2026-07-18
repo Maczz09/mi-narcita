@@ -61,6 +61,8 @@ const OUTBOX_TABLE = '"outbox_events"';
 export class OutboxProcessor {
   private readonly logger = new Logger(OutboxProcessor.name);
   private isProcessing = false;
+  // H-4: evita loguear el broker caído en cada tick (una vez por transición).
+  private brokerDesconectadoLogueado = false;
 
   private readonly producer: string;
   private readonly maxAttempts: number;
@@ -126,6 +128,22 @@ export class OutboxProcessor {
     if (this.isProcessing) return;
     this.isProcessing = true;
     try {
+      // H-4: con el broker desconectado, publicar fallaría y quemaría `attempts`,
+      // convirtiendo eventos sanos en FAILED en ~5s. Se pausa el tick sin reclamar
+      // el lote: los eventos quedan PENDING con attempts intactos. Se loguea una
+      // vez por transición (no por tick).
+      if (!this.rabbitmq.isConnected()) {
+        if (!this.brokerDesconectadoLogueado) {
+          this.logger.warn('Broker RabbitMQ desconectado: se pausa el tick del outbox (eventos quedan PENDING).');
+          this.brokerDesconectadoLogueado = true;
+        }
+        return;
+      }
+      if (this.brokerDesconectadoLogueado) {
+        this.logger.log('Broker RabbitMQ reconectado: se reanuda el tick del outbox.');
+        this.brokerDesconectadoLogueado = false;
+      }
+
       // T-08: claim atómico del lote. El UPDATE...FOR UPDATE SKIP LOCKED marca
       // los eventos como PUBLISHING y los devuelve, de modo que dos réplicas del
       // processor sobre el mismo store nunca tomen el mismo evento (cada una
