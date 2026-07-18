@@ -4,6 +4,7 @@ import { AppController } from './app.controller';
 import { EventsController } from './events.controller';
 import { AppService } from './app.service';
 import { CuentasHttpClient } from './cuentas-http.client';
+import { CierreReconciliacionService } from './cierre-reconciliacion.service';
 import { PrismaModule } from '../prisma/prisma.module';
 import { OutboxAdminModule, OutboxModule, IdempotencyPurgeModule, IdempotencyInterceptor, IDEMPOTENCY_DB } from '@org/resiliencia';
 import { ObservabilidadModule, HealthModule } from '@org/observabilidad';
@@ -33,6 +34,7 @@ import { RoutingKeys } from '@org/contracts';
   providers: [
     AppService,
     CuentasHttpClient,
+    CierreReconciliacionService,
     { provide: APP_GUARD, useClass: JwtAuthGuard },
     IdempotencyInterceptor,
     { provide: IDEMPOTENCY_DB, useExisting: PrismaService },
