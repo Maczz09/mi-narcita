@@ -181,6 +181,24 @@ describe('client', () => {
       expect(fetch).toHaveBeenCalledTimes(3);
     });
 
+    it('un timeout de petición termina en ApiError(0) tras agotar reintentos (T-06)', async () => {
+      // ponytail: AbortSignal.timeout usa un timer interno que los fake timers de
+      // vitest no controlan, así que simulamos el corte del servidor colgado con
+      // el mismo error que produce el abort: TimeoutError. Verifica el contrato
+      // "timeout -> tras reintentos -> ApiError(0)".
+      const timeoutErr = new DOMException('The operation timed out.', 'TimeoutError');
+      vi.mocked(fetch).mockRejectedValue(timeoutErr);
+
+      const promise = client.get('/lento');
+      promise.catch(() => {});
+      await vi.advanceTimersByTimeAsync(10000);
+
+      await expect(promise).rejects.toMatchObject({ status: 0 });
+      await expect(promise).rejects.toThrow('El servidor no responde');
+      // 1 intento inicial + 2 reintentos = 3 llamadas a fetch.
+      expect(fetch).toHaveBeenCalledTimes(3);
+    });
+
     it('mapea un 503 del gateway a mensaje humano y conserva el body crudo en detalle', async () => {
       const mockRes503 = { ok: false, status: 503, statusText: 'Service Unavailable', json: vi.fn().mockResolvedValue({ message: 'name resolution failed' }) };
       vi.mocked(fetch).mockResolvedValue(mockRes503 as any);
