@@ -65,7 +65,8 @@ describe('CobroMesaDrawer', () => {
       error: null,
       success: null,
       registrarPago: vi.fn(),
-      clearFeedback: vi.fn()
+      clearFeedback: vi.fn(),
+      refetchCuenta: vi.fn()
     } as any);
   });
 
@@ -194,18 +195,23 @@ describe('CobroMesaDrawer', () => {
 
   it('shows error and success messages', () => {
     const clearFeedback = vi.fn();
+    const refetchCuenta = vi.fn();
     vi.mocked(useCuentasQuery).mockReturnValue({
       cuentaActiva: mockCuenta,
       loading: false,
       error: 'Error mock',
       success: 'Success mock',
       registrarPago: vi.fn(),
-      clearFeedback
+      clearFeedback,
+      refetchCuenta
     } as any);
 
     render(<CobroMesaDrawer mesaId="mesa1" onClose={vi.fn()} />);
-    
+
     expect(screen.getByText('Error mock')).toBeDefined();
+    // T-04: con error visible, "Reintentar" dispara refetchCuenta.
+    fireEvent.click(screen.getByRole('button', { name: 'Reintentar carga de la cuenta' }));
+    expect(refetchCuenta).toHaveBeenCalled();
     fireEvent.click(screen.getByRole('button', { name: 'Cerrar notificación' }));
     expect(clearFeedback).toHaveBeenCalled();
   });

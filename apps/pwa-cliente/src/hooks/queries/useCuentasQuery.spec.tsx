@@ -141,6 +141,27 @@ describe('useCuentasQuery', () => {
     });
   });
 
+  it('registrarPago refleja el mensaje degradado del backend cuando existe (T-04)', async () => {
+    vi.mocked(cuentasApi.registrarPago).mockResolvedValue({ message: 'Pago registrado; cierre de cuenta en proceso', ticket: 't9' } as any);
+
+    const { result } = renderHook(() => useCuentasQuery('m1'), { wrapper: createWrapper() });
+
+    await result.current.registrarPago({ monto: 100 } as any);
+
+    await waitFor(() => expect(result.current.success).toBe('Pago registrado; cierre de cuenta en proceso'));
+  });
+
+  it('expone refetchCuenta que dispara el refetch del query (T-04)', async () => {
+    vi.mocked(cuentasApi.getByMesa).mockResolvedValue({ id: 'c1' } as any);
+
+    const { result } = renderHook(() => useCuentasQuery('m1'), { wrapper: createWrapper() });
+
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    await result.current.refetchCuenta();
+    expect(cuentasApi.getByMesa).toHaveBeenCalledTimes(2);
+  });
+
   it('should handle cerrar method', async () => {
     vi.mocked(cuentasApi.getByMesa).mockResolvedValue({ id: 'c1' } as any);
     vi.mocked(cuentasApi.cerrar).mockResolvedValue({ message: 'Closed', ticket: 't2' } as any);

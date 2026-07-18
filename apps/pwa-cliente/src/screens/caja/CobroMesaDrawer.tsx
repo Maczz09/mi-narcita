@@ -33,7 +33,7 @@ export function CobroMesaDrawer({ mesaId, mesaNumero, onClose, onPaid }: Readonl
   const { toast } = useToast();
   const {
     cuentaActiva, loading, error, success,
-    registrarPago, clearFeedback,
+    registrarPago, clearFeedback, refetchCuenta,
   } = useCuentasQuery(mesaId);
   const modalRef = useRef<HTMLDialogElement>(null);
   useFocusTrap(modalRef, { active: true, onClose });
@@ -101,6 +101,9 @@ export function CobroMesaDrawer({ mesaId, mesaNumero, onClose, onPaid }: Readonl
             {error ? <Icons.Alert s={16} /> : <Icons.Check s={16} />}
             <span>{error ?? success}</span>
             <span className="spacer" />
+            {error && (
+              <button className="btn btn-sm btn-ghost" onClick={() => void refetchCuenta()} aria-label="Reintentar carga de la cuenta">Reintentar</button>
+            )}
             <button className="btn btn-sm btn-ghost" onClick={clearFeedback} aria-label="Cerrar notificación">Cerrar</button>
           </div>
         )}

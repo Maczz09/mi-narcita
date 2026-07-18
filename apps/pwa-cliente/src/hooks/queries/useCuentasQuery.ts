@@ -83,7 +83,10 @@ export function useCuentasQuery(mesaId?: string) {
     error: query.isError ? (query.error as Error).message : mutationAbrir.error?.message || mutationRegistrarPago.error?.message || mutationCerrar.error?.message || null,
     success: primerMensaje(
       [mutationAbrir.isSuccess, 'Cuenta abierta.'],
-      [mutationRegistrarPago.isSuccess, 'Pago registrado correctamente.'],
+      // T-04: el backend distingue "cuenta cerrada y ticket generado" de
+      // "cierre de cuenta en proceso" (degradación honesta de caja). Reflejamos
+      // su mensaje real cuando viene; si no, el genérico de siempre.
+      [mutationRegistrarPago.isSuccess, mutationRegistrarPago.data?.message ?? 'Pago registrado correctamente.'],
       [mutationCerrar.isSuccess, mutationCerrar.data?.message],
     ),
     ticket: mutationRegistrarPago.data?.ticket ?? mutationCerrar.data?.ticket ?? null,
@@ -94,6 +97,8 @@ export function useCuentasQuery(mesaId?: string) {
       if (idMesa === mesaId) await query.refetch();
       // Si cambia el mesaId, el useQuery lo manejará por reactividad.
     },
+    // T-04: recuperación manual desde el botón "Reintentar" del drawer de cobro.
+    refetchCuenta: () => query.refetch(),
     abrir: async (idMesa: string) => {
       await mutationAbrir.mutateAsync(idMesa);
     },
