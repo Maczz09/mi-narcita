@@ -18,11 +18,12 @@ vi.mock('../../mappers/notificacion.mapper', () => ({
 
 const testQueryClient = new QueryClient({
   defaultOptions: {
-    queries: { retry: false },
+    queries: { retry: false, retryDelay: 0 }, // T-05: reintentos del hook instantáneos en test
   },
 });
 
-vi.mock('../../api/queryClient', () => ({
+vi.mock('../../api/queryClient', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../api/queryClient')>()),
   queryClient: {
     setQueryData: vi.fn((key, updater) => {
       // Execute the updater to verify its behavior during tests

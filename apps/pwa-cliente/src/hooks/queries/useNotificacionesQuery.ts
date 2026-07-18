@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import * as notificacionesApi from '../../api/notificaciones.api';
-import { queryClient } from '../../api/queryClient';
+import { queryClient, retrySalvo404, refetchSiError } from '../../api/queryClient';
 import {
   mapNotificaciones,
   mapSocketNotification,
@@ -28,6 +28,8 @@ export function useNotificacionesQuery() {
     },
     refetchOnWindowFocus: false,
     staleTime: 1000 * 30,
+    retry: retrySalvo404,
+    refetchInterval: refetchSiError,
   });
 
   return {

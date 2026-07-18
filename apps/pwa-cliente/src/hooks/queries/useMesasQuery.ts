@@ -1,7 +1,7 @@
 import { useQuery, useMutation } from '@tanstack/react-query';
 import * as mesasApi from '../../api/mesas.api';
 import { mapMesas, mapMesa } from '../../mappers/mesa.mapper';
-import { queryClient } from '../../api/queryClient';
+import { queryClient, retrySalvo404, refetchSiError } from '../../api/queryClient';
 import { primerMensaje } from '../../utils/feedback';
 import type { CrearMesaPayload, EstadoMesa, MesaVM } from '../../types/mesa.types';
 
@@ -14,6 +14,8 @@ export function useMesasQuery() {
       const dtos = await mesasApi.getAll();
       return mapMesas(dtos);
     },
+    retry: retrySalvo404,
+    refetchInterval: refetchSiError,
   });
 
   const mutationEstado = useMutation({

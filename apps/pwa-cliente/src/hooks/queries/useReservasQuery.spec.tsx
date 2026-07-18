@@ -21,7 +21,8 @@ vi.mock('../../mappers/reserva.mapper', () => ({
   mapReserva: vi.fn((dto) => ({ ...dto, mapped: true })),
 }));
 
-vi.mock('../../api/queryClient', () => ({
+vi.mock('../../api/queryClient', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../api/queryClient')>()),
   queryClient: {
     invalidateQueries: vi.fn(),
     setQueriesData: vi.fn(),
@@ -31,7 +32,7 @@ vi.mock('../../api/queryClient', () => ({
 const createWrapper = () => {
   const testQueryClient = new QueryClient({
     defaultOptions: {
-      queries: { retry: false },
+      queries: { retry: false, retryDelay: 0 }, // T-05: reintentos del hook instantáneos en test
     },
   });
   return ({ children }: { children: React.ReactNode }) => (

@@ -1,6 +1,6 @@
 import { useInfiniteQuery, useMutation } from '@tanstack/react-query';
 import * as usuariosApi from '../../api/usuarios.api';
-import { queryClient } from '../../api/queryClient';
+import { queryClient, retrySalvo404, refetchSiError } from '../../api/queryClient';
 import { mapUsuario, mapUsuarios } from '../../mappers/usuario.mapper';
 import { primerMensaje } from '../../utils/feedback';
 import type {
@@ -40,6 +40,8 @@ export function useUsuariosQuery(filters: UsuariosFilters = {}) {
       };
     },
     getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
+    retry: retrySalvo404,
+    refetchInterval: refetchSiError,
   });
 
   const mutationCrear = useMutation({

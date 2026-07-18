@@ -18,7 +18,7 @@ vi.mock('../../mappers/reporte.mapper', () => ({
 const createWrapper = () => {
   const testQueryClient = new QueryClient({
     defaultOptions: {
-      queries: { retry: false },
+      queries: { retry: false, retryDelay: 0 }, // T-05: reintentos del hook instantáneos en test
     },
   });
   return ({ children }: { children: React.ReactNode }) => (

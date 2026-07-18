@@ -22,7 +22,8 @@ vi.mock('../../mappers/pedido.mapper', () => ({
   estadoLabelOf: vi.fn((estado) => estado),
 }));
 
-vi.mock('../../api/queryClient', () => ({
+vi.mock('../../api/queryClient', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../api/queryClient')>()),
   queryClient: {
     invalidateQueries: vi.fn(),
     setQueryData: vi.fn(),
@@ -34,7 +35,7 @@ vi.mock('../../api/queryClient', () => ({
 
 const testQueryClient = new QueryClient({
   defaultOptions: {
-    queries: { retry: false },
+    queries: { retry: false, retryDelay: 0 }, // T-05: reintentos del hook instantáneos en test
   },
 });
 

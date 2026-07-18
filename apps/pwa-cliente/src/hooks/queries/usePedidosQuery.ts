@@ -2,7 +2,7 @@ import { useEffect } from 'react';
 import { useInfiniteQuery, useMutation, type InfiniteData } from '@tanstack/react-query';
 import * as pedidosApi from '../../api/pedidos.api';
 import { mapPedido, mapPedidos, estadoClassOf, estadoLabelOf } from '../../mappers/pedido.mapper';
-import { queryClient } from '../../api/queryClient';
+import { queryClient, retrySalvo404, refetchSiError } from '../../api/queryClient';
 import { MESAS_QUERY_KEY } from './useMesasQuery';
 import { ESTADOS_PRODUCCION, derivarEstadoProduccion } from '../../domain/pedido.flow';
 import type {
@@ -151,6 +151,8 @@ export function usePedidosQuery(mesaId?: string, options: UsePedidosOptions = {}
       };
     },
     getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
+    retry: retrySalvo404,
+    refetchInterval: refetchSiError,
   });
 
   // KDS: agota la paginación para tener todos los tickets activos en pantalla.

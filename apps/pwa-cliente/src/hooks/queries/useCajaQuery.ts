@@ -1,6 +1,6 @@
 import { useMutation, useQuery } from '@tanstack/react-query';
 import * as cajaApi from '../../api/caja.api';
-import { queryClient } from '../../api/queryClient';
+import { queryClient, retrySalvo404, refetchSiError } from '../../api/queryClient';
 import type {
   AbrirTurnoPayload,
   CerrarTurnoPayload,
@@ -13,6 +13,8 @@ export function useCajaQuery() {
   const resumenQuery = useQuery({
     queryKey: [...CAJA_QUERY_KEY, 'turno-activo', 'resumen'],
     queryFn: cajaApi.getResumenActivo,
+    retry: retrySalvo404,
+    refetchInterval: refetchSiError,
   });
 
   const refresh = () => void queryClient.invalidateQueries({ queryKey: CAJA_QUERY_KEY });

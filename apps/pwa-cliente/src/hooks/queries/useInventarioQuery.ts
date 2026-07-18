@@ -1,7 +1,7 @@
 import { useInfiniteQuery, useMutation, useQuery } from '@tanstack/react-query';
 import * as inventarioApi from '../../api/inventario.api';
 import { mapProductos } from '../../mappers/inventario.mapper';
-import { queryClient } from '../../api/queryClient';
+import { queryClient, retrySalvo404, refetchSiError } from '../../api/queryClient';
 import type { ActualizarProductoPayload, CrearProductoPayload } from '../../types/inventario.types';
 import { primerMensaje } from '../../utils/feedback';
 
@@ -23,6 +23,8 @@ export function useInventarioQuery(categoriaId?: string, options: UseInventarioO
       return inventarioApi.getCategorias();
     },
     staleTime: 1000 * 60 * 60, // 1 hora para las categorías (casi nunca cambian)
+    retry: retrySalvo404,
+    refetchInterval: refetchSiError,
   });
 
   const productosQuery = useInfiniteQuery({
@@ -43,6 +45,8 @@ export function useInventarioQuery(categoriaId?: string, options: UseInventarioO
     },
     getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
     enabled: !!categoriasQuery.data, // Esperar a que carguen las categorías para mapear
+    retry: retrySalvo404,
+    refetchInterval: refetchSiError,
   });
 
   const mutationCrear = useMutation({

@@ -22,7 +22,8 @@ vi.mock('../../mappers/mesa.mapper', () => ({
 // We need to keep some real methods on queryClient for optimistic updates to work properly
 const realQueryClient = new QueryClient();
 
-vi.mock('../../api/queryClient', () => ({
+vi.mock('../../api/queryClient', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../api/queryClient')>()),
   queryClient: {
     invalidateQueries: vi.fn(),
     cancelQueries: vi.fn(),
@@ -34,7 +35,7 @@ vi.mock('../../api/queryClient', () => ({
 const createWrapper = () => {
   const testQueryClient = new QueryClient({
     defaultOptions: {
-      queries: { retry: false },
+      queries: { retry: false, retryDelay: 0 }, // T-05: reintentos del hook instantáneos en test
     },
   });
   return ({ children }: { children: React.ReactNode }) => (

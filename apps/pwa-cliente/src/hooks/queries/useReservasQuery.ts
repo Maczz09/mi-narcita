@@ -1,7 +1,7 @@
 import { useInfiniteQuery, useMutation } from '@tanstack/react-query';
 import { useState } from 'react';
 import * as reservasApi from '../../api/reservas.api';
-import { queryClient } from '../../api/queryClient';
+import { queryClient, retrySalvo404, refetchSiError } from '../../api/queryClient';
 import { mapReserva, mapReservas } from '../../mappers/reserva.mapper';
 import { primerMensaje } from '../../utils/feedback';
 import type {
@@ -41,6 +41,8 @@ export function useReservasQuery(filters: ReservasFilters = {}) {
       };
     },
     getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
+    retry: retrySalvo404,
+    refetchInterval: refetchSiError,
   });
 
   const mutationCrear = useMutation({
