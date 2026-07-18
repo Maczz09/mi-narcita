@@ -36,6 +36,9 @@ const REPORT_DIR = 'stress-tests/reports';
 const CUENTAS_CONTAINER = 'nachopps-servicio-cuentas';
 // Puerto host del contenedor de cuentas (infra/docker-compose.yml: '3005:3000').
 const CUENTAS_HOST = process.env.CUENTAS_HOST || 'http://localhost:3005';
+// BD de caja (infra/docker-compose.yml: db-caja '5437:5432', caja_db) — para la
+// verificación directa de PUBLISHING huérfanos tras un crash (T-16).
+const CAJA_DB_URL = process.env.CAJA_DB_URL || 'postgresql://nachopps:secret@localhost:5437/caja_db';
 
 function arg(name, fallback) {
   const i = process.argv.indexOf(`--${name}`);
@@ -111,6 +114,26 @@ async function cuentasArribaDirecto() {
   return r.ok;
 }
 
+// T-16: tras un crash real (docker kill), el proceso muerto puede dejar eventos
+// del outbox de caja en PUBLISHING sin marcar. El cron de rescate (PUBLISHING
+// > 60s → PENDING, cada minuto) debe recuperarlos; verificamos que ninguno
+// quede atascado en PUBLISHING > 90s. `docker stop` (graceful) no ejercita esto.
+async function verificarPublishingRescatado() {
+  const { Client } = require('pg');
+  const db = new Client({ connectionString: CAJA_DB_URL });
+  await db.connect();
+  try {
+    const { rows } = await db.query(
+      `SELECT count(*)::int AS n FROM outbox_events
+       WHERE status = 'PUBLISHING' AND "claimedAt" < now() - interval '90 seconds'`,
+    );
+    const n = rows[0]?.n ?? 0;
+    record('Sin eventos de outbox de caja atascados en PUBLISHING > 90s', n === 0, `atascados=${n}`);
+  } finally {
+    await db.end().catch(() => undefined);
+  }
+}
+
 async function main() {
   console.log(`\n💥 Caos mid-flow (${DOCKER_DOWN})${KILL ? ' [crash real]' : ''} — corte de ${CUENTAS_CONTAINER} en pleno cobro\n`);
   await login();
@@ -167,6 +190,13 @@ async function main() {
     recuperado = c.status === 404 || (c.ok && c.data?.estado && c.data.estado !== 'ABIERTA');
   }
   record(`Cuenta cerrada sola tras reanudar (≤ ${RECOVERY_TIMEOUT_SEC}s)`, recuperado);
+
+  // ── 5b. Rescate de PUBLISHING huérfanos (clave bajo --kill) ──
+  try {
+    await verificarPublishingRescatado();
+  } catch (err) {
+    record('Sin eventos de outbox de caja atascados en PUBLISHING > 90s', false, `error consultando caja_db: ${err.message}`);
+  }
 
   // ── 6. Sin pérdida ni duplicación de mensajes ──
   const postload = await verifyPostLoad(baseline, { timeoutSec: 180 }).catch((err) => ({ pass: false, checks: [{ name: 'postload', pass: false, detail: err.message }] }));
