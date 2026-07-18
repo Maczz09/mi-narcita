@@ -2,6 +2,7 @@
 /* eslint-disable */
 
 import axios from 'axios';
+import { ServiceUnavailableException } from '@nestjs/common';
 import { CIRCUIT_BREAKER_REGISTRY } from '@org/resiliencia';
 import { CuentasHttpClient } from './cuentas-http.client';
 
@@ -48,6 +49,15 @@ describe('CuentasHttpClient.cerrarCuenta — circuit breaker (R-03)', () => {
     await expect(client.cerrarCuenta('cuenta-1', 0)).rejects.toBeDefined();
     // Circuito abierto: la última petición no llegó a axios.
     expect(postSpy.mock.calls.length).toBe(llamadasAntes);
+  });
+
+  it('un ECONNRESET en la lectura se mapea a 503 (H-3)', async () => {
+    const client = new CuentasHttpClient(tokenService);
+    jest.spyOn(axios, 'get').mockRejectedValue(
+      Object.assign(new Error('reset'), { code: 'ECONNRESET' }),
+    );
+
+    await expect(client.fetchCuenta('cuenta-1')).rejects.toBeInstanceOf(ServiceUnavailableException);
   });
 
   it('un 4xx no abre el circuito', async () => {

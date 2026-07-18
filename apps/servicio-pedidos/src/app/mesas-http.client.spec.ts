@@ -99,6 +99,15 @@ describe('MesasHttpClient', () => {
       );
     });
 
+    it('should throw ServiceUnavailableException on ECONNRESET (H-3)', async () => {
+      serviceTokenService.generateServiceToken.mockReturnValue('mock-token');
+      mockedAxios.get.mockRejectedValue({ code: 'ECONNRESET' });
+
+      await expect(client.obtenerMesa('mesa-1')).rejects.toThrow(
+        new ServiceUnavailableException('El servicio de mesas no está disponible.')
+      );
+    });
+
     it('should throw InternalServerErrorException on other errors', async () => {
       serviceTokenService.generateServiceToken.mockReturnValue('mock-token');
       mockedAxios.get.mockRejectedValue({ message: 'Random error' });

@@ -83,6 +83,24 @@ describe('Clientes HTTP de pedidos — circuit breaker (P-55)', () => {
     expect(breaker?.opened).toBe(true);
   });
 
+  it('inventario: un ECONNRESET (red transitoria) se mapea a 503 (H-3)', async () => {
+    const client = new InventarioHttpClient(tokenService);
+    jest.spyOn(axios, 'post').mockRejectedValue(
+      Object.assign(new Error('reset'), { code: 'ECONNRESET' }),
+    );
+
+    await expect(client.obtenerProductosLote(['p-1'])).rejects.toBeInstanceOf(ServiceUnavailableException);
+  });
+
+  it('mesas: un ECONNRESET (red transitoria) se mapea a 503 (H-3)', async () => {
+    const client = new MesasHttpClient(tokenService);
+    jest.spyOn(axios, 'get').mockRejectedValue(
+      Object.assign(new Error('reset'), { code: 'ECONNRESET' }),
+    );
+
+    await expect(client.obtenerMesa('mesa-1')).rejects.toBeInstanceOf(ServiceUnavailableException);
+  });
+
   it('mesas: respuesta exitosa atraviesa el breaker y devuelve la mesa remota', async () => {
     const client = new MesasHttpClient(tokenService);
     jest.spyOn(axios, 'get').mockResolvedValue({ data: { id: 'mesa-1', numero: 4 } });

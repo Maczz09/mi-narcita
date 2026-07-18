@@ -109,7 +109,23 @@ export class InventarioHttpClient {
         } satisfies OperableLog);
         throw new ServiceUnavailableException('El servicio de inventario no responde. Reintente.');
       }
-      if (axiosError.code === 'ECONNREFUSED') {
+      // H-3: junto a ECONNREFUSED, los fallos de red transitorios (reset de
+      // conexión, pipe roto, DNS temporal, host inalcanzable) son "dependencia
+      // cayéndose" → 503 transitorio, no "error inesperado" 500.
+      if (
+        axiosError.code === 'ECONNREFUSED' ||
+        axiosError.code === 'ECONNRESET' ||
+        axiosError.code === 'EPIPE' ||
+        axiosError.code === 'EAI_AGAIN' ||
+        axiosError.code === 'EHOSTUNREACH'
+      ) {
+        this.logger.warn({
+          operation: 'obtenerProductosLote',
+          dependency: 'inventario',
+          durationMs: Date.now() - start,
+          errorCode: axiosError.code,
+          message: 'Fallo de red transitorio consultando inventario; dependencia no disponible.',
+        } satisfies OperableLog);
         throw new ServiceUnavailableException('El servicio de inventario no está disponible.');
       }
       this.logger.error({
