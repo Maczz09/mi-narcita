@@ -2,7 +2,7 @@
   "info": {
     "_postman_id": "a1b2c3d4-e5f6-4789-9abc-def012345678",
     "name": "NachoPps Restobar — API Microservicios",
-    "description": "Colección generada a partir del código fuente (controllers HTTP de los 9 microservicios NestJS del monorepo).\n\n**Arquitectura**: cada request apunta directamente al puerto local de su microservicio (`http://localhost:PORT/api/...`), tal como corren con `nx serve` o `docker-compose` (ver `.env` de cada `apps/servicio-*`). Alternativamente, todo el tráfico puede pasar por el API Gateway Kong en `{{kong_url}}` usando prefijos `/identidad`, `/mesas`, `/pedidos`, etc. (ver `infra/kong/kong.yml.template`).\n\n**Autenticación**: JWT Bearer. Ejecuta primero `Identidad > Login`; el test script guarda automáticamente `access_token` (y `usuario_id`) como variable de colección, que el resto de requests usa vía Bearer Token heredado a nivel de colección.\n\n**Usuarios semilla** (`apps/servicio-identidad/prisma/seed.ts`), contraseña = valor de `SEED_DEFAULT_PASSWORD`:\n- admin@nachopps.pe (ADMIN — acceso total)\n- mesero@nachopps.pe (MESERO)\n- cajero@nachopps.pe (CAJERO)\n- cocina@nachopps.pe (COCINA)\n- recepcion@nachopps.pe (RECEPCION)\n- gerencia@nachopps.pe (GERENCIA)\n\nLos requests de creación (Crear Mesa, Crear Pedido, Abrir Cuenta, Abrir Turno, Crear Categoría, Crear Producto, Crear Reserva, Crear Usuario) guardan automáticamente el id resultante en la variable correspondiente (`mesa_id`, `pedido_id`, etc.) para encadenar el resto de requests sin edición manual.\n\nEndpoints de mensajería (`@EventPattern`/RabbitMQ) y WebSockets quedan fuera de esta colección por no ser HTTP.",
+    "description": "Colección generada a partir del código fuente (controllers HTTP de los 9 microservicios NestJS del monorepo).\n\n**Arquitectura**: cada request apunta directamente al puerto local de su microservicio (`http://localhost:PORT/api/...`), tal como corren con `nx serve` o `docker-compose` (ver `.env` de cada `apps/servicio-*`). Alternativamente, todo el tráfico puede pasar por el API Gateway Kong en `{{kong_url}}` usando prefijos `/identidad`, `/mesas`, `/pedidos`, etc. (ver `infra/kong/kong.yml.template`).\n\n**Autenticación**: JWT Bearer. Ejecuta primero `Identidad > Login`; el test script guarda automáticamente `access_token` (y `usuario_id`) como variable de colección, que el resto de requests usa vía Bearer Token heredado a nivel de colección.\n\n**Usuarios semilla** (`apps/servicio-identidad/prisma/seed.ts`), contraseña = valor de `SEED_DEFAULT_PASSWORD`:\n- admin@nachopps.pe (ADMIN — acceso total)\n- mesero@nachopps.pe (MESERO)\n- cajero@nachopps.pe (CAJERO)\n- cocina@nachopps.pe (COCINA)\n- recepcion@nachopps.pe (RECEPCION)\n- gerencia@nachopps.pe (GERENCIA)\n\nLos requests de creación (Crear Mesa, Crear Pedido, Abrir Cuenta, Abrir Turno, Crear Categoría, Crear Producto, Crear Reserva, Crear Usuario) guardan automáticamente el id resultante en la variable correspondiente (`mesa_id`, `pedido_id`, etc.) para encadenar el resto de requests sin edición manual.\n\nEndpoints de mensajería (`@EventPattern`/RabbitMQ) y WebSockets quedan fuera de esta colección por no ser HTTP.\n\n**Health checks (S33)**: el trío `/api/health/live · /ready · /dependencies` de los 9 servicios vive en la carpeta **Health & Operación (S33)**, con aserciones y sin auth (son públicos). Los antiguos ítems «Health Check» por servicio se eliminaron: 4 de ellos apuntaban al root del servicio (no a un health check) y el de Caja a la ruta débil `{ status: 'OK' }` que se retiró al centralizar el health en el `HealthController` compartido.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "auth": {
@@ -39,17 +39,6 @@
     {
       "name": "Identidad (Auth y Usuarios)",
       "item": [
-        {
-          "name": "Health Check",
-          "request": {
-            "auth": { "type": "noauth" },
-            "method": "GET",
-            "header": [],
-            "url": { "raw": "{{identidad_url}}", "host": ["{{identidad_url}}"], "path": [] },
-            "description": "Público. Responde `{ status: 'OK', service: 'Identidad' }`."
-          },
-          "response": []
-        },
         {
           "name": "Login",
           "event": [
@@ -381,16 +370,6 @@
       "name": "Cuentas",
       "item": [
         {
-          "name": "Health Check",
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": { "raw": "{{cuentas_url}}", "host": ["{{cuentas_url}}"], "path": [] },
-            "description": "Roles: ADMIN, SISTEMA, CAJERO, MESERO, RECEPCION (requiere JWT, no es público en este servicio)."
-          },
-          "response": []
-        },
-        {
           "name": "Abrir Cuenta",
           "event": [
             {
@@ -477,16 +456,6 @@
     {
       "name": "Caja",
       "item": [
-        {
-          "name": "Health Check",
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": { "raw": "{{caja_url}}/health", "host": ["{{caja_url}}"], "path": ["health"] },
-            "description": "Roles: ADMIN, SISTEMA, CAJERO (requiere JWT, no es público en este servicio)."
-          },
-          "response": []
-        },
         {
           "name": "Abrir Turno",
           "event": [
@@ -648,16 +617,6 @@
     {
       "name": "Inventario",
       "item": [
-        {
-          "name": "Health Check",
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": { "raw": "{{inventario_url}}", "host": ["{{inventario_url}}"], "path": [] },
-            "description": "Roles: ADMIN, SISTEMA, GERENCIA, CAJERO, MESERO (requiere JWT, no es público en este servicio)."
-          },
-          "response": []
-        },
         {
           "name": "Listar Categorías",
           "request": {
@@ -918,17 +877,6 @@
       "name": "Reportes",
       "item": [
         {
-          "name": "Health Check",
-          "request": {
-            "auth": { "type": "noauth" },
-            "method": "GET",
-            "header": [],
-            "url": { "raw": "{{reportes_url}}", "host": ["{{reportes_url}}"], "path": [] },
-            "description": "Público. Responde `{ status: 'OK', service: 'Reportes' }`."
-          },
-          "response": []
-        },
-        {
           "name": "Resumen Diario",
           "request": {
             "method": "GET",
@@ -1007,6 +955,795 @@
             "description": "Público. El resto de este servicio es consumo de eventos RabbitMQ + WebSocket (fuera del alcance HTTP de esta colección)."
           },
           "response": []
+        }
+      ]
+    },
+    {
+      "name": "Health & Operación (S33)",
+      "description": "**Health check serio** de los 9 microservicios (sesion 33 - FF-DEP-02 / G2).\n\nSustituye al `{ \"status\": \"OK\" }` debil por el trio recomendado, servido por el `HealthController` compartido (`libs/observabilidad/src/lib/health.controller.ts`) y montado en cada servicio con `HealthModule.forRoot(PrismaService)`:\n\n- `/api/health/live` - proceso arriba; no toca dependencias (sonda de Docker).\n- `/api/health/ready` - 503 si la BD no responde.\n- `/api/health/dependencies` - BD + estado de cada circuit breaker.\n\nTodos son **publicos** (exentos del guard JWT), por eso no heredan el Bearer de la coleccion.\n\n**Evidencia para la defensa**: levanta el stack (`docker compose -f infra/docker-compose.yml --profile all up -d --wait`) y ejecuta esta carpeta con el Collection Runner: una corrida verde prueba que los 9 servicios levantan, responden y reportan sus dependencias. Ver `docs/ficha-validacion-operativa-s33.md`.",
+      "item": [
+        {
+          "name": "Identidad",
+          "item": [
+            {
+              "name": "Live",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('200', () => pm.response.to.have.status(200));",
+                      "const b = pm.response.json();",
+                      "pm.test('status UP', () => pm.expect(b.status).to.eql('UP'));",
+                      "pm.test('service = identidad', () => pm.expect(b.service).to.eql('identidad'));",
+                      "pm.test('expone version', () => pm.expect(b.version).to.be.a('string'));"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "auth": { "type": "noauth" },
+                "method": "GET",
+                "header": [],
+                "url": { "raw": "{{identidad_url}}/health/live", "host": ["{{identidad_url}}"], "path": ["health", "live"] },
+                "description": "Liveness. Público (exento del guard JWT): el proceso está arriba, no toca dependencias. Siempre 200 con `{ status: 'UP', service, version }`. Es la sonda del healthcheck de Docker (`infra/docker-compose.yml`)."
+              },
+              "response": []
+            },
+            {
+              "name": "Ready",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('200 (o 503 si la BD esta caida)', () => pm.expect([200, 503]).to.include(pm.response.code));",
+                      "const b = pm.response.json();",
+                      "pm.test('reporta database', () => pm.expect(b.dependencies.database).to.be.oneOf(['UP', 'DOWN']));",
+                      "if (pm.response.code === 200) {",
+                      "    pm.test('status UP', () => pm.expect(b.status).to.eql('UP'));",
+                      "    pm.test('database UP', () => pm.expect(b.dependencies.database).to.eql('UP'));",
+                      "}"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "auth": { "type": "noauth" },
+                "method": "GET",
+                "header": [],
+                "url": { "raw": "{{identidad_url}}/health/ready", "host": ["{{identidad_url}}"], "path": ["health", "ready"] },
+                "description": "Readiness. Público. Exige la BD alcanzable (`SELECT 1`): 200 si responde, 503 con `{ status: 'DOWN', dependencies: { database: 'DOWN' } }` si no. Para evidenciar la falla: apaga la BD y repite (ver `stress-tests/run-chaos-db-down.js`)."
+              },
+              "response": []
+            },
+            {
+              "name": "Dependencies",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('200', () => pm.response.to.have.status(200));",
+                      "const b = pm.response.json();",
+                      "pm.test('status agregado valido', () => pm.expect(b.status).to.be.oneOf(['UP', 'DEGRADED', 'DOWN']));",
+                      "pm.test('service = identidad', () => pm.expect(b.service).to.eql('identidad'));",
+                      "pm.test('expone version', () => pm.expect(b.version).to.be.a('string'));",
+                      "pm.test('no es un health debil: trae dependencies', () => pm.expect(b.dependencies).to.be.an('object'));",
+                      "pm.test('database UP', () => pm.expect(b.dependencies.database).to.eql('UP'));"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "auth": { "type": "noauth" },
+                "method": "GET",
+                "header": [],
+                "url": { "raw": "{{identidad_url}}/health/dependencies", "host": ["{{identidad_url}}"], "path": ["health", "dependencies"] },
+                "description": "Health serio (S33). Devuelve `{ status, service, version, dependencies }` con la BD comprobada en vivo y el estado de cada circuit breaker leido del gauge `circuit_breaker_state` (0=UP, 0.5=DEGRADED, 1=DOWN). El status agregado es DOWN si alguna dependencia cae, DEGRADED si alguna esta a medias. `/health` a secas devuelve esto mismo."
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": "Mesas",
+          "item": [
+            {
+              "name": "Live",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('200', () => pm.response.to.have.status(200));",
+                      "const b = pm.response.json();",
+                      "pm.test('status UP', () => pm.expect(b.status).to.eql('UP'));",
+                      "pm.test('service = mesas', () => pm.expect(b.service).to.eql('mesas'));",
+                      "pm.test('expone version', () => pm.expect(b.version).to.be.a('string'));"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "auth": { "type": "noauth" },
+                "method": "GET",
+                "header": [],
+                "url": { "raw": "{{mesas_url}}/health/live", "host": ["{{mesas_url}}"], "path": ["health", "live"] },
+                "description": "Liveness. Público (exento del guard JWT): el proceso está arriba, no toca dependencias. Siempre 200 con `{ status: 'UP', service, version }`. Es la sonda del healthcheck de Docker (`infra/docker-compose.yml`)."
+              },
+              "response": []
+            },
+            {
+              "name": "Ready",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('200 (o 503 si la BD esta caida)', () => pm.expect([200, 503]).to.include(pm.response.code));",
+                      "const b = pm.response.json();",
+                      "pm.test('reporta database', () => pm.expect(b.dependencies.database).to.be.oneOf(['UP', 'DOWN']));",
+                      "if (pm.response.code === 200) {",
+                      "    pm.test('status UP', () => pm.expect(b.status).to.eql('UP'));",
+                      "    pm.test('database UP', () => pm.expect(b.dependencies.database).to.eql('UP'));",
+                      "}"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "auth": { "type": "noauth" },
+                "method": "GET",
+                "header": [],
+                "url": { "raw": "{{mesas_url}}/health/ready", "host": ["{{mesas_url}}"], "path": ["health", "ready"] },
+                "description": "Readiness. Público. Exige la BD alcanzable (`SELECT 1`): 200 si responde, 503 con `{ status: 'DOWN', dependencies: { database: 'DOWN' } }` si no. Para evidenciar la falla: apaga la BD y repite (ver `stress-tests/run-chaos-db-down.js`)."
+              },
+              "response": []
+            },
+            {
+              "name": "Dependencies",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('200', () => pm.response.to.have.status(200));",
+                      "const b = pm.response.json();",
+                      "pm.test('status agregado valido', () => pm.expect(b.status).to.be.oneOf(['UP', 'DEGRADED', 'DOWN']));",
+                      "pm.test('service = mesas', () => pm.expect(b.service).to.eql('mesas'));",
+                      "pm.test('expone version', () => pm.expect(b.version).to.be.a('string'));",
+                      "pm.test('no es un health debil: trae dependencies', () => pm.expect(b.dependencies).to.be.an('object'));",
+                      "pm.test('database UP', () => pm.expect(b.dependencies.database).to.eql('UP'));"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "auth": { "type": "noauth" },
+                "method": "GET",
+                "header": [],
+                "url": { "raw": "{{mesas_url}}/health/dependencies", "host": ["{{mesas_url}}"], "path": ["health", "dependencies"] },
+                "description": "Health serio (S33). Devuelve `{ status, service, version, dependencies }` con la BD comprobada en vivo y el estado de cada circuit breaker leido del gauge `circuit_breaker_state` (0=UP, 0.5=DEGRADED, 1=DOWN). El status agregado es DOWN si alguna dependencia cae, DEGRADED si alguna esta a medias. `/health` a secas devuelve esto mismo."
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": "Pedidos",
+          "item": [
+            {
+              "name": "Live",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('200', () => pm.response.to.have.status(200));",
+                      "const b = pm.response.json();",
+                      "pm.test('status UP', () => pm.expect(b.status).to.eql('UP'));",
+                      "pm.test('service = pedidos', () => pm.expect(b.service).to.eql('pedidos'));",
+                      "pm.test('expone version', () => pm.expect(b.version).to.be.a('string'));"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "auth": { "type": "noauth" },
+                "method": "GET",
+                "header": [],
+                "url": { "raw": "{{pedidos_url}}/health/live", "host": ["{{pedidos_url}}"], "path": ["health", "live"] },
+                "description": "Liveness. Público (exento del guard JWT): el proceso está arriba, no toca dependencias. Siempre 200 con `{ status: 'UP', service, version }`. Es la sonda del healthcheck de Docker (`infra/docker-compose.yml`)."
+              },
+              "response": []
+            },
+            {
+              "name": "Ready",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('200 (o 503 si la BD esta caida)', () => pm.expect([200, 503]).to.include(pm.response.code));",
+                      "const b = pm.response.json();",
+                      "pm.test('reporta database', () => pm.expect(b.dependencies.database).to.be.oneOf(['UP', 'DOWN']));",
+                      "if (pm.response.code === 200) {",
+                      "    pm.test('status UP', () => pm.expect(b.status).to.eql('UP'));",
+                      "    pm.test('database UP', () => pm.expect(b.dependencies.database).to.eql('UP'));",
+                      "}"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "auth": { "type": "noauth" },
+                "method": "GET",
+                "header": [],
+                "url": { "raw": "{{pedidos_url}}/health/ready", "host": ["{{pedidos_url}}"], "path": ["health", "ready"] },
+                "description": "Readiness. Público. Exige la BD alcanzable (`SELECT 1`): 200 si responde, 503 con `{ status: 'DOWN', dependencies: { database: 'DOWN' } }` si no. Para evidenciar la falla: apaga la BD y repite (ver `stress-tests/run-chaos-db-down.js`)."
+              },
+              "response": []
+            },
+            {
+              "name": "Dependencies",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('200', () => pm.response.to.have.status(200));",
+                      "const b = pm.response.json();",
+                      "pm.test('status agregado valido', () => pm.expect(b.status).to.be.oneOf(['UP', 'DEGRADED', 'DOWN']));",
+                      "pm.test('service = pedidos', () => pm.expect(b.service).to.eql('pedidos'));",
+                      "pm.test('expone version', () => pm.expect(b.version).to.be.a('string'));",
+                      "pm.test('no es un health debil: trae dependencies', () => pm.expect(b.dependencies).to.be.an('object'));",
+                      "pm.test('database UP', () => pm.expect(b.dependencies.database).to.eql('UP'));"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "auth": { "type": "noauth" },
+                "method": "GET",
+                "header": [],
+                "url": { "raw": "{{pedidos_url}}/health/dependencies", "host": ["{{pedidos_url}}"], "path": ["health", "dependencies"] },
+                "description": "Health serio (S33). Devuelve `{ status, service, version, dependencies }` con la BD comprobada en vivo y el estado de cada circuit breaker leido del gauge `circuit_breaker_state` (0=UP, 0.5=DEGRADED, 1=DOWN). El status agregado es DOWN si alguna dependencia cae, DEGRADED si alguna esta a medias. `/health` a secas devuelve esto mismo."
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": "Cuentas",
+          "item": [
+            {
+              "name": "Live",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('200', () => pm.response.to.have.status(200));",
+                      "const b = pm.response.json();",
+                      "pm.test('status UP', () => pm.expect(b.status).to.eql('UP'));",
+                      "pm.test('service = cuentas', () => pm.expect(b.service).to.eql('cuentas'));",
+                      "pm.test('expone version', () => pm.expect(b.version).to.be.a('string'));"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "auth": { "type": "noauth" },
+                "method": "GET",
+                "header": [],
+                "url": { "raw": "{{cuentas_url}}/health/live", "host": ["{{cuentas_url}}"], "path": ["health", "live"] },
+                "description": "Liveness. Público (exento del guard JWT): el proceso está arriba, no toca dependencias. Siempre 200 con `{ status: 'UP', service, version }`. Es la sonda del healthcheck de Docker (`infra/docker-compose.yml`)."
+              },
+              "response": []
+            },
+            {
+              "name": "Ready",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('200 (o 503 si la BD esta caida)', () => pm.expect([200, 503]).to.include(pm.response.code));",
+                      "const b = pm.response.json();",
+                      "pm.test('reporta database', () => pm.expect(b.dependencies.database).to.be.oneOf(['UP', 'DOWN']));",
+                      "if (pm.response.code === 200) {",
+                      "    pm.test('status UP', () => pm.expect(b.status).to.eql('UP'));",
+                      "    pm.test('database UP', () => pm.expect(b.dependencies.database).to.eql('UP'));",
+                      "}"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "auth": { "type": "noauth" },
+                "method": "GET",
+                "header": [],
+                "url": { "raw": "{{cuentas_url}}/health/ready", "host": ["{{cuentas_url}}"], "path": ["health", "ready"] },
+                "description": "Readiness. Público. Exige la BD alcanzable (`SELECT 1`): 200 si responde, 503 con `{ status: 'DOWN', dependencies: { database: 'DOWN' } }` si no. Para evidenciar la falla: apaga la BD y repite (ver `stress-tests/run-chaos-db-down.js`)."
+              },
+              "response": []
+            },
+            {
+              "name": "Dependencies",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('200', () => pm.response.to.have.status(200));",
+                      "const b = pm.response.json();",
+                      "pm.test('status agregado valido', () => pm.expect(b.status).to.be.oneOf(['UP', 'DEGRADED', 'DOWN']));",
+                      "pm.test('service = cuentas', () => pm.expect(b.service).to.eql('cuentas'));",
+                      "pm.test('expone version', () => pm.expect(b.version).to.be.a('string'));",
+                      "pm.test('no es un health debil: trae dependencies', () => pm.expect(b.dependencies).to.be.an('object'));",
+                      "pm.test('database UP', () => pm.expect(b.dependencies.database).to.eql('UP'));"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "auth": { "type": "noauth" },
+                "method": "GET",
+                "header": [],
+                "url": { "raw": "{{cuentas_url}}/health/dependencies", "host": ["{{cuentas_url}}"], "path": ["health", "dependencies"] },
+                "description": "Health serio (S33). Devuelve `{ status, service, version, dependencies }` con la BD comprobada en vivo y el estado de cada circuit breaker leido del gauge `circuit_breaker_state` (0=UP, 0.5=DEGRADED, 1=DOWN). El status agregado es DOWN si alguna dependencia cae, DEGRADED si alguna esta a medias. `/health` a secas devuelve esto mismo."
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": "Reservas",
+          "item": [
+            {
+              "name": "Live",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('200', () => pm.response.to.have.status(200));",
+                      "const b = pm.response.json();",
+                      "pm.test('status UP', () => pm.expect(b.status).to.eql('UP'));",
+                      "pm.test('service = reservas', () => pm.expect(b.service).to.eql('reservas'));",
+                      "pm.test('expone version', () => pm.expect(b.version).to.be.a('string'));"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "auth": { "type": "noauth" },
+                "method": "GET",
+                "header": [],
+                "url": { "raw": "{{reservas_url}}/health/live", "host": ["{{reservas_url}}"], "path": ["health", "live"] },
+                "description": "Liveness. Público (exento del guard JWT): el proceso está arriba, no toca dependencias. Siempre 200 con `{ status: 'UP', service, version }`. Es la sonda del healthcheck de Docker (`infra/docker-compose.yml`)."
+              },
+              "response": []
+            },
+            {
+              "name": "Ready",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('200 (o 503 si la BD esta caida)', () => pm.expect([200, 503]).to.include(pm.response.code));",
+                      "const b = pm.response.json();",
+                      "pm.test('reporta database', () => pm.expect(b.dependencies.database).to.be.oneOf(['UP', 'DOWN']));",
+                      "if (pm.response.code === 200) {",
+                      "    pm.test('status UP', () => pm.expect(b.status).to.eql('UP'));",
+                      "    pm.test('database UP', () => pm.expect(b.dependencies.database).to.eql('UP'));",
+                      "}"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "auth": { "type": "noauth" },
+                "method": "GET",
+                "header": [],
+                "url": { "raw": "{{reservas_url}}/health/ready", "host": ["{{reservas_url}}"], "path": ["health", "ready"] },
+                "description": "Readiness. Público. Exige la BD alcanzable (`SELECT 1`): 200 si responde, 503 con `{ status: 'DOWN', dependencies: { database: 'DOWN' } }` si no. Para evidenciar la falla: apaga la BD y repite (ver `stress-tests/run-chaos-db-down.js`)."
+              },
+              "response": []
+            },
+            {
+              "name": "Dependencies",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('200', () => pm.response.to.have.status(200));",
+                      "const b = pm.response.json();",
+                      "pm.test('status agregado valido', () => pm.expect(b.status).to.be.oneOf(['UP', 'DEGRADED', 'DOWN']));",
+                      "pm.test('service = reservas', () => pm.expect(b.service).to.eql('reservas'));",
+                      "pm.test('expone version', () => pm.expect(b.version).to.be.a('string'));",
+                      "pm.test('no es un health debil: trae dependencies', () => pm.expect(b.dependencies).to.be.an('object'));",
+                      "pm.test('database UP', () => pm.expect(b.dependencies.database).to.eql('UP'));"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "auth": { "type": "noauth" },
+                "method": "GET",
+                "header": [],
+                "url": { "raw": "{{reservas_url}}/health/dependencies", "host": ["{{reservas_url}}"], "path": ["health", "dependencies"] },
+                "description": "Health serio (S33). Devuelve `{ status, service, version, dependencies }` con la BD comprobada en vivo y el estado de cada circuit breaker leido del gauge `circuit_breaker_state` (0=UP, 0.5=DEGRADED, 1=DOWN). El status agregado es DOWN si alguna dependencia cae, DEGRADED si alguna esta a medias. `/health` a secas devuelve esto mismo."
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": "Inventario",
+          "item": [
+            {
+              "name": "Live",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('200', () => pm.response.to.have.status(200));",
+                      "const b = pm.response.json();",
+                      "pm.test('status UP', () => pm.expect(b.status).to.eql('UP'));",
+                      "pm.test('service = inventario', () => pm.expect(b.service).to.eql('inventario'));",
+                      "pm.test('expone version', () => pm.expect(b.version).to.be.a('string'));"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "auth": { "type": "noauth" },
+                "method": "GET",
+                "header": [],
+                "url": { "raw": "{{inventario_url}}/health/live", "host": ["{{inventario_url}}"], "path": ["health", "live"] },
+                "description": "Liveness. Público (exento del guard JWT): el proceso está arriba, no toca dependencias. Siempre 200 con `{ status: 'UP', service, version }`. Es la sonda del healthcheck de Docker (`infra/docker-compose.yml`)."
+              },
+              "response": []
+            },
+            {
+              "name": "Ready",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('200 (o 503 si la BD esta caida)', () => pm.expect([200, 503]).to.include(pm.response.code));",
+                      "const b = pm.response.json();",
+                      "pm.test('reporta database', () => pm.expect(b.dependencies.database).to.be.oneOf(['UP', 'DOWN']));",
+                      "if (pm.response.code === 200) {",
+                      "    pm.test('status UP', () => pm.expect(b.status).to.eql('UP'));",
+                      "    pm.test('database UP', () => pm.expect(b.dependencies.database).to.eql('UP'));",
+                      "}"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "auth": { "type": "noauth" },
+                "method": "GET",
+                "header": [],
+                "url": { "raw": "{{inventario_url}}/health/ready", "host": ["{{inventario_url}}"], "path": ["health", "ready"] },
+                "description": "Readiness. Público. Exige la BD alcanzable (`SELECT 1`): 200 si responde, 503 con `{ status: 'DOWN', dependencies: { database: 'DOWN' } }` si no. Para evidenciar la falla: apaga la BD y repite (ver `stress-tests/run-chaos-db-down.js`)."
+              },
+              "response": []
+            },
+            {
+              "name": "Dependencies",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('200', () => pm.response.to.have.status(200));",
+                      "const b = pm.response.json();",
+                      "pm.test('status agregado valido', () => pm.expect(b.status).to.be.oneOf(['UP', 'DEGRADED', 'DOWN']));",
+                      "pm.test('service = inventario', () => pm.expect(b.service).to.eql('inventario'));",
+                      "pm.test('expone version', () => pm.expect(b.version).to.be.a('string'));",
+                      "pm.test('no es un health debil: trae dependencies', () => pm.expect(b.dependencies).to.be.an('object'));",
+                      "pm.test('database UP', () => pm.expect(b.dependencies.database).to.eql('UP'));"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "auth": { "type": "noauth" },
+                "method": "GET",
+                "header": [],
+                "url": { "raw": "{{inventario_url}}/health/dependencies", "host": ["{{inventario_url}}"], "path": ["health", "dependencies"] },
+                "description": "Health serio (S33). Devuelve `{ status, service, version, dependencies }` con la BD comprobada en vivo y el estado de cada circuit breaker leido del gauge `circuit_breaker_state` (0=UP, 0.5=DEGRADED, 1=DOWN). El status agregado es DOWN si alguna dependencia cae, DEGRADED si alguna esta a medias. `/health` a secas devuelve esto mismo."
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": "Notificaciones",
+          "item": [
+            {
+              "name": "Live",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('200', () => pm.response.to.have.status(200));",
+                      "const b = pm.response.json();",
+                      "pm.test('status UP', () => pm.expect(b.status).to.eql('UP'));",
+                      "pm.test('service = notificaciones', () => pm.expect(b.service).to.eql('notificaciones'));",
+                      "pm.test('expone version', () => pm.expect(b.version).to.be.a('string'));"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "auth": { "type": "noauth" },
+                "method": "GET",
+                "header": [],
+                "url": { "raw": "{{notificaciones_url}}/health/live", "host": ["{{notificaciones_url}}"], "path": ["health", "live"] },
+                "description": "Liveness. Público (exento del guard JWT): el proceso está arriba, no toca dependencias. Siempre 200 con `{ status: 'UP', service, version }`. Es la sonda del healthcheck de Docker (`infra/docker-compose.yml`)."
+              },
+              "response": []
+            },
+            {
+              "name": "Ready",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('200 (o 503 si la BD esta caida)', () => pm.expect([200, 503]).to.include(pm.response.code));",
+                      "const b = pm.response.json();",
+                      "pm.test('reporta database', () => pm.expect(b.dependencies.database).to.be.oneOf(['UP', 'DOWN']));",
+                      "if (pm.response.code === 200) {",
+                      "    pm.test('status UP', () => pm.expect(b.status).to.eql('UP'));",
+                      "    pm.test('database UP', () => pm.expect(b.dependencies.database).to.eql('UP'));",
+                      "}"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "auth": { "type": "noauth" },
+                "method": "GET",
+                "header": [],
+                "url": { "raw": "{{notificaciones_url}}/health/ready", "host": ["{{notificaciones_url}}"], "path": ["health", "ready"] },
+                "description": "Readiness. Público. Exige la BD alcanzable (`SELECT 1`): 200 si responde, 503 con `{ status: 'DOWN', dependencies: { database: 'DOWN' } }` si no. Para evidenciar la falla: apaga la BD y repite (ver `stress-tests/run-chaos-db-down.js`)."
+              },
+              "response": []
+            },
+            {
+              "name": "Dependencies",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('200', () => pm.response.to.have.status(200));",
+                      "const b = pm.response.json();",
+                      "pm.test('status agregado valido', () => pm.expect(b.status).to.be.oneOf(['UP', 'DEGRADED', 'DOWN']));",
+                      "pm.test('service = notificaciones', () => pm.expect(b.service).to.eql('notificaciones'));",
+                      "pm.test('expone version', () => pm.expect(b.version).to.be.a('string'));",
+                      "pm.test('no es un health debil: trae dependencies', () => pm.expect(b.dependencies).to.be.an('object'));",
+                      "pm.test('database UP', () => pm.expect(b.dependencies.database).to.eql('UP'));"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "auth": { "type": "noauth" },
+                "method": "GET",
+                "header": [],
+                "url": { "raw": "{{notificaciones_url}}/health/dependencies", "host": ["{{notificaciones_url}}"], "path": ["health", "dependencies"] },
+                "description": "Health serio (S33). Devuelve `{ status, service, version, dependencies }` con la BD comprobada en vivo y el estado de cada circuit breaker leido del gauge `circuit_breaker_state` (0=UP, 0.5=DEGRADED, 1=DOWN). El status agregado es DOWN si alguna dependencia cae, DEGRADED si alguna esta a medias. `/health` a secas devuelve esto mismo."
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": "Caja",
+          "item": [
+            {
+              "name": "Live",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('200', () => pm.response.to.have.status(200));",
+                      "const b = pm.response.json();",
+                      "pm.test('status UP', () => pm.expect(b.status).to.eql('UP'));",
+                      "pm.test('service = caja', () => pm.expect(b.service).to.eql('caja'));",
+                      "pm.test('expone version', () => pm.expect(b.version).to.be.a('string'));"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "auth": { "type": "noauth" },
+                "method": "GET",
+                "header": [],
+                "url": { "raw": "{{caja_url}}/health/live", "host": ["{{caja_url}}"], "path": ["health", "live"] },
+                "description": "Liveness. Público (exento del guard JWT): el proceso está arriba, no toca dependencias. Siempre 200 con `{ status: 'UP', service, version }`. Es la sonda del healthcheck de Docker (`infra/docker-compose.yml`)."
+              },
+              "response": []
+            },
+            {
+              "name": "Ready",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('200 (o 503 si la BD esta caida)', () => pm.expect([200, 503]).to.include(pm.response.code));",
+                      "const b = pm.response.json();",
+                      "pm.test('reporta database', () => pm.expect(b.dependencies.database).to.be.oneOf(['UP', 'DOWN']));",
+                      "if (pm.response.code === 200) {",
+                      "    pm.test('status UP', () => pm.expect(b.status).to.eql('UP'));",
+                      "    pm.test('database UP', () => pm.expect(b.dependencies.database).to.eql('UP'));",
+                      "}"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "auth": { "type": "noauth" },
+                "method": "GET",
+                "header": [],
+                "url": { "raw": "{{caja_url}}/health/ready", "host": ["{{caja_url}}"], "path": ["health", "ready"] },
+                "description": "Readiness. Público. Exige la BD alcanzable (`SELECT 1`): 200 si responde, 503 con `{ status: 'DOWN', dependencies: { database: 'DOWN' } }` si no. Para evidenciar la falla: apaga la BD y repite (ver `stress-tests/run-chaos-db-down.js`)."
+              },
+              "response": []
+            },
+            {
+              "name": "Dependencies",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('200', () => pm.response.to.have.status(200));",
+                      "const b = pm.response.json();",
+                      "pm.test('status agregado valido', () => pm.expect(b.status).to.be.oneOf(['UP', 'DEGRADED', 'DOWN']));",
+                      "pm.test('service = caja', () => pm.expect(b.service).to.eql('caja'));",
+                      "pm.test('expone version', () => pm.expect(b.version).to.be.a('string'));",
+                      "pm.test('no es un health debil: trae dependencies', () => pm.expect(b.dependencies).to.be.an('object'));",
+                      "pm.test('database UP', () => pm.expect(b.dependencies.database).to.eql('UP'));"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "auth": { "type": "noauth" },
+                "method": "GET",
+                "header": [],
+                "url": { "raw": "{{caja_url}}/health/dependencies", "host": ["{{caja_url}}"], "path": ["health", "dependencies"] },
+                "description": "Health serio (S33). Devuelve `{ status, service, version, dependencies }` con la BD comprobada en vivo y el estado de cada circuit breaker leido del gauge `circuit_breaker_state` (0=UP, 0.5=DEGRADED, 1=DOWN). El status agregado es DOWN si alguna dependencia cae, DEGRADED si alguna esta a medias. `/health` a secas devuelve esto mismo."
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": "Reportes",
+          "item": [
+            {
+              "name": "Live",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('200', () => pm.response.to.have.status(200));",
+                      "const b = pm.response.json();",
+                      "pm.test('status UP', () => pm.expect(b.status).to.eql('UP'));",
+                      "pm.test('service = reportes', () => pm.expect(b.service).to.eql('reportes'));",
+                      "pm.test('expone version', () => pm.expect(b.version).to.be.a('string'));"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "auth": { "type": "noauth" },
+                "method": "GET",
+                "header": [],
+                "url": { "raw": "{{reportes_url}}/health/live", "host": ["{{reportes_url}}"], "path": ["health", "live"] },
+                "description": "Liveness. Público (exento del guard JWT): el proceso está arriba, no toca dependencias. Siempre 200 con `{ status: 'UP', service, version }`. Es la sonda del healthcheck de Docker (`infra/docker-compose.yml`)."
+              },
+              "response": []
+            },
+            {
+              "name": "Ready",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('200 (o 503 si la BD esta caida)', () => pm.expect([200, 503]).to.include(pm.response.code));",
+                      "const b = pm.response.json();",
+                      "pm.test('reporta database', () => pm.expect(b.dependencies.database).to.be.oneOf(['UP', 'DOWN']));",
+                      "if (pm.response.code === 200) {",
+                      "    pm.test('status UP', () => pm.expect(b.status).to.eql('UP'));",
+                      "    pm.test('database UP', () => pm.expect(b.dependencies.database).to.eql('UP'));",
+                      "}"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "auth": { "type": "noauth" },
+                "method": "GET",
+                "header": [],
+                "url": { "raw": "{{reportes_url}}/health/ready", "host": ["{{reportes_url}}"], "path": ["health", "ready"] },
+                "description": "Readiness. Público. Exige la BD alcanzable (`SELECT 1`): 200 si responde, 503 con `{ status: 'DOWN', dependencies: { database: 'DOWN' } }` si no. Para evidenciar la falla: apaga la BD y repite (ver `stress-tests/run-chaos-db-down.js`)."
+              },
+              "response": []
+            },
+            {
+              "name": "Dependencies",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('200', () => pm.response.to.have.status(200));",
+                      "const b = pm.response.json();",
+                      "pm.test('status agregado valido', () => pm.expect(b.status).to.be.oneOf(['UP', 'DEGRADED', 'DOWN']));",
+                      "pm.test('service = reportes', () => pm.expect(b.service).to.eql('reportes'));",
+                      "pm.test('expone version', () => pm.expect(b.version).to.be.a('string'));",
+                      "pm.test('no es un health debil: trae dependencies', () => pm.expect(b.dependencies).to.be.an('object'));",
+                      "pm.test('database UP', () => pm.expect(b.dependencies.database).to.eql('UP'));"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "auth": { "type": "noauth" },
+                "method": "GET",
+                "header": [],
+                "url": { "raw": "{{reportes_url}}/health/dependencies", "host": ["{{reportes_url}}"], "path": ["health", "dependencies"] },
+                "description": "Health serio (S33). Devuelve `{ status, service, version, dependencies }` con la BD comprobada en vivo y el estado de cada circuit breaker leido del gauge `circuit_breaker_state` (0=UP, 0.5=DEGRADED, 1=DOWN). El status agregado es DOWN si alguna dependencia cae, DEGRADED si alguna esta a medias. `/health` a secas devuelve esto mismo."
+              },
+              "response": []
+            }
+          ]
         }
       ]
     }
