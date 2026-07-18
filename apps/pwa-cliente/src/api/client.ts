@@ -128,6 +128,11 @@ function applyHeaders(headers: Headers, method: string): void {
 const RETRY_MAX_ATTEMPTS = 2;
 const RETRY_BASE_DELAY_MS = 300;
 const RETRY_MAX_DELAY_MS = 2000;
+// Demo fallida: la ruta PWA→Kong→cuentas no tenía timeout y quedaba colgada
+// minutos. Cada intento se corta a los 8 s con AbortSignal.timeout; el corte
+// cuenta como intento fallido para el retry (peor caso GET ≈ 3×8 s + backoffs).
+// Si el llamador pasa su propia signal en init, se respeta esa en su lugar.
+const REQUEST_TIMEOUT_MS = 8000;
 
 function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -155,11 +160,20 @@ function isRetryable(headers: Headers, method: string): boolean {
   return method === 'GET' || headers.has('Idempotency-Key');
 }
 
+// Un intento sin respuesta: timeout del AbortSignal (Timeout/AbortError) o fallo
+// de red del fetch (TypeError). Se distingue del 5xx (que sí trae Response).
+function isSinRespuesta(err: unknown): boolean {
+  if (err instanceof TypeError) return true;
+  const name = (err as { name?: string })?.name;
+  return name === 'TimeoutError' || name === 'AbortError';
+}
+
 async function fetchWithRetry(url: string, init: RequestInit, retryable: boolean): Promise<Response> {
   const maxAttempts = retryable ? RETRY_MAX_ATTEMPTS : 0;
   for (let attempt = 0; ; attempt += 1) {
     try {
-      const res = await fetch(url, init);
+      const signal = init.signal ?? AbortSignal.timeout(REQUEST_TIMEOUT_MS);
+      const res = await fetch(url, { ...init, signal });
       if (res.status >= 500 && attempt < maxAttempts) {
         await delay(backoffDelay(attempt));
         continue;
@@ -169,6 +183,13 @@ async function fetchWithRetry(url: string, init: RequestInit, retryable: boolean
       if (attempt < maxAttempts) {
         await delay(backoffDelay(attempt));
         continue;
+      }
+      // Tras agotar reintentos, el timeout y el fallo de red se presentan como
+      // "sin respuesta" (status 0) con mensaje humano, nunca como el Error crudo.
+      if (isSinRespuesta(err)) {
+        throw new ApiError(0, 'Sin respuesta del servidor', {
+          message: 'El servidor no responde. Verifica tu conexión o inténtalo de nuevo.',
+        });
       }
       throw err;
     }

@@ -167,13 +167,15 @@ describe('client', () => {
       expect(fetch).toHaveBeenCalledTimes(1);
     });
 
-    it('agota los reintentos de un GET tras errores de red persistentes y termina en error', async () => {
+    it('agota los reintentos de un GET tras errores de red persistentes y termina en ApiError(0)', async () => {
       vi.mocked(fetch).mockRejectedValue(new TypeError('network error persistente'));
 
       const promise = client.get('/test');
       promise.catch(() => {});
       await vi.advanceTimersByTimeAsync(10000);
-      await expect(promise).rejects.toThrow('network error persistente');
+      // T-01: el fallo de red crudo se presenta como "sin respuesta" con status 0.
+      await expect(promise).rejects.toMatchObject({ status: 0 });
+      await expect(promise).rejects.toThrow('El servidor no responde');
 
       // 1 intento inicial + 2 reintentos = 3 llamadas a fetch.
       expect(fetch).toHaveBeenCalledTimes(3);
