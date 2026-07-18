@@ -20,6 +20,7 @@
     "probar:alta-contencion": "node stress-tests/run-high-contention.js",
     "probar:caos": "node stress-tests/run-rabbitmq-chaos.js",
     "probar:replicas": "node stress-tests/run-outbox-replicas.js",
+    "chaos:mid-flow": "node stress-tests/run-chaos-mid-flow.js",
     "backfill:cuentas-abiertas": "npx tsx scripts/backfill-cuentas-abiertas.ts",
     "contratos:openapi": "ts-node -P scripts/tsconfig.export-openapi.json -T -r tsconfig-paths/register scripts/export-openapi.ts",
     "gobierno:check": "node scripts/check-gobierno.mjs",

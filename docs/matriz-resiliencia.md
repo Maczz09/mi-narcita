@@ -24,6 +24,7 @@ tabla es la vista corta pedida por el material S33.
 | **Pago rechazado / sin stock** | forzar rechazo del descuento | compensación de saga | `stock.insuficiente` → `PedidoEstado.RechazadoSinStock` (`libs/contracts/src/domains/pedidos.ts:24`); consumido en `apps/servicio-pedidos/src/app/events.controller.ts:33` | `run-stock-idempotency-dlq.js` |
 | **429 rate limit** | superar el límite de Kong | degradación controlada (429, no caída) | plugin `rate-limiting` de Kong (`infra/kong/kong.yml.template`) | `run-security-limits.js` |
 | **Cierre remoto no confirmado** | cuentas lenta/caída al cerrar | dinero nunca se pierde ni se cobra dos veces | degradación honesta a `PAGO_SIN_CIERRE_CONFIRMADO` + `pagos_cierre_remoto_pendiente_total` (`apps/servicio-caja/src/app/app.service.ts`) | `run-chaos-double-service-down.js` |
+| **Corte a mitad de flujo con reanudación** | `docker stop` cuentas en pleno cobro, luego `docker start` | pago 201 degradado ("cierre en proceso"), cuenta se cierra sola al volver | outbox + evento `pago.registrado` + idempotencia del consumidor; reconciliación H-2 como backstop (`apps/servicio-caja/src/app/cierre-reconciliacion.service.ts`) | `run-chaos-mid-flow.js` (`--kill` = crash real) |
 
 ## 2. Dependencia → mecanismo → trade-off (resumen)
 
