@@ -27,6 +27,7 @@ export interface IdempotencyRecord {
   statusCode?: number | null;
   body?: string | null;
   completedAt?: Date | null;
+  createdAt?: Date | null;
   requestHash?: string | null;
 }
 
@@ -42,6 +43,10 @@ export interface IdempotencyDb {
 const IN_PROGRESS_MSG = 'Ya hay una solicitud en curso con esta Idempotency-Key';
 // T-14: misma clave + payload distinto = uso indebido del cliente (comportamiento tipo Stripe).
 const BODY_MISMATCH_MSG = 'La Idempotency-Key ya se usó con un cuerpo de petición distinto';
+// H-1: un proceso muerto entre el claim y la respuesta deja la clave reclamada
+// pero sin completar; sin TTL el cliente recibiría 409 hasta que la fila expira
+// (7 días). Pasado este umbral, un claim incompleto se considera huérfano.
+const CLAIM_TTL_MS = 60_000;
 
 @Injectable()
 export class IdempotencyInterceptor implements NestInterceptor {
@@ -116,6 +121,17 @@ export class IdempotencyInterceptor implements NestInterceptor {
     }
   }
 
+  // H-1: claim reclamado pero nunca completado por un proceso caído, más viejo que
+  // CLAIM_TTL_MS. El "en curso reciente" (createdAt dentro del TTL, o sin createdAt)
+  // NO es huérfano y sigue devolviendo 409.
+  private esClaimHuerfano(existing: IdempotencyRecord): boolean {
+    return (
+      !existing.completedAt &&
+      existing.createdAt != null &&
+      existing.createdAt.getTime() < Date.now() - CLAIM_TTL_MS
+    );
+  }
+
   private async handle(
     next: CallHandler,
     key: string,
@@ -125,7 +141,14 @@ export class IdempotencyInterceptor implements NestInterceptor {
     res: { statusCode?: number; status: (code: number) => unknown },
   ): Promise<unknown> {
     const existing = await this.db.idempotencyKey.findUnique({ where: { key } });
-    if (existing) return this.replayExistingResponse(existing, requestHash, res);
+    if (existing) {
+      // Claim huérfano: se libera (tolerando carrera con .catch) y se re-reclama.
+      if (this.esClaimHuerfano(existing)) {
+        await this.db.idempotencyKey.delete({ where: { key } }).catch(() => undefined);
+      } else {
+        return this.replayExistingResponse(existing, requestHash, res);
+      }
+    }
     await this.claimKey(key, method, path, requestHash);
     return this.executeAndPersist(next, key, res);
   }

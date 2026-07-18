@@ -90,6 +90,35 @@ describe('IdempotencyInterceptor (plan 1.3)', () => {
     await expect(lastValueFrom(itc.intercept(ctx as import('@nestjs/common').ExecutionContext, { handle: () => of({}) } as import('@nestjs/common').CallHandler))).rejects.toBeInstanceOf(ConflictException);
   });
 
+  it('H-1: claim incompleto viejo (2 min) → huérfano: re-reclama y procede', async () => {
+    const db = makeDb({
+      findUnique: vi.fn().mockResolvedValue({
+        key: 'x', statusCode: null, body: null, completedAt: null,
+        createdAt: new Date(Date.now() - 120_000),
+      }),
+    });
+    const itc = new IdempotencyInterceptor(db);
+    const { ctx } = makeContext('POST', { 'idempotency-key': 'k1' });
+    const out = await lastValueFrom(itc.intercept(ctx as import('@nestjs/common').ExecutionContext, { handle: () => of({ pedidoId: 'p1' }) } as import('@nestjs/common').CallHandler));
+    expect(out).toEqual({ pedidoId: 'p1' });
+    // Libera el claim huérfano y re-reclama.
+    expect(db.idempotencyKey.delete).toHaveBeenCalledWith({ where: { key: 'http:POST:/pedidos:k1' } });
+    expect(db.idempotencyKey.create).toHaveBeenCalled();
+  });
+
+  it('H-1: claim incompleto reciente (5 s) → sigue devolviendo 409', async () => {
+    const db = makeDb({
+      findUnique: vi.fn().mockResolvedValue({
+        key: 'x', statusCode: null, body: null, completedAt: null,
+        createdAt: new Date(Date.now() - 5_000),
+      }),
+    });
+    const itc = new IdempotencyInterceptor(db);
+    const { ctx } = makeContext('POST', { 'idempotency-key': 'k1' });
+    await expect(lastValueFrom(itc.intercept(ctx as import('@nestjs/common').ExecutionContext, { handle: () => of({}) } as import('@nestjs/common').CallHandler))).rejects.toBeInstanceOf(ConflictException);
+    expect(db.idempotencyKey.delete).not.toHaveBeenCalled();
+  });
+
   it('carrera de creación (P2002) → 409', async () => {
     const db = makeDb({ create: vi.fn().mockRejectedValue({ code: 'P2002' }) });
     const itc = new IdempotencyInterceptor(db);
