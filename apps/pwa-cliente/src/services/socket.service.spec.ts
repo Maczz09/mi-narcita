@@ -8,6 +8,7 @@ vi.mock('socket.io-client', () => {
     connect: vi.fn(),
     disconnect: vi.fn(),
     on: vi.fn(),
+    io: { on: vi.fn() },
     connected: false,
     auth: {}
   };
@@ -51,6 +52,7 @@ describe('socketService', () => {
       connect: vi.fn(),
       disconnect: vi.fn(),
       on: vi.fn(),
+      io: { on: vi.fn() },
       connected: false,
       auth: {}
     };
@@ -293,6 +295,18 @@ describe('socketService', () => {
     expect(refreshAccessToken).toHaveBeenCalledTimes(1);
   });
   
+  it('should invalidate all stores on socket reconnect (catch-up)', async () => {
+    await socketService.connect();
+    const socketInstance = vi.mocked(io).mock.results[0].value;
+
+    const onReconnect = socketInstance.io.on.mock.calls.find((c: any) => c[0] === 'reconnect')[1];
+    onReconnect();
+
+    for (const key of ['pedidos', 'mesas', 'cuentas', 'caja']) {
+      expect(queryClient.invalidateQueries).toHaveBeenCalledWith(expect.objectContaining({ queryKey: [key] }));
+    }
+  });
+
   it('should handle auth:error when token refresh fails (returns null)', async () => {
     await socketService.connect();
     const socketInstance = vi.mocked(io).mock.results[0].value;

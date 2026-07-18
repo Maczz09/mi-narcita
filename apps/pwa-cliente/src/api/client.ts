@@ -81,6 +81,10 @@ export async function refreshAccessToken(): Promise<string | null> {
         method: 'POST',
         credentials: 'include',
         headers: csrf ? { [CSRF_HEADER_KEY]: csrf } : {},
+        // Este fetch no pasa por fetchWithRetry; sin timeout un identidad colgado
+        // estancaría la renovación de token. El catch de abajo devuelve null en
+        // TimeoutError, degradando a "sesión expirada" como cualquier otro fallo.
+        signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
       });
       if (!res.ok) return null;
       const body = await res.json() as { access_token?: string };

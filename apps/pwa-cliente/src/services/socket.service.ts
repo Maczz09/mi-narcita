@@ -140,6 +140,13 @@ export const socketService = {
             authRetrying = false;
           });
       });
+
+      // Tras una reconexión pudimos perder eventos mientras el socket estuvo
+      // caído; invalida todas las stores para recuperar el estado consistente
+      // (no dispara en la conexión inicial, solo en reconexiones reales).
+      socket.io.on('reconnect', () => {
+        invalidateStores(new Set<StoreKey>(['pedidos', 'mesas', 'cuentas', 'caja']));
+      });
     }
 
     socket.connect();
