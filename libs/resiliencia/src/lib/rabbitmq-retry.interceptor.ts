@@ -14,6 +14,19 @@ export function backoffConJitter(retryCount: number, initialDelay: number): numb
   return base + Math.floor(Math.random() * initialDelay);
 }
 
+/**
+ * H-5: un error que nunca tendrá éxito reintentando (validación/parseo del
+ * payload) no debe quemar los 3 reintentos (~7s) antes de la DLQ. Es permanente
+ * si es un HttpException 4xx (incluye BadRequestException del ValidationPipe) o
+ * un error de parseo (SyntaxError de JSON). El resto conserva el backoff.
+ */
+export function esErrorPermanenteConsumidor(error: unknown): boolean {
+  const e = error as { getStatus?: () => number; status?: number; name?: string };
+  const status = typeof e?.getStatus === 'function' ? e.getStatus() : e?.status;
+  if (typeof status === 'number' && status >= 400 && status < 500) return true;
+  return e?.name === 'SyntaxError';
+}
+
 @Injectable()
 export class RabbitMQRetryInterceptor implements NestInterceptor {
   private readonly logger = new Logger(RabbitMQRetryInterceptor.name);
@@ -72,6 +85,21 @@ export class RabbitMQRetryInterceptor implements NestInterceptor {
       }),
       retry({
         delay: (error: Error, retryCount: number) => {
+          // H-5: error permanente del consumidor → DLQ al primer intento, sin
+          // quemar los reintentos. Mismo camino que "reintentos agotados".
+          if (esErrorPermanenteConsumidor(error)) {
+            this.dlqMessagesCounter.inc();
+            this.logger.error({
+              operation: 'rabbitmqRetry',
+              errorCode: 'PERMANENT_CONSUMER_ERROR',
+              message: `Error permanente del consumidor; a DLQ sin reintentar: ${error.message}`,
+            });
+            if (channel && originalMsg) {
+              try { channel?.nack?.(originalMsg, false, false); } catch { /* ignore */ }
+            }
+            return throwError(() => error);
+          }
+
           if (retryCount > maxRetries) {
             this.dlqMessagesCounter.inc();
             this.logger.error(

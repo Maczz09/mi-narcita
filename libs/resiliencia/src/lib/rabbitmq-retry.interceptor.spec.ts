@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { Observable } from 'rxjs';
+import { BadRequestException } from '@nestjs/common';
 import { register } from 'prom-client';
 import { backoffConJitter, RabbitMQRetryInterceptor } from './rabbitmq-retry.interceptor';
 
@@ -8,6 +9,13 @@ function retryCount(surface: string): number {
     | { hashMap?: Record<string, { value: number; labels: { surface: string } }> }
     | undefined;
   return Object.values(metric?.hashMap ?? {}).find((v) => v.labels.surface === surface)?.value ?? 0;
+}
+
+function dlqTotal(): number {
+  const metric = register.getSingleMetric('dlq_messages_total') as
+    | { hashMap?: Record<string, { value: number }> }
+    | undefined;
+  return Object.values(metric?.hashMap ?? {})[0]?.value ?? 0;
 }
 
 function fakeRmqContext() {
@@ -79,5 +87,58 @@ describe('RabbitMQRetryInterceptor — retry_attempts_total (R-07)', () => {
     await expect(resultado).resolves.toBe('ok');
     expect(retryCount('broker')).toBe(antes + 2); // 2 fallos → 2 reintentos
     expect(channel.ack).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('RabbitMQRetryInterceptor — DLQ de errores permanentes (H-5)', () => {
+  beforeEach(() => vi.useFakeTimers());
+  afterEach(() => vi.useRealTimers());
+
+  it('un BadRequestException (4xx) va a DLQ al primer intento, sin reintentar', async () => {
+    const interceptor = new RabbitMQRetryInterceptor();
+    const { executionContext, channel } = fakeRmqContext();
+    const dlqAntes = dlqTotal();
+    const retriesAntes = retryCount('broker');
+
+    let calls = 0;
+    const next = {
+      handle: () => new Observable((sub) => { calls++; sub.error(new BadRequestException('payload inválido')); }),
+    };
+
+    const resultado = new Promise((resolve, reject) => {
+      interceptor.intercept(executionContext, next as never).subscribe({ next: resolve, error: reject });
+    });
+    resultado.catch(() => undefined); // marca el rechazo como manejado antes de avanzar timers
+    await vi.advanceTimersByTimeAsync(10_000);
+
+    await expect(resultado).rejects.toBeInstanceOf(BadRequestException);
+    expect(calls).toBe(1);                            // un solo intento
+    expect(channel.nack).toHaveBeenCalledTimes(1);    // nack directo (requeue=false)
+    expect(channel.nack).toHaveBeenCalledWith(expect.anything(), false, false);
+    expect(channel.ack).not.toHaveBeenCalled();
+    expect(retryCount('broker')).toBe(retriesAntes);  // no reintentos
+    expect(dlqTotal()).toBe(dlqAntes + 1);
+  });
+
+  it('un Error genérico conserva los 3 reintentos antes de la DLQ', async () => {
+    const interceptor = new RabbitMQRetryInterceptor();
+    const { executionContext, channel } = fakeRmqContext();
+    const retriesAntes = retryCount('broker');
+
+    let calls = 0;
+    const next = {
+      handle: () => new Observable((sub) => { calls++; sub.error(new Error('fallo transitorio')); }),
+    };
+
+    const resultado = new Promise((resolve, reject) => {
+      interceptor.intercept(executionContext, next as never).subscribe({ next: resolve, error: reject });
+    });
+    resultado.catch(() => undefined); // marca el rechazo como manejado antes de avanzar timers
+    await vi.advanceTimersByTimeAsync(30_000);
+
+    await expect(resultado).rejects.toThrow('fallo transitorio');
+    expect(calls).toBe(4);                             // 1 inicial + 3 reintentos
+    expect(retryCount('broker')).toBe(retriesAntes + 3);
+    expect(channel.nack).toHaveBeenCalledTimes(1);
   });
 });
