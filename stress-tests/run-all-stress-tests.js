@@ -371,6 +371,9 @@ async function testFullFlowConcurrent() {
   if (!realProdId) { console.log('  ⚠ No productos found, skipping'); return; }
 
   await runConcurrent('Full flow: mesa→pedido→cuenta→pago', async (i) => {
+    // H-6: latencia del flujo COMPLETO (mesa→pedido→cuenta→pago), no solo del
+    // último paso. t0 al inicio del callback; ms = extremo a extremo.
+    const t0 = Date.now();
     // 1. Create mesa
     const mesa = await req('POST', '/mesas', {
       numero: Math.floor(Math.random() * 100000) + 8000 + i, capacidad: 2, ubicacion: 'STRESS-TEST'
@@ -397,7 +400,7 @@ async function testFullFlowConcurrent() {
       cuentaId, montoRecibido: 25, metodo: 'EFECTIVO'
     }, adminToken);
 
-    return { ok: pago.ok, status: pago.status, ms: Date.now() - Date.now() + pago.ms };
+    return { ok: pago.ok, status: pago.status, ms: Date.now() - t0 };
   }, 10, 15);
 }
 
