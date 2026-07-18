@@ -282,3 +282,25 @@ mergeable por sí sola.
 - Fase 2: e2e de DLQ verde.
 - Fase 3: `bulkhead.spec.ts` verde + revisar `/metrics`.
 - Fase 4: `retry.spec.ts` verde + specs de clientes verdes.
+
+## Anexo S27 — Hallazgos H-1..H-7 de la auditoría e2e (resueltos)
+
+Auditoría del backend + causa raíz de la demo fallida (`docker stop` de cuentas
+en pleno cobro). Resueltos en la rama `feat/resiliencia-e2e-s27`
+([plan atómico](../../plan-resiliencia-e2e-claude-code.md)):
+
+| Hallazgo | Resuelto en | Commit |
+|---|---|---|
+| **H-1** Claims de idempotencia huérfanos sin TTL (409 hasta 7 días) | TTL de 60s + re-reclamo (`libs/resiliencia/src/lib/idempotency.interceptor.ts`) | `263d273` |
+| **H-2** `PAGO_SIN_CIERRE_CONFIRMADO` sin reconciliación automática | Cron cada 5 min (`apps/servicio-caja/src/app/cierre-reconciliacion.service.ts`) | `9306f33` |
+| **H-3** Códigos transitorios de red reportados como 500 | ECONNRESET/EPIPE/EAI_AGAIN/EHOSTUNREACH → 503 en los 3 clientes HTTP | `35799a4` |
+| **H-4** El outbox quema `attempts` con el broker caído | `isConnected()` + pausa del tick (`outbox.processor.ts`, `rabbitmq-publisher.service.ts`) | `f94f36f` |
+| **H-5** Mensajes envenenados queman 3 reintentos antes de la DLQ | Error permanente (4xx/parseo) → DLQ al primer intento (`rabbitmq-retry.interceptor.ts`) | `638e93a` |
+| **H-6** Latencia del flujo completo medía solo el último paso | Medición extremo a extremo (`stress-tests/run-all-stress-tests.js`) | `486ecf8` |
+| **H-7** `auto-skip-tests.js` enmascaraba fallos | Herramienta eliminada | `e973974` |
+
+Adicionalmente (PWA/gateway, misma rama): timeout de 8s con AbortSignal
+(`fix(pwa)`), mapeo 502/503/504 a mensaje humano, auto-recuperación de queries,
+timeouts por servicio en Kong (T-07) y `errorCode`/log operable en el
+GlobalExceptionFilter (T-14). Evidencia de runtime: scripts de caos
+`run-chaos-mid-flow.js` (+`--kill`) y `run-poison-message.js`.

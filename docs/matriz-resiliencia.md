@@ -25,6 +25,7 @@ tabla es la vista corta pedida por el material S33.
 | **429 rate limit** | superar el límite de Kong | degradación controlada (429, no caída) | plugin `rate-limiting` de Kong (`infra/kong/kong.yml.template`) | `run-security-limits.js` |
 | **Cierre remoto no confirmado** | cuentas lenta/caída al cerrar | dinero nunca se pierde ni se cobra dos veces | degradación honesta a `PAGO_SIN_CIERRE_CONFIRMADO` + `pagos_cierre_remoto_pendiente_total` (`apps/servicio-caja/src/app/app.service.ts`) | `run-chaos-double-service-down.js` |
 | **Corte a mitad de flujo con reanudación** | `docker stop` cuentas en pleno cobro, luego `docker start` | pago 201 degradado ("cierre en proceso"), cuenta se cierra sola al volver | outbox + evento `pago.registrado` + idempotencia del consumidor; reconciliación H-2 como backstop (`apps/servicio-caja/src/app/cierre-reconciliacion.service.ts`) | `run-chaos-mid-flow.js` (`--kill` = crash real) |
+| **Mensaje envenenado (payload corrupto)** | publicar un payload no parseable con una routing key de pedidos | va a la DLQ al **primer** intento, sin quemar reintentos (~3s vs ~7s) | clasificación de error permanente (4xx/parseo) → DLQ inmediata (`libs/resiliencia/src/lib/rabbitmq-retry.interceptor.ts`) | `run-poison-message.js` |
 
 ## 2. Dependencia → mecanismo → trade-off (resumen)
 
