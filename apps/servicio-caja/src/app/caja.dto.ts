@@ -5,6 +5,7 @@ import {
   IsObject,
   IsOptional,
   IsString,
+  IsUUID,
   MaxLength,
   Min,
 } from 'class-validator';
@@ -69,7 +70,7 @@ export class CerrarTurnoCajaCommand {
 }
 
 export class PagarCuentaCajaCommand {
-  @IsString()
+  @IsUUID()
   cuentaId: string;
 
   @IsNumber()
