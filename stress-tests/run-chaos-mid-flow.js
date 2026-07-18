@@ -29,7 +29,7 @@
  */
 const fs = require('node:fs');
 const { execFileSync, execSync } = require('node:child_process');
-const { snapshotBaseline, verifyPostLoad } = require('./k6/verify-postload');
+const { snapshotBaseline, verifyPostLoad, verifyResilienceMetrics } = require('./k6/verify-postload');
 
 const BASE = process.env.BASE_URL || 'http://localhost:8000';
 const REPORT_DIR = 'stress-tests/reports';
@@ -201,6 +201,10 @@ async function main() {
   // ── 6. Sin pérdida ni duplicación de mensajes ──
   const postload = await verifyPostLoad(baseline, { timeoutSec: 180 }).catch((err) => ({ pass: false, checks: [{ name: 'postload', pass: false, detail: err.message }] }));
   for (const c of postload.checks) record(`Recuperación: ${c.name}`, c.pass, c.detail);
+
+  // ── 7. Se observó sobrevivir: métricas de resiliencia en reposo (T-18) ──
+  const resil = await verifyResilienceMetrics({ timeoutSec: 60 }).catch((err) => ({ pass: false, checks: [{ name: 'métricas de resiliencia', pass: false, detail: err.message }] }));
+  for (const c of resil.checks) record(`Observabilidad: ${c.name}`, c.pass, c.detail);
 
   return finalizar();
 }

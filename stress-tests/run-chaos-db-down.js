@@ -22,7 +22,7 @@
  */
 const fs = require('node:fs');
 const { execFileSync, execSync } = require('node:child_process');
-const { snapshotBaseline, verifyPostLoad } = require('./k6/verify-postload');
+const { snapshotBaseline, verifyPostLoad, verifyResilienceMetrics } = require('./k6/verify-postload');
 
 const BASE = process.env.BASE_URL || 'http://localhost:8000';
 const REPORT_DIR = 'stress-tests/reports';
@@ -160,6 +160,10 @@ async function main() {
   // 5. Recuperación de outbox/DLQ (si aplica) dentro de N minutos.
   const postload = await verifyPostLoad(baseline, { timeoutSec: 120 }).catch((err) => ({ pass: false, checks: [{ name: 'postload', pass: false, detail: err.message }] }));
   for (const c of postload.checks) record(`Recuperación: ${c.name}`, c.pass, c.detail);
+
+  // T-18: se observó sobrevivir — métricas de resiliencia de vuelta en reposo.
+  const resil = await verifyResilienceMetrics({ timeoutSec: 60 }).catch((err) => ({ pass: false, checks: [{ name: 'métricas de resiliencia', pass: false, detail: err.message }] }));
+  for (const c of resil.checks) record(`Observabilidad: ${c.name}`, c.pass, c.detail);
 
   fs.mkdirSync(REPORT_DIR, { recursive: true });
   const passed = results.filter((r) => r.ok).length;

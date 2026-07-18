@@ -79,7 +79,58 @@ async function verifyPostLoad(baseline, opts = {}) {
   return { pass: checks.every((c) => c.pass), checks };
 }
 
-module.exports = { promQuery, snapshotBaseline, verifyPostLoad };
+// Sondea una query hasta que su valor llega a 0 (o expira). Devuelve el último
+// valor leído (0 si drenó, >0 si no, null si la métrica no está disponible).
+async function waitMetricZero(query, timeoutSec, pollSec = 5) {
+  const deadline = Date.now() + timeoutSec * 1000;
+  let v = await promQuery(query).catch(() => null);
+  while (v != null && v > 0 && Date.now() < deadline) {
+    await sleep(pollSec * 1000);
+    v = await promQuery(query).catch(() => null);
+  }
+  return v;
+}
+
+/**
+ * T-18: no solo demostrar que el sistema sobrevive, sino que se OBSERVÓ
+ * sobrevivir. Tras el caos, las métricas de resiliencia deben volver a reposo:
+ *  - circuit_breaker_state == 0 (todos los circuitos cerrados);
+ *  - outbox_pending_total ~0 (la cola de outbox drenó);
+ *  - dependency_timeout_total / retry_attempts_total: informativos (contadores
+ *    que crecieron durante el caos; se reportan, no se exigen en cero).
+ *
+ * Best-effort: si una métrica no está en Prometheus, el check queda como no
+ * disponible sin tumbar la verificación.
+ * @returns {{pass:boolean, checks:Array<{name:string, pass:boolean, detail:string}>}}
+ */
+async function verifyResilienceMetrics(opts = {}) {
+  const timeoutSec = opts.timeoutSec ?? Number(process.env.RESILIENCE_TIMEOUT_SEC ?? 60);
+  const checks = [];
+
+  const breaker = await waitMetricZero('sum(circuit_breaker_state)', timeoutSec);
+  checks.push({
+    name: 'circuit_breaker_state vuelve a 0 (circuitos cerrados)',
+    pass: breaker === 0,
+    detail: breaker == null ? 'métrica no disponible' : `suma=${breaker}`,
+  });
+
+  const pending = await waitMetricZero('sum(outbox_pending_total)', timeoutSec);
+  checks.push({
+    name: 'outbox_pending_total drena a ~0',
+    pass: pending === 0,
+    detail: pending == null ? 'no disponible' : `pendientes=${pending}`,
+  });
+
+  const timeouts = await promQuery('sum(dependency_timeout_total)').catch(() => null);
+  checks.push({ name: 'dependency_timeout_total (informativo)', pass: true, detail: `${timeouts ?? 'n/d'}` });
+
+  const retries = await promQuery('sum(retry_attempts_total)').catch(() => null);
+  checks.push({ name: 'retry_attempts_total (informativo)', pass: true, detail: `${retries ?? 'n/d'}` });
+
+  return { pass: checks.every((c) => c.pass), checks };
+}
+
+module.exports = { promQuery, snapshotBaseline, verifyPostLoad, verifyResilienceMetrics };
 
 if (require.main === module) {
   (async () => {
