@@ -11,6 +11,12 @@ import { primerMensaje } from '../../utils/feedback';
 
 export const CUENTAS_QUERY_KEY = ['cuentas'];
 
+// T-03: el 404 (cuenta inexistente) no es error duro y no reintenta; cualquier
+// otro fallo reintenta hasta 2 veces, para que la UI se cure sola cuando el
+// servicio vuelve. Exportado para test unitario del predicado.
+export const retryCuentas = (failureCount: number, err: unknown): boolean =>
+  (err as { status?: number }).status !== 404 && failureCount < 2;
+
 export function useCuentasQuery(mesaId?: string) {
   const query = useQuery({
     queryKey: [...CUENTAS_QUERY_KEY, 'mesa', mesaId].filter(Boolean),
@@ -25,7 +31,9 @@ export function useCuentasQuery(mesaId?: string) {
       }
     },
     enabled: !!mesaId,
-    retry: false, // No reintentar si da 404 (cuenta no existe)
+    retry: retryCuentas,
+    // Ya en error, re-pregunta cada 5 s; al recuperar, deja de repreguntar.
+    refetchInterval: (query) => (query.state.status === 'error' ? 5000 : false),
   });
 
   const mutationAbrir = useMutation({
@@ -72,7 +80,7 @@ export function useCuentasQuery(mesaId?: string) {
   return {
     cuentaActiva: query.data ?? null,
     loading: query.isLoading || mutationAbrir.isPending || mutationRegistrarPago.isPending || mutationCerrar.isPending,
-    error: query.isError ? query.error.message : mutationAbrir.error?.message || mutationRegistrarPago.error?.message || mutationCerrar.error?.message || null,
+    error: query.isError ? (query.error as Error).message : mutationAbrir.error?.message || mutationRegistrarPago.error?.message || mutationCerrar.error?.message || null,
     success: primerMensaje(
       [mutationAbrir.isSuccess, 'Cuenta abierta.'],
       [mutationRegistrarPago.isSuccess, 'Pago registrado correctamente.'],

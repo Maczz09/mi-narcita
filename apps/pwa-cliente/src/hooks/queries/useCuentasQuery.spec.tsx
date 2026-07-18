@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { renderHook, waitFor } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { useCuentasQuery } from './useCuentasQuery';
+import { useCuentasQuery, retryCuentas } from './useCuentasQuery';
 import * as cuentasApi from '../../api/cuentas.api';
 import { mapCuenta } from '../../mappers/cuenta.mapper';
 import { queryClient } from '../../api/queryClient';
@@ -29,14 +29,27 @@ vi.mock('../../api/queryClient', () => ({
 
 const createWrapper = () => {
   const testQueryClient = new QueryClient({
+    // retryDelay: 0 hace instantáneos los reintentos que ahora hace el hook
+    // (retryCuentas) para el caso de error no-404, sin esperar backoffs reales.
     defaultOptions: {
-      queries: { retry: false },
+      queries: { retry: false, retryDelay: 0 },
     },
   });
   return ({ children }: { children: React.ReactNode }) => (
     <QueryClientProvider client={testQueryClient}>{children}</QueryClientProvider>
   );
 };
+
+describe('retryCuentas (predicado de reintento T-03)', () => {
+  it('no reintenta en 404 (cuenta inexistente)', () => {
+    expect(retryCuentas(0, { status: 404 })).toBe(false);
+  });
+  it('reintenta un 503 hasta 2 veces y luego se detiene', () => {
+    expect(retryCuentas(0, { status: 503 })).toBe(true);
+    expect(retryCuentas(1, { status: 503 })).toBe(true);
+    expect(retryCuentas(2, { status: 503 })).toBe(false);
+  });
+});
 
 describe('useCuentasQuery', () => {
   beforeEach(() => {
