@@ -3,6 +3,10 @@
 Complementa (no reemplaza) los scripts Node de `stress-tests/run-*.js`.
 Contexto y justificación de los niveles: `docs/auditoria-carga.md` (§4).
 
+Para carga **distribuida multi-nodo** con métricas consolidadas en Prometheus,
+ver [`../run-distributed.md`](../run-distributed.md) y el wrapper por nodo
+[`run-node.sh`](run-node.sh).
+
 ## Requisitos
 
 1. **k6**: `winget install k6` (o `choco install k6`).
