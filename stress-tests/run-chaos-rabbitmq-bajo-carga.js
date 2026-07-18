@@ -35,7 +35,7 @@ async function main() {
       '--env', 'LEVEL=L1',
       path.join(__dirname, 'k6', 'scenarios', 'mesas.js'),
     ],
-    { stdio: 'inherit', shell: true, env: process.env },
+    { stdio: 'inherit', shell: false, env: process.env },
   );
 
   // Da tiempo a que k6 levante VUs y empiece a generar tráfico antes de matar

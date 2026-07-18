@@ -172,7 +172,7 @@ async function main() {
         '--summary-export', summaryFile,
         path.join(K6_DIR, 'scenarios', `${service}.js`),
       ],
-      { stdio: 'inherit', shell: true, env: process.env },
+      { stdio: 'inherit', shell: false, env: process.env },
     );
     // k6: exit 0 = OK, 99 = thresholds incumplidos, otro = error de ejecución.
     const thresholdsOk = k6run.status === 0;
