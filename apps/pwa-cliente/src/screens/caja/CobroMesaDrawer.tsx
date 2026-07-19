@@ -32,7 +32,7 @@ export function CobroMesaDrawer({ mesaId, mesaNumero, onClose, onPaid }: Readonl
   const online = useOnlineStatus();
   const { toast } = useToast();
   const {
-    cuentaActiva, loading, error, success,
+    cuentaActiva, loading, error, success, queryError,
     registrarPago, clearFeedback, refetchCuenta,
   } = useCuentasQuery(mesaId);
   const modalRef = useRef<HTMLDialogElement>(null);
@@ -101,7 +101,10 @@ export function CobroMesaDrawer({ mesaId, mesaNumero, onClose, onPaid }: Readonl
             {error ? <Icons.Alert s={16} /> : <Icons.Check s={16} />}
             <span>{error ?? success}</span>
             <span className="spacer" />
-            {error && (
+            {/* T-04: "Reintentar" solo aplica cuando falló la carga de la cuenta
+                (GET) — si lo que falló fue pagar/abrir/cerrar, un refetch de la
+                cuenta no reintenta esa acción, solo confunde. */}
+            {error && queryError && (
               <button className="btn btn-sm btn-ghost" onClick={() => void refetchCuenta()} aria-label="Reintentar carga de la cuenta">Reintentar</button>
             )}
             <button className="btn btn-sm btn-ghost" onClick={clearFeedback} aria-label="Cerrar notificación">Cerrar</button>

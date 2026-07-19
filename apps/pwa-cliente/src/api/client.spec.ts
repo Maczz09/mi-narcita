@@ -210,7 +210,7 @@ describe('client', () => {
       // El .message es el texto amigable; el crudo de Kong queda en body.detalle.
       await expect(promise).rejects.toMatchObject({
         status: 503,
-        message: 'El servicio no está disponible en este momento. Reintentando…',
+        message: 'El servicio no está disponible en este momento.',
       });
       await promise.catch((err) => {
         expect((err.body as { detalle: { message: string } }).detalle.message).toBe('name resolution failed');

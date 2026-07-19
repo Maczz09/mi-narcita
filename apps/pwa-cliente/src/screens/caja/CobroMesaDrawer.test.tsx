@@ -193,13 +193,14 @@ describe('CobroMesaDrawer', () => {
     expect(screen.getByText('Sin conexión. Reconecta para registrar el pago.')).toBeDefined();
   });
 
-  it('shows error and success messages', () => {
+  it('shows error and success messages, with retry when the cuenta failed to load', () => {
     const clearFeedback = vi.fn();
     const refetchCuenta = vi.fn();
     vi.mocked(useCuentasQuery).mockReturnValue({
       cuentaActiva: mockCuenta,
       loading: false,
       error: 'Error mock',
+      queryError: true,
       success: 'Success mock',
       registrarPago: vi.fn(),
       clearFeedback,
@@ -209,11 +210,32 @@ describe('CobroMesaDrawer', () => {
     render(<CobroMesaDrawer mesaId="mesa1" onClose={vi.fn()} />);
 
     expect(screen.getByText('Error mock')).toBeDefined();
-    // T-04: con error visible, "Reintentar" dispara refetchCuenta.
+    // T-04: con error de carga de la cuenta, "Reintentar" dispara refetchCuenta.
     fireEvent.click(screen.getByRole('button', { name: 'Reintentar carga de la cuenta' }));
     expect(refetchCuenta).toHaveBeenCalled();
     fireEvent.click(screen.getByRole('button', { name: 'Cerrar notificación' }));
     expect(clearFeedback).toHaveBeenCalled();
+  });
+
+  it('hides "Reintentar" when the error comes from a mutation (e.g. pagar), not from loading the cuenta', () => {
+    const refetchCuenta = vi.fn();
+    vi.mocked(useCuentasQuery).mockReturnValue({
+      cuentaActiva: mockCuenta,
+      loading: false,
+      error: 'No se pudo registrar el pago',
+      queryError: false,
+      success: null,
+      registrarPago: vi.fn(),
+      clearFeedback: vi.fn(),
+      refetchCuenta
+    } as any);
+
+    render(<CobroMesaDrawer mesaId="mesa1" onClose={vi.fn()} />);
+
+    expect(screen.getByText('No se pudo registrar el pago')).toBeDefined();
+    // Refetch de la cuenta no reintenta un pago fallido: el botón no debe existir.
+    expect(screen.queryByRole('button', { name: 'Reintentar carga de la cuenta' })).toBeNull();
+    expect(refetchCuenta).not.toHaveBeenCalled();
   });
 
   it('handles empty items array', () => {

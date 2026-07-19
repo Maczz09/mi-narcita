@@ -81,6 +81,9 @@ export function useCuentasQuery(mesaId?: string) {
     cuentaActiva: query.data ?? null,
     loading: query.isLoading || mutationAbrir.isPending || mutationRegistrarPago.isPending || mutationCerrar.isPending,
     error: query.isError ? (query.error as Error).message : mutationAbrir.error?.message || mutationRegistrarPago.error?.message || mutationCerrar.error?.message || null,
+    // T-04: distingue "no se pudo cargar la cuenta" (recuperable con refetch)
+    // de un fallo de mutación (pagar/abrir/cerrar) — refetch no reintenta eso.
+    queryError: query.isError,
     success: primerMensaje(
       [mutationAbrir.isSuccess, 'Cuenta abierta.'],
       // T-04: el backend distingue "cuenta cerrada y ticket generado" de

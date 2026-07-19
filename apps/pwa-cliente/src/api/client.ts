@@ -238,7 +238,7 @@ async function handleErrorResponse<T>(
   // original queda en `detalle` solo para depuración/console, nunca para la UI.
   if (res.status === 502 || res.status === 503 || res.status === 504) {
     throw new ApiError(res.status, res.statusText, {
-      message: 'El servicio no está disponible en este momento. Reintentando…',
+      message: 'El servicio no está disponible en este momento.',
       detalle: body,
     });
   }

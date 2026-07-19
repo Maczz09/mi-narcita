@@ -61,6 +61,7 @@ export function Comandero({
     loadingMore: loadingMoreInv,
     nextCursor,
     fetchMore,
+    error: errorInv,
   } = useInventarioQuery(undefined, { limit: 100, search: search || undefined });
   const { mesas } = useMesasQuery();
   const { crear } = usePedidosQuery(mesaId);
@@ -153,8 +154,14 @@ export function Comandero({
               </div>
               <div className="input cmd-search"><Icons.Search s={15} /><input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar plato…" /></div>
             </div>
+            {errorInv && productos.length > 0 && (
+              <div className="banner err module-feedback" role="alert">
+                <Icons.Alert s={17} />
+                <span>No se pudo actualizar el catálogo. Mostrando los últimos productos guardados.</span>
+              </div>
+            )}
             <div className="cmd-grid">
-              {ComanderoEmptyGrid({ loadingInv, productosLength: productos.length, productosFiltradosLength: productosFiltrados.length, nextCursor, loadingMoreInv, fetchMore }) ?? (
+              {ComanderoEmptyGrid({ loadingInv, errorInv, productosLength: productos.length, productosFiltradosLength: productosFiltrados.length, nextCursor, loadingMoreInv, fetchMore }) ?? (
                 <>
                   <ComanderoCatalogGrid productos={productosFiltrados} cmd={cmd} />
                   <ComanderoCargarMas nextCursor={nextCursor} loadingMoreInv={loadingMoreInv} fetchMore={fetchMore} />
@@ -221,9 +228,20 @@ function ComanderoCargarMas({ nextCursor, loadingMoreInv, fetchMore }: Readonly<
   );
 }
 
-function ComanderoEmptyGrid({ loadingInv, productosLength, productosFiltradosLength, nextCursor, loadingMoreInv, fetchMore }: Readonly<{ loadingInv: boolean, productosLength: number, productosFiltradosLength: number, nextCursor: any, loadingMoreInv: boolean, fetchMore: any }>) {
+function ComanderoEmptyGrid({ loadingInv, errorInv, productosLength, productosFiltradosLength, nextCursor, loadingMoreInv, fetchMore }: Readonly<{ loadingInv: boolean, errorInv?: string | null, productosLength: number, productosFiltradosLength: number, nextCursor: any, loadingMoreInv: boolean, fetchMore: any }>) {
   if (loadingInv && productosLength === 0) {
     return <div className="cmd-empty" style={{ gridColumn: '1 / -1' }}><b>Cargando carta…</b></div>;
+  }
+  // Sin caché previa y la carga falló: distinto de "sin resultados" — el
+  // catálogo no cargó por una dependencia caída, no porque el filtro no
+  // matchee nada. El hook ya reintenta y refetchea solo cada 5s (queryClient).
+  if (errorInv && productosLength === 0) {
+    return (
+      <div className="cmd-empty" style={{ gridColumn: '1 / -1' }}>
+        <Icons.Alert s={26} /><b>No pudimos cargar el catálogo</b>
+        <p>El servicio de inventario no responde.</p>
+      </div>
+    );
   }
   if (productosFiltradosLength === 0) {
     return (
