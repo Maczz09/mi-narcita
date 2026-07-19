@@ -5,6 +5,7 @@ import {
 } from '@org/contracts';
 import * as amqp from 'amqp-connection-manager';
 import { ConfirmChannel } from 'amqplib';
+import { randomUUID } from 'node:crypto';
 import { RABBITMQ_CONNECTION } from './rabbitmq.constants';
 import { context, propagation } from '@opentelemetry/api';
 
@@ -74,6 +75,7 @@ export class RabbitMQPublisherService implements OnModuleInit {
     routingKey: RoutingKey,
     data: TPayload,
     producer?: string,
+    eventId?: string,
   ): Promise<void> {
     const ctx = context.active();
     const carrier: Record<string, string> = {};
@@ -84,6 +86,12 @@ export class RabbitMQPublisherService implements OnModuleInit {
     // Timestamp de publicación (epoch ms): permite medir en el consumidor cuánto
     // tiempo pasó un mensaje en el broker antes de ser procesado (broker_consumer_lag_seconds).
     carrier['x-published-at'] = String(Date.now());
+    // Identidad estable del evento para deduplicación en el consumidor
+    // (entrega at-least-once). El productor del outbox pasa el id del evento del
+    // outbox → una redelivery o un reintento republican el MISMO id, y el
+    // consumidor lo descarta. Si no se pasa, se genera uno (publicación directa):
+    // así el consumidor siempre tiene una clave con la que deduplicar.
+    carrier['x-event-id'] = eventId ?? randomUUID();
 
     await this.channelWrapper.publish(NACHOPPS_EXCHANGE, routingKey, {
       pattern: routingKey,

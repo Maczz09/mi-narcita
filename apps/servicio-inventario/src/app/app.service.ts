@@ -373,7 +373,13 @@ export class AppService {
       } satisfies OperableLog);
       return;
     }
-    if (pedido.items.some((item) => item?.notas === '__QA_INVENTARIO_FORCE_DLQ__')) {
+    // Fault-injection para las pruebas de caos: fuerza un fallo del consumidor
+    // (→ reintentos → DLQ). Gateado por entorno: NUNCA activo en producción, para
+    // que un `notas` con el string mágico no sea un backdoor de DoS por request.
+    if (
+      process.env.NODE_ENV !== 'production' &&
+      pedido.items.some((item) => item?.notas === '__QA_INVENTARIO_FORCE_DLQ__')
+    ) {
       throw new Error(`Fallo QA controlado para pedido ${pedido.id}`);
     }
     const key = `pedido.creado:${pedido.id}`;

@@ -20,7 +20,8 @@
       "targets": [
         {
           "expr": "histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket{instance=\"servicio-inventario:3000\"}[5m])) by (le))",
-          "refId": "A"
+          "refId": "A",
+          "exemplar": true
         }
       ]
     },
@@ -31,7 +32,7 @@
       "fieldConfig": { "defaults": { "unit": "ops" }, "overrides": [] },
       "targets": [
         {
-          "expr": "sum(rate(erp_timeout_rate_total[5m]))",
+          "expr": "sum(rate(dependency_timeout_total{dependency=\"inventario\"}[5m]))",
           "refId": "A"
         }
       ]
@@ -42,7 +43,7 @@
       "gridPos": { "h": 4, "w": 8, "x": 0, "y": 9 },
       "targets": [
         {
-          "expr": "circuit_breaker_state{dependency=\"inventario\"}",
+          "expr": "max by (dependency) (circuit_breaker_state{dependency=\"inventario\"})",
           "refId": "A"
         }
       ]
@@ -136,6 +137,7 @@
       ]
     }
   ],
+  "refresh": "10s",
   "schemaVersion": 36,
   "style": "dark",
   "tags": [],

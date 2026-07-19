@@ -9,6 +9,12 @@ describe('AppService — Notificaciones', () => {
       findMany: jest.fn(),
       create: jest.fn(),
     },
+    idempotencyKey: {
+      create: jest.fn(),
+    },
+    // $transaction ejecuta el callback con el mismo cliente (que expone
+    // idempotencyKey.create y notificacion.create) — como el TransactionClient real.
+    $transaction: jest.fn(async (cb: (tx: unknown) => unknown) => cb(prisma)),
   };
 
   beforeEach(() => {
@@ -162,15 +168,15 @@ describe('AppService — Notificaciones', () => {
       });
     });
 
-    it('devuelve null si falla la persistencia', async () => {
+    it('RELANZA si falla la persistencia (no la traga → el mensaje reintenta/DLQ)', async () => {
       prisma.notificacion.create.mockRejectedValue(new Error('db down'));
 
-      const result = await service.registrarNotificacion('pedido.actualizado', {
-        mesaId: 'mesa-1',
-        estado: 'EN_PREPARACION',
-      });
-
-      expect(result).toBeNull();
+      await expect(
+        service.registrarNotificacion('pedido.actualizado', {
+          mesaId: 'mesa-1',
+          estado: 'EN_PREPARACION',
+        }),
+      ).rejects.toThrow('db down');
     });
 
     it('usa texto() fallback cuando mesaId es null → Mesa ??', async () => {
@@ -183,6 +189,47 @@ describe('AppService — Notificaciones', () => {
           contenido: expect.stringContaining('Mesa ??'),
         }),
       });
+    });
+  });
+
+  describe('registrarNotificacion — idempotencia por eventId (at-least-once)', () => {
+    it('con eventId reclama la clave en transacción y persiste (fresh)', async () => {
+      prisma.idempotencyKey.create.mockResolvedValue({ key: 'notif:evt-1' });
+      prisma.notificacion.create.mockResolvedValue({ id: 'notif-1', contenido: 'x' });
+
+      const result = await service.registrarNotificacion('pedido.creado', { mesaId: 'm1', total: 1 }, 'evt-1');
+
+      expect(prisma.$transaction).toHaveBeenCalled();
+      expect(prisma.idempotencyKey.create).toHaveBeenCalledWith({ data: { key: 'notif:evt-1' } });
+      expect(prisma.notificacion.create).toHaveBeenCalled();
+      expect(result).toEqual({ id: 'notif-1', contenido: 'x' });
+    });
+
+    it('evento duplicado (P2002 al reclamar la clave) → devuelve null y NO persiste', async () => {
+      prisma.idempotencyKey.create.mockRejectedValue({ code: 'P2002' });
+
+      const result = await service.registrarNotificacion('pedido.creado', { mesaId: 'm1', total: 1 }, 'evt-dup');
+
+      expect(result).toBeNull();
+      expect(prisma.notificacion.create).not.toHaveBeenCalled();
+    });
+
+    it('error real dentro de la transacción → RELANZA (no lo confunde con duplicado)', async () => {
+      prisma.idempotencyKey.create.mockResolvedValue({ key: 'k' });
+      prisma.notificacion.create.mockRejectedValue(new Error('db down'));
+
+      await expect(
+        service.registrarNotificacion('pedido.creado', { mesaId: 'm1', total: 1 }, 'evt-err'),
+      ).rejects.toThrow('db down');
+    });
+
+    it('sin eventId NO usa transacción (persistencia directa, sin dedup)', async () => {
+      prisma.notificacion.create.mockResolvedValue({ id: 'n' });
+
+      await service.registrarNotificacion('pedido.creado', { mesaId: 'm1', total: 1 });
+
+      expect(prisma.$transaction).not.toHaveBeenCalled();
+      expect(prisma.idempotencyKey.create).not.toHaveBeenCalled();
     });
   });
 });

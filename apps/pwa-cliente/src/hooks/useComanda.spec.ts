@@ -3,8 +3,6 @@ import { vi } from 'vitest';
 // @ts-nocheck
 import { renderHook, act } from '@testing-library/react';
 import { useComanda } from './useComanda';
-import * as comanda from '../domain/comanda';
-import {  } from 'vitest';
 
 describe('useComanda', () => {
   const defaultParams = {

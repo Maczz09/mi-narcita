@@ -25,10 +25,14 @@ class DummyOk {
   }
 }
 
-function estadoGauge(breaker: string): number | undefined {
+function serieGauge(breaker: string): { value: number; labels: { breaker: string; dependency?: string } } | undefined {
   const gauge = register.getSingleMetric('circuit_breaker_state') as Gauge<string> | undefined;
-  const val = (gauge as unknown as { hashMap: Record<string, { value: number; labels: { breaker: string } }> })?.hashMap;
-  return Object.values(val ?? {}).find((v) => v.labels.breaker === breaker)?.value;
+  const val = (gauge as unknown as { hashMap: Record<string, { value: number; labels: { breaker: string; dependency?: string } }> })?.hashMap;
+  return Object.values(val ?? {}).find((v) => v.labels.breaker === breaker);
+}
+
+function estadoGauge(breaker: string): number | undefined {
+  return serieGauge(breaker)?.value;
 }
 
 function limpiarBreakers() {
@@ -48,6 +52,9 @@ describe('CircuitBreakerOptions — gauge circuit_breaker_state (R-04)', () => {
     // Primera invocación: instancia el breaker y registra el gauge con su label.
     await expect(dummy.llamar()).rejects.toBeDefined();
     expect(estadoGauge(breakerName)).toBeDefined();
+    // El gauge se etiqueta con la dependency canónica ('Dummy' → 'dummy') para
+    // que alertas/dashboards/health puedan consultar por dependencia.
+    expect(serieGauge(breakerName)?.labels.dependency).toBe('dummy');
 
     const breaker = CIRCUIT_BREAKER_REGISTRY.get(breakerName)!;
     breaker.emit('open');

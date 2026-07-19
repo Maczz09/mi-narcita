@@ -6,7 +6,6 @@ import * as pedidosApi from '../../api/pedidos.api';
 import { queryClient as realQueryClient } from '../../api/queryClient';
 import { vi } from 'vitest';
 import React from 'react';
-import { mapPedido, mapPedidos } from '../../mappers/pedido.mapper';
 
 vi.mock('../../api/pedidos.api', () => ({
   getPage: vi.fn(),

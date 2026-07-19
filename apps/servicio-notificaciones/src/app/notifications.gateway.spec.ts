@@ -215,5 +215,11 @@ describe('NotificationsGateway', () => {
       gw.emitPedidoUpdate({ pattern: 'desconocido.evento', data: {} });
       expect(to).not.toHaveBeenCalled();
     });
+
+    it('servidor WS no inicializado: no lanza (evita nack de un evento ya persistido)', () => {
+      const gw = new NotificationsGateway(new JwtService({}));
+      // server queda undefined (aún no ligado por @WebSocketServer)
+      expect(() => gw.emitPedidoUpdate({ pattern: 'pedido.creado', data: {} })).not.toThrow();
+    });
   });
 });

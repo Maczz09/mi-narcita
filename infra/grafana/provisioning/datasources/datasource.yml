@@ -2,6 +2,7 @@ apiVersion: 1
 datasources:
   - name: Prometheus
     type: prometheus
+    uid: prometheus
     access: proxy
     url: http://prometheus:9090
     isDefault: true
@@ -38,5 +39,8 @@ datasources:
     type: jaeger
     uid: jaeger
     access: proxy
-    url: http://otel-collector:16686
+    # La UI de Jaeger ahora vive en su propio contenedor `jaeger` (antes el
+    # servicio `otel-collector` ERA Jaeger all-in-one; ahora hay un OTel
+    # Collector real delante y Jaeger detrás con almacenamiento Badger).
+    url: http://jaeger:16686
     editable: true

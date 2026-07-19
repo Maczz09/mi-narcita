@@ -17,31 +17,63 @@ export class AppService {
     });
   }
 
-  async registrarNotificacion(pattern: string, data: unknown) {
+  /**
+   * Persiste la notificación de un evento. Idempotente por `eventId` (la
+   * identidad estable que el publisher propaga en `x-event-id`): con entrega
+   * at-least-once —redelivery del broker, republicación del outbox, reintento
+   * in-process del interceptor— el MISMO evento llega varias veces y aquí se
+   * inserta una sola notificación.
+   *
+   * - Duplicado (evento ya procesado) → devuelve `null`; el llamador NO re-emite.
+   * - Fallo real de BD → RELANZA (antes lo tragaba y devolvía null mientras el
+   *   mensaje se ACKeaba igual → notificación perdida en silencio). Al relanzar,
+   *   el interceptor reintenta y, si persiste, va a la DLQ: sin pérdidas.
+   */
+  async registrarNotificacion(pattern: string, data: unknown, eventId?: string) {
     const contenido = this.formatContenido(pattern, data);
     this.logger.log({
       operation: pattern,
       message: 'Guardando notificación en BD para el evento.',
     } satisfies OperableLog);
 
+    const notifData = {
+      eventoOrigen: pattern,
+      destinatario: 'TODOS',
+      canal: 'UI',
+      contenido,
+      estado: 'PENDIENTE',
+    };
+
+    // Sin eventId (publicación sin cabecera, p. ej. mensajes antiguos en vuelo):
+    // no se puede deduplicar, pero tampoco se traga el error → se crea y, si
+    // falla, se relanza para que el mensaje reintente/DLQ.
+    if (!eventId) {
+      return this.prisma.notificacion.create({ data: notifData });
+    }
+
     try {
-      const notificacion = await this.prisma.notificacion.create({
-        data: {
-          eventoOrigen: pattern,
-          destinatario: 'TODOS',
-          canal: 'UI',
-          contenido,
-          estado: 'PENDIENTE',
-        },
+      return await this.prisma.$transaction(async (prisma) => {
+        // Reclama la clave del evento; el índice único la rechaza (P2002) si ya
+        // se procesó, abortando la transacción sin insertar la notificación.
+        await prisma.idempotencyKey.create({ data: { key: `notif:${eventId}` } });
+        return prisma.notificacion.create({ data: notifData });
       });
-      return notificacion;
     } catch (err) {
+      if ((err as { code?: string })?.code === 'P2002') {
+        this.logger.log({
+          operation: pattern,
+          idempotencyKey: `notif:${eventId}`,
+          message: 'Evento ya notificado — sin cambios (idempotente).',
+        } satisfies OperableLog);
+        return null;
+      }
+      // Fallo real de persistencia: se loguea y se RELANZA (no se traga).
       this.logger.error({
         operation: pattern,
         errorCode: 'PERSISTENCIA_FALLIDA',
         message: `Error al persistir notificación: ${err instanceof Error ? err.message : String(err)}`,
       } satisfies OperableLog);
-      return null;
+      throw err;
     }
   }
 

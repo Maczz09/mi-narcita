@@ -38,13 +38,22 @@ export class CierreReconciliacionService {
     const cutoff = new Date(Date.now() - this.UMBRAL_MS);
 
     // La antigüedad viene de la Transaccion (CuentaAbierta no tiene timestamps).
+    // Se arrastra también el `descuento` para reproducir el cierre con el mismo
+    // importe que el pago original: cerrar con 0 dejaba el ticket/total remoto en
+    // `cuentas` divergente del total ya registrado en caja (inconsistencia de
+    // dinero). `distinct` + `orderBy desc` → el descuento de la última
+    // transacción de cada cuenta (la que intentó el cierre degradado).
     const transaccionesViejas = await this.prisma.transaccion.findMany({
       where: { createdAt: { lt: cutoff } },
-      select: { cuentaId: true },
+      select: { cuentaId: true, descuento: true },
       distinct: ['cuentaId'],
+      orderBy: { createdAt: 'desc' },
       take: 100,
     });
-    const cuentaIds = transaccionesViejas.map((t) => t.cuentaId);
+    const descuentoPorCuenta = new Map(
+      transaccionesViejas.map((t) => [t.cuentaId, Number(t.descuento ?? 0)]),
+    );
+    const cuentaIds = [...descuentoPorCuenta.keys()];
     if (cuentaIds.length === 0) return;
 
     const pendientes = await this.prisma.cuentaAbierta.findMany({
@@ -54,7 +63,7 @@ export class CierreReconciliacionService {
 
     for (const cuenta of pendientes) {
       try {
-        await this.cuentasHttp.cerrarCuenta(cuenta.cuentaId, 0);
+        await this.cuentasHttp.cerrarCuenta(cuenta.cuentaId, descuentoPorCuenta.get(cuenta.cuentaId) ?? 0);
         await this.prisma.cuentaAbierta.update({
           where: { cuentaId: cuenta.cuentaId },
           data: { estado: 'CERRADA' },

@@ -13,7 +13,7 @@ groups:
       action: "Revisar dependencias del inventario"
 
   - alert: ErpTimeoutRateHigh
-    expr: increase(erp_timeout_rate_total[5m]) > 5
+    expr: increase(dependency_timeout_total{dependency="inventario"}[5m]) > 5
     labels:
       severity: critical
       owner: servicio-pedidos
@@ -76,3 +76,44 @@ groups:
       summary: "DLQ creciendo"
       description: "Mensajes agotando reintentos y cayendo a la dead-letter queue a un ritmo sostenido."
       action: "Revisar schema/consumidores."
+
+# Salud genérica de TODOS los microservicios (no solo el checkout). Estas reglas
+# usan el label `instance` del job `nestjs-microservices`, así que cubren los 9
+# servicios sin enumerarlos: al añadir un servicio al scrape queda alertado solo.
+- name: PlatformHealth
+  rules:
+  - alert: ServiceDown
+    expr: up{job="nestjs-microservices"} == 0
+    for: 1m
+    labels:
+      severity: critical
+      owner: plataforma
+    annotations:
+      summary: "Servicio caído: {{ $labels.instance }}"
+      description: "Prometheus no puede scrapear {{ $labels.instance }} desde hace >1 min (proceso caído o /telemetry/metrics inaccesible)."
+      action: "Revisar contenedor/logs del servicio; confirmar readiness (/api/health/ready)."
+
+  - alert: ServiceHighErrorRate
+    expr: |
+      sum by (instance) (rate(http_requests_total{status_code=~"5.."}[5m]))
+        /
+      sum by (instance) (rate(http_requests_total[5m])) > 0.05
+    for: 5m
+    labels:
+      severity: warning
+      owner: plataforma
+    annotations:
+      summary: "Tasa de error 5xx > 5% en {{ $labels.instance }}"
+      description: "Más del 5% de las peticiones HTTP de {{ $labels.instance }} devuelven 5xx en los últimos 5 min."
+      action: "Revisar logs (Loki) del servicio filtrando por errorCode; correlacionar con trazas."
+
+  - alert: ServiceHighLatencyP95
+    expr: histogram_quantile(0.95, sum by (le, instance) (rate(http_request_duration_seconds_bucket[5m]))) > 2
+    for: 5m
+    labels:
+      severity: warning
+      owner: plataforma
+    annotations:
+      summary: "Latencia p95 > 2s en {{ $labels.instance }}"
+      description: "El p95 de latencia HTTP de {{ $labels.instance }} supera los 2 s durante 5 min."
+      action: "Revisar dependencias/BD del servicio; ver panel Servicios RED y trazas lentas en Jaeger."

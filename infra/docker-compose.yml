@@ -850,13 +850,38 @@ services:
   # ═══════════════════════════════════════════════════
   # OBSERVABILIDAD
   # ═══════════════════════════════════════════════════
+  # OTel Collector real (contrib): recibe OTLP de los 9 servicios (grpc 4317 /
+  # http 4318) y exporta las trazas a Jaeger. Los servicios siguen apuntando a
+  # http://otel-collector:4318, así que no cambia código de aplicación.
   otel-collector:
-    image: jaegertracing/all-in-one:latest
-    container_name: nachopps-jaeger
+    image: otel/opentelemetry-collector-contrib:latest
+    container_name: nachopps-otel-collector
+    command: ['--config=/etc/otel-collector/otel-collector-config.yml']
+    volumes:
+      - ./otel-collector/otel-collector-config.yml:/etc/otel-collector/otel-collector-config.yml:ro
     ports:
-      - '16686:16686'
       - '4318:4318'
       - '4317:4317'
+    depends_on:
+      - jaeger
+    profiles: ['infra', 'all', 'dev']
+    restart: unless-stopped
+    mem_limit: 256m
+
+  # Backend de trazas con almacenamiento persistente (Badger en volumen): las
+  # trazas y la UI (16686) sobreviven reinicios. Antes era all-in-one en memoria.
+  jaeger:
+    image: jaegertracing/all-in-one:latest
+    container_name: nachopps-jaeger
+    environment:
+      SPAN_STORAGE_TYPE: badger
+      BADGER_EPHEMERAL: 'false'
+      BADGER_DIRECTORY_VALUE: /badger/data
+      BADGER_DIRECTORY_KEY: /badger/key
+    ports:
+      - '16686:16686'
+    volumes:
+      - jaeger_data:/badger
     profiles: ['infra', 'all', 'dev']
     restart: unless-stopped
     mem_limit: 512m
@@ -864,11 +889,21 @@ services:
   prometheus:
     image: prom/prometheus:latest
     container_name: nachopps-prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--storage.tsdb.retention.time=15d'
+      - '--web.enable-lifecycle'
+      # Almacena los exemplars scrapeados (trace_id embebido en los histogramas
+      # OpenMetrics de los servicios); sin este flag Prometheus los descarta y
+      # el salto métrica→traza en Grafana queda vacío.
+      - '--enable-feature=exemplar-storage'
     ports:
       - '9090:9090'
     volumes:
       - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - ./prometheus/alert.rules.yml:/etc/prometheus/alert.rules.yml:ro
+      - prometheus_data:/prometheus
     profiles: ['infra', 'all', 'dev']
     restart: unless-stopped
     mem_limit: 512m
@@ -894,6 +929,7 @@ services:
     volumes:
       - ./grafana/provisioning:/etc/grafana/provisioning:ro
       - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana_data:/var/lib/grafana
     profiles: ['infra', 'all', 'dev']
     restart: unless-stopped
     mem_limit: 384m
@@ -908,6 +944,7 @@ services:
       - '3100:3100'
     volumes:
       - ./loki/loki-config.yml:/etc/loki/loki-config.yml:ro
+      - loki_data:/loki
     profiles: ['infra', 'all', 'dev']
     restart: unless-stopped
     mem_limit: 384m
@@ -947,3 +984,8 @@ volumes:
   nachopps-db-reportes:
   nachopps-db-identidad:
   nachopps-db-notificaciones:
+  # Observabilidad persistente (sobrevive a `docker compose down`).
+  prometheus_data:
+  grafana_data:
+  loki_data:
+  jaeger_data:

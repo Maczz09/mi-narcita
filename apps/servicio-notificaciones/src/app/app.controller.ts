@@ -1,5 +1,5 @@
 import { Controller, Get, Logger, UseInterceptors } from '@nestjs/common';
-import { EventPattern, Payload } from '@nestjs/microservices';
+import { Ctx, EventPattern, Payload, RmqContext } from '@nestjs/microservices';
 import {
   PedidoCreadoPayload,
   PedidoActualizadoPayload,
@@ -35,64 +35,73 @@ export class AppController {
   @EventPattern(RoutingKeys.PedidoCreado)
   async handlePedidoCreado(
     @Payload() payload: PedidoCreadoPayload,
+    @Ctx() ctx: RmqContext,
   ) {
-    await this.handleEvent(RoutingKeys.PedidoCreado, payload);
+    await this.handleEvent(RoutingKeys.PedidoCreado, payload, ctx);
   }
 
   @EventPattern(RoutingKeys.PedidoActualizado)
   async handlePedidoActualizado(
     @Payload() payload: PedidoActualizadoPayload,
+    @Ctx() ctx: RmqContext,
   ) {
-    await this.handleEvent(RoutingKeys.PedidoActualizado, payload);
+    await this.handleEvent(RoutingKeys.PedidoActualizado, payload, ctx);
   }
 
   @EventPattern(RoutingKeys.PedidoListo)
   async handlePedidoListo(
     @Payload() payload: PedidoListoPayload,
+    @Ctx() ctx: RmqContext,
   ) {
-    await this.handleEvent(RoutingKeys.PedidoListo, payload);
+    await this.handleEvent(RoutingKeys.PedidoListo, payload, ctx);
   }
 
   @EventPattern(RoutingKeys.TicketGenerado)
   async handleTicketGenerado(
     @Payload() payload: TicketGeneradoPayload,
+    @Ctx() ctx: RmqContext,
   ) {
-    await this.handleEvent(RoutingKeys.TicketGenerado, payload);
+    await this.handleEvent(RoutingKeys.TicketGenerado, payload, ctx);
   }
 
   @EventPattern(RoutingKeys.CuentaAbierta)
   async handleCuentaAbierta(
     @Payload() payload: CuentaAbiertaPayload,
+    @Ctx() ctx: RmqContext,
   ) {
-    await this.handleEvent(RoutingKeys.CuentaAbierta, payload);
+    await this.handleEvent(RoutingKeys.CuentaAbierta, payload, ctx);
   }
 
   @EventPattern(RoutingKeys.CuentaCerrada)
   async handleCuentaCerrada(
     @Payload() payload: CuentaCerradaPayload,
+    @Ctx() ctx: RmqContext,
   ) {
-    await this.handleEvent(RoutingKeys.CuentaCerrada, payload);
+    await this.handleEvent(RoutingKeys.CuentaCerrada, payload, ctx);
   }
 
   @EventPattern(RoutingKeys.MesaActualizada)
   async handleMesaActualizada(
     @Payload() payload: MesaActualizadaPayload,
+    @Ctx() ctx: RmqContext,
   ) {
-    await this.handleEvent(RoutingKeys.MesaActualizada, payload);
+    await this.handleEvent(RoutingKeys.MesaActualizada, payload, ctx);
   }
 
   @EventPattern(RoutingKeys.ReservaCreada)
   async handleReservaCreada(
     @Payload() payload: ReservaCreadaPayload,
+    @Ctx() ctx: RmqContext,
   ) {
-    await this.handleEvent(RoutingKeys.ReservaCreada, payload);
+    await this.handleEvent(RoutingKeys.ReservaCreada, payload, ctx);
   }
 
   @EventPattern(RoutingKeys.ReservaCancelada)
   async handleReservaCancelada(
     @Payload() payload: ReservaCanceladaPayload,
+    @Ctx() ctx: RmqContext,
   ) {
-    await this.handleEvent(RoutingKeys.ReservaCancelada, payload);
+    await this.handleEvent(RoutingKeys.ReservaCancelada, payload, ctx);
   }
 
   /**
@@ -111,9 +120,18 @@ export class AppController {
     return typeof candidato === 'string' ? candidato : undefined;
   }
 
+  /** Identidad estable del mensaje (x-event-id) para deduplicar at-least-once. */
+  private extractEventId(ctx: RmqContext): string | undefined {
+    const headers = (ctx?.getMessage?.() as { properties?: { headers?: Record<string, unknown> } } | undefined)
+      ?.properties?.headers;
+    const id = headers?.['x-event-id'];
+    return typeof id === 'string' && id.length > 0 ? id : undefined;
+  }
+
   private async handleEvent(
     pattern: string,
     data: unknown,
+    ctx: RmqContext,
   ): Promise<void> {
     this.logger.log({
       operation: pattern,
@@ -121,16 +139,20 @@ export class AppController {
       message: 'Evento de negocio recibido; se registra y notifica en tiempo real.',
     } satisfies OperableLog);
 
-    // Guardar en la base de datos de manera persistente
-    const notif = await this.appService.registrarNotificacion(pattern, data);
+    // Guardar en la BD de forma idempotente (dedup por x-event-id). Si falla la
+    // persistencia, registrarNotificacion RELANZA → el interceptor reintenta/DLQ.
+    const notif = await this.appService.registrarNotificacion(pattern, data, this.extractEventId(ctx));
 
-    // Emitir por WebSocket para tiempo real
+    // notif === null ⇒ evento duplicado ya notificado: no se re-emite por WS
+    // (evita el KDS recibiendo el mismo update dos veces en una redelivery).
+    if (!notif) return;
+
     this.gateway.emitPedidoUpdate({
       pattern,
       data: {
         ...(typeof data === 'object' ? data : {}),
-        notificacionId: notif?.id,
-        contenido: notif?.contenido,
+        notificacionId: notif.id,
+        contenido: notif.contenido,
       },
     });
   }

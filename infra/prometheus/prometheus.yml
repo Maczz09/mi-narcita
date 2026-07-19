@@ -26,8 +26,18 @@ scrape_configs:
     static_configs:
       - targets: ['kong:8001']
 
+  # Salud del propio pipeline de trazas: el OTel Collector expone sus métricas
+  # internas (spans recibidos/exportados/rechazados) en :8888.
+  - job_name: 'otel-collector'
+    static_configs:
+      - targets: ['otel-collector:8888']
+
   - job_name: 'nestjs-microservices'
     metrics_path: '/api/telemetry/metrics'
+    # Scrape agresivo (2s vs 5s global): Prometheus sólo retiene el ÚLTIMO
+    # exemplar por serie entre scrapes, así que scrapear más seguido conserva
+    # más trace_id individuales → mayor cobertura "atómica" del salto a Jaeger.
+    scrape_interval: 2s
     static_configs:
       - targets: 
         - 'servicio-identidad:3000'

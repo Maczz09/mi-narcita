@@ -101,6 +101,17 @@ export class NotificationsGateway
       } satisfies OperableLog);
       return;
     }
+    // Guarda: si el gateway aún no ligó el servidor socket.io (arranque, o entre
+    // reinicios del adaptador), emitir lanzaría dentro del consumidor y haría
+    // nack→reintento de un evento que ya se persistió. Se degrada a solo-log.
+    if (!this.server) {
+      this.logger.warn({
+        operation: evento.pattern,
+        errorCode: 'WS_SERVER_NO_LISTO',
+        message: 'Servidor WebSocket no inicializado; evento persistido pero no emitido en tiempo real.',
+      } satisfies OperableLog);
+      return;
+    }
     this.logger.log({
       operation: evento.pattern,
       message: `Emitiendo evento por WebSocket a las rooms: ${rooms.join(', ')}.`,

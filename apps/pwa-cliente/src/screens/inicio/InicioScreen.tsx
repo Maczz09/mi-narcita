@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Icons, type IconName } from '../../components/ui/icons';
 import { HeroStat } from '../../components/ui/Stat';
 import { fmt, elapsedMin } from '../../utils/format';
-import { useInicioData } from '../../hooks/useInicioData';
+import { useInicioData, type ActividadItem } from '../../hooks/useInicioData';
 
 export function InicioScreen() {
   const navigate = useNavigate();
@@ -217,7 +217,7 @@ function Att({ ic, c, t, s, go }: Readonly<AttProps>) {
   );
 }
 
-function PanelActividad({ actividad }: Readonly<{ actividad: any[] }>) {
+function PanelActividad({ actividad }: Readonly<{ actividad: ActividadItem[] }>) {
   return (
     <section className="panel">
       <div className="panel-h"><h3>Actividad reciente</h3></div>
@@ -227,7 +227,7 @@ function PanelActividad({ actividad }: Readonly<{ actividad: any[] }>) {
         ) : (
           <div className="timeline">
             {actividad.map((a, i) => {
-              const Ic = Icons[a.ic as IconName] ?? Icons.Note;
+              const Ic = Icons[a.ic] ?? Icons.Note;
               const min = elapsedMin(a.at, Date.now());
               return (
                 <div className={`tl-item ${i === 0 ? 'active' : ''}`} key={a.key}>

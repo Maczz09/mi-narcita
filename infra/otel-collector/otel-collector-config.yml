@@ -1,0 +1,45 @@
+# OpenTelemetry Collector (contrib) — pipeline de trazas de NachoPps.
+#
+# Recibe OTLP de los 9 microservicios (que exportan a http://otel-collector:4318)
+# y reenvía las trazas a Jaeger vía OTLP gRPC. Antes los servicios hablaban
+# directo con Jaeger all-in-one en memoria; ahora hay un collector real delante
+# (buffer/batch + un único punto para muestreo/fan-out futuro) y Jaeger detrás
+# con almacenamiento Badger persistente.
+
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+
+processors:
+  # Agrupa spans en lotes: menos llamadas al backend, menor overhead.
+  batch:
+    timeout: 5s
+    send_batch_size: 512
+  # Cota de memoria: descarta antes de que el collector se quede sin RAM.
+  memory_limiter:
+    check_interval: 1s
+    limit_percentage: 80
+    spike_limit_percentage: 25
+
+exporters:
+  # Jaeger acepta OTLP nativo en su puerto de colección gRPC (4317).
+  otlp/jaeger:
+    endpoint: jaeger:4317
+    tls:
+      insecure: true
+
+service:
+  # Métricas internas del propio collector (spans recibidos/exportados/drop) para
+  # que Prometheus las scrapee en :8888 y podamos vigilar el pipeline de trazas.
+  telemetry:
+    metrics:
+      address: 0.0.0.0:8888
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [memory_limiter, batch]
+      exporters: [otlp/jaeger]

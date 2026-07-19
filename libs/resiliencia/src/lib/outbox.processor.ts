@@ -176,7 +176,9 @@ export class OutboxProcessor {
           if (this.injectEventId && payload && typeof payload === 'object' && !Array.isArray(payload)) {
             payload['eventId'] ??= event.id;
           }
-          await this.rabbitmq.publish(routingKey, payload, this.producer);
+          // event.id como x-event-id: estable entre republicaciones (rescate de
+          // PUBLISHING, redelivery) → el consumidor deduplica at-least-once.
+          await this.rabbitmq.publish(routingKey, payload, this.producer, event.id);
           await this.prisma.outboxEvent.update({
             where: { id: event.id },
             data: { status: 'PROCESSED' },

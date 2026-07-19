@@ -99,7 +99,7 @@ describe('UsuariosScreen', () => {
       clearFeedback: vi.fn()
     } as any);
 
-    const { container } = render(<UsuariosScreen />);
+    render(<UsuariosScreen />);
 
     // Load more
     const loadMoreBtn = screen.getByRole('button', { name: /Cargar más/i });

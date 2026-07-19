@@ -32,6 +32,7 @@ COPY --from=pruner /out ./
 # npm ci (no npm install): builds reproducibles alineados con el lockfile,
 # igual que la CI.
 RUN --mount=type=cache,target=/root/.npm \
+    --mount=type=cache,target=/root/.cache/node-gyp \
     apk add --no-cache python3 make g++ && \
     npm ci --ignore-scripts && \
     npm rebuild bcrypt --build-from-source
@@ -52,6 +53,7 @@ COPY package.json package-lock.json ./
 COPY --from=pruner /out ./
 
 RUN --mount=type=cache,target=/root/.npm \
+    --mount=type=cache,target=/root/.cache/node-gyp \
     apk add --no-cache python3 make g++ && \
     npm ci --omit=dev --ignore-scripts && \
     npm rebuild bcrypt --build-from-source && \

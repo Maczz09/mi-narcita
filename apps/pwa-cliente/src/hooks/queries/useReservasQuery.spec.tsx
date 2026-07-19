@@ -3,7 +3,7 @@ import { renderHook, waitFor } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { useReservasQuery, RESERVAS_QUERY_KEY } from './useReservasQuery';
 import * as reservasApi from '../../api/reservas.api';
-import { mapReservas, mapReserva } from '../../mappers/reserva.mapper';
+import { mapReservas } from '../../mappers/reserva.mapper';
 import { queryClient } from '../../api/queryClient';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import React from 'react';

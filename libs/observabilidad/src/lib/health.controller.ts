@@ -1,6 +1,7 @@
-import { Controller, Get, HttpException, HttpStatus, Inject, Type } from '@nestjs/common';
+import { Controller, Get, HttpException, HttpStatus, Inject, Optional, Type } from '@nestjs/common';
 import { DynamicModule, Module } from '@nestjs/common';
 import { register } from 'prom-client';
+import { RabbitMQPublisherService } from '@org/shared-rabbitmq';
 
 /**
  * Health check serio compartido (S33 · FF-DEP-02 / G2).
@@ -30,9 +31,23 @@ const VERSION = process.env.SERVICE_VERSION ?? process.env.npm_package_version ?
 
 type Estado = 'UP' | 'DEGRADED' | 'DOWN';
 
+// Orden de severidad para colapsar varios breakers de una misma dependencia al
+// peor estado observado (DOWN > DEGRADED > UP).
+const SEVERIDAD: Record<Estado, number> = { UP: 0, DEGRADED: 1, DOWN: 2 };
+function peorEstado(actual: Estado | undefined, nuevo: Estado): Estado {
+  if (!actual) return nuevo;
+  return SEVERIDAD[nuevo] > SEVERIDAD[actual] ? nuevo : actual;
+}
+
 @Controller('health')
 export class HealthController {
-  constructor(@Inject(HEALTH_DB) private readonly db: HealthDb) {}
+  constructor(
+    @Inject(HEALTH_DB) private readonly db: HealthDb,
+    // Opcional: los servicios sin RabbitMQ (p. ej. identidad) no lo proveen, y
+    // entonces el broker simplemente no aparece entre las dependencias. El
+    // RabbitMQModule es @Global, así que donde existe se inyecta sin wiring extra.
+    @Optional() private readonly broker?: RabbitMQPublisherService,
+  ) {}
 
   private get service(): string {
     return this.db.serviceName.replace(/^servicio-/, '');
@@ -62,6 +77,7 @@ export class HealthController {
   async dependencies() {
     const dependencies: Record<string, Estado> = {
       database: await this.checkDb(),
+      ...this.brokerState(),
       ...(await this.breakerStates()),
     };
     const valores = Object.values(dependencies);
@@ -88,6 +104,18 @@ export class HealthController {
     }
   }
 
+  /**
+   * Conexión con el broker RabbitMQ (verdad en tiempo real vía
+   * `amqp-connection-manager`). Deliberadamente NO participa en `/ready`: un
+   * blip del broker no debe sacar al servicio del balanceador (sigue sirviendo
+   * HTTP y el outbox retiene los eventos), pero sí debe ser visible aquí.
+   * Se omite en servicios que no usan RabbitMQ.
+   */
+  private brokerState(): Record<string, Estado> {
+    if (!this.broker) return {};
+    return { rabbitmq: this.broker.isConnected() ? 'UP' : 'DOWN' };
+  }
+
   private async breakerStates(): Promise<Record<string, Estado>> {
     const metric = register.getSingleMetric('circuit_breaker_state') as
       | { get(): Promise<{ values: { value: number; labels: Record<string, string> }[] }> }
@@ -96,8 +124,12 @@ export class HealthController {
     const out: Record<string, Estado> = {};
     const data = await metric.get();
     for (const v of data.values) {
-      const nombre = v.labels.breaker ?? v.labels.dependency ?? 'dependencia';
-      out[nombre] = v.value >= 1 ? 'DOWN' : v.value >= 0.5 ? 'DEGRADED' : 'UP';
+      // Se agrupa por `dependency` (nombre canónico legible: 'inventario'); si el
+      // gauge aún no lo trae, cae a `breaker`. Varios breakers de la misma
+      // dependencia (p. ej. consultarStock/reservarStock) colapsan al PEOR estado.
+      const nombre = v.labels.dependency ?? v.labels.breaker ?? 'dependencia';
+      const estado: Estado = v.value >= 1 ? 'DOWN' : v.value >= 0.5 ? 'DEGRADED' : 'UP';
+      out[nombre] = peorEstado(out[nombre], estado);
     }
     return out;
   }

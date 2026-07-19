@@ -478,19 +478,48 @@ services:
   # ═══════════════════════════════════════════════════
   # OBSERVABILIDAD
   # ═══════════════════════════════════════════════════
+  # OTel Collector real (contrib): recibe OTLP de los servicios y exporta a
+  # Jaeger. Los servicios apuntan a http://otel-collector:4318 (sin cambios).
   otel-collector:
+    image: otel/opentelemetry-collector-contrib:latest
+    container_name: nachopps-otel-collector
+    command: ['--config=/etc/otel-collector/otel-collector-config.yml']
+    volumes:
+      - ./otel-collector/otel-collector-config.yml:/etc/otel-collector/otel-collector-config.yml:ro
+    depends_on:
+      - jaeger
+    restart: unless-stopped
+    # Sin puertos al host: los servicios lo alcanzan por la red interna.
+
+  # Backend de trazas persistente (Badger en volumen). UI 16686 solo por red
+  # interna / túnel SSH (sin publicar al host en prod).
+  jaeger:
     image: jaegertracing/all-in-one:latest
     container_name: nachopps-jaeger
+    environment:
+      SPAN_STORAGE_TYPE: badger
+      BADGER_EPHEMERAL: 'false'
+      BADGER_DIRECTORY_VALUE: /badger/data
+      BADGER_DIRECTORY_KEY: /badger/key
+    volumes:
+      - jaeger_data:/badger
     restart: unless-stopped
-    # Sin puertos expuestos en prod. Acceso a la UI de Jaeger solo por tunel SSH/red interna.
 
   prometheus:
     image: prom/prometheus:latest
     container_name: nachopps-prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--storage.tsdb.retention.time=15d'
+      - '--web.enable-lifecycle'
+      # Persistencia de exemplars (trace_id) para el salto métrica→Jaeger.
+      - '--enable-feature=exemplar-storage'
     restart: unless-stopped
     volumes:
       - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - ./prometheus/alert.rules.yml:/etc/prometheus/alert.rules.yml:ro
+      - prometheus_data:/prometheus
 
   alertmanager:
     image: prom/alertmanager:latest
@@ -510,6 +539,7 @@ services:
     volumes:
       - ./grafana/provisioning:/etc/grafana/provisioning:ro
       - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana_data:/var/lib/grafana
 
   # Backups de las 9 BDs (plan 3.5): pg_dump diario + retención. Para almacenar
   # fuera del host, montar un bind a un volumen de red/objeto o sincronizar
@@ -541,6 +571,10 @@ services:
 
 volumes:
   nachopps-backups:
+  # Observabilidad persistente.
+  prometheus_data:
+  grafana_data:
+  jaeger_data:
   nachopps-db-reservas:
   nachopps-db-mesas:
   nachopps-db-pedidos:

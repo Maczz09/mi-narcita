@@ -3,7 +3,7 @@ import { renderHook, waitFor } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { useUsuariosQuery, USUARIOS_QUERY_KEY } from './useUsuariosQuery';
 import * as usuariosApi from '../../api/usuarios.api';
-import { mapUsuarios, mapUsuario } from '../../mappers/usuario.mapper';
+import { mapUsuarios } from '../../mappers/usuario.mapper';
 import { queryClient } from '../../api/queryClient';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import React from 'react';

@@ -144,7 +144,7 @@ describe('OutboxProcessor — processOutboxEvents', () => {
 
     await processor.processOutboxEvents();
 
-    expect(rabbitmq.publish).toHaveBeenCalledWith('pedido.creado', { pedidoId: 'p1' }, PRODUCER);
+    expect(rabbitmq.publish).toHaveBeenCalledWith('pedido.creado', { pedidoId: 'p1' }, PRODUCER, 'evt-1');
     expect(prisma.outboxEvent.update).toHaveBeenCalledWith({
       where: { id: 'evt-1' },
       data: { status: 'PROCESSED' },
@@ -177,6 +177,7 @@ describe('OutboxProcessor — processOutboxEvents', () => {
       'stock.descontado',
       { productoId: 'pr1', eventId: 'evt-1' },
       'servicio-inventario',
+      'evt-1',
     );
   });
 
@@ -186,7 +187,7 @@ describe('OutboxProcessor — processOutboxEvents', () => {
 
     await processor.processOutboxEvents();
 
-    expect(rabbitmq.publish).toHaveBeenCalledWith('pedido.creado', { pedidoId: 'p1' }, PRODUCER);
+    expect(rabbitmq.publish).toHaveBeenCalledWith('pedido.creado', { pedidoId: 'p1' }, PRODUCER, 'evt-1');
   });
 
   it('fallo antes de MAX_ATTEMPTS devuelve a PENDING e incrementa attempts', async () => {
@@ -253,7 +254,7 @@ describe('OutboxProcessor — processOutboxEvents', () => {
 
     await processor.processOutboxEvents(); // reconectado: procede
     expect(prisma.$queryRawUnsafe).toHaveBeenCalledTimes(1);
-    expect(rabbitmq.publish).toHaveBeenCalledWith('pedido.creado', { pedidoId: 'p1' }, PRODUCER);
+    expect(rabbitmq.publish).toHaveBeenCalledWith('pedido.creado', { pedidoId: 'p1' }, PRODUCER, 'evt-1');
   });
 
   it('bloqueo concurrente: segunda llamada vuelve sin reclamar', async () => {

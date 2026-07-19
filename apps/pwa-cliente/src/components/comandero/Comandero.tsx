@@ -180,7 +180,14 @@ export function Comandero({
   );
 }
 
-function ComanderoCanales({ cmd }: Readonly<{ cmd: any }>) {
+// Tipos derivados de los hooks (fuente de verdad) para los sub-componentes de
+// presentación: evita `any` sin duplicar las formas de datos ni acoplarse a DTOs.
+type ComandaCtrl = ReturnType<typeof useComanda>;
+type ProductoCatalogo = ReturnType<typeof useInventarioQuery>['productos'][number];
+type NextCursor = ReturnType<typeof useInventarioQuery>['nextCursor'];
+type FetchMore = ReturnType<typeof useInventarioQuery>['fetchMore'];
+
+function ComanderoCanales({ cmd }: Readonly<{ cmd: ComandaCtrl }>) {
   return (
     <div className="cmd-canal seg">
       {CANALES.map((c) => {
@@ -195,11 +202,11 @@ function ComanderoCanales({ cmd }: Readonly<{ cmd: any }>) {
   );
 }
 
-function ComanderoCatalogGrid({ productos, cmd }: Readonly<{ productos: any[], cmd: any }>) {
+function ComanderoCatalogGrid({ productos, cmd }: Readonly<{ productos: ProductoCatalogo[], cmd: ComandaCtrl }>) {
   return (
     <>
       {productos.map((p) => {
-        const enCarrito = cmd.lines.find((l: any) => l.producto.id === p.id)?.cantidad ?? 0;
+        const enCarrito = cmd.lines.find((l) => l.producto.id === p.id)?.cantidad ?? 0;
         return (
           <button key={p.id} className={`dish-card ${enCarrito ? 'has' : ''}`} onClick={() => cmd.addProducto(p)}>
             {enCarrito > 0 && <span className="dish-badge">{enCarrito}</span>}
@@ -215,10 +222,10 @@ function ComanderoCatalogGrid({ productos, cmd }: Readonly<{ productos: any[], c
   );
 }
 
-function ComanderoCargarMas({ nextCursor, loadingMoreInv, fetchMore }: Readonly<{ nextCursor: any, loadingMoreInv: boolean, fetchMore: any }>) {
+function ComanderoCargarMas({ nextCursor, loadingMoreInv, fetchMore }: Readonly<{ nextCursor: NextCursor, loadingMoreInv: boolean, fetchMore: FetchMore }>) {
   if (!nextCursor) return null;
   return (
-    <button className="dish-card" disabled={loadingMoreInv} onClick={() => fetchMore()}>
+    <button className="dish-card" disabled={loadingMoreInv} onClick={() => { void fetchMore(); }}>
       <div className="dish-cat">Catálogo</div>
       <div className="dish-name">{loadingMoreInv ? 'Cargando...' : 'Cargar más productos'}</div>
       <div className="dish-foot">
@@ -228,7 +235,7 @@ function ComanderoCargarMas({ nextCursor, loadingMoreInv, fetchMore }: Readonly<
   );
 }
 
-function ComanderoEmptyGrid({ loadingInv, errorInv, productosLength, productosFiltradosLength, nextCursor, loadingMoreInv, fetchMore }: Readonly<{ loadingInv: boolean, errorInv?: string | null, productosLength: number, productosFiltradosLength: number, nextCursor: any, loadingMoreInv: boolean, fetchMore: any }>) {
+function ComanderoEmptyGrid({ loadingInv, errorInv, productosLength, productosFiltradosLength, nextCursor, loadingMoreInv, fetchMore }: Readonly<{ loadingInv: boolean, errorInv?: string | null, productosLength: number, productosFiltradosLength: number, nextCursor: NextCursor, loadingMoreInv: boolean, fetchMore: FetchMore }>) {
   if (loadingInv && productosLength === 0) {
     return <div className="cmd-empty" style={{ gridColumn: '1 / -1' }}><b>Cargando carta…</b></div>;
   }

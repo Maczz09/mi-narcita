@@ -14,11 +14,15 @@ const dependencyDuration = getOrCreateHistogram(
 );
 
 // Estado del circuito por breaker, dirigido por los eventos de opossum (refleja
-// también HALF_OPEN, cosa que un set manual 1/0 en el cliente no puede).
+// también HALF_OPEN, cosa que un set manual 1/0 en el cliente no puede). Se
+// etiqueta con `breaker` (identidad fina: `Clase.metodo`) y con `dependency`
+// (nombre canónico agregable: 'inventario'), para que alertas y dashboards
+// puedan consultar por dependencia (`circuit_breaker_state{dependency="inventario"}`)
+// sin conocer el método concreto, y `/health/dependencies` muestre el nombre legible.
 const circuitStateGauge = getOrCreateGauge(
   'circuit_breaker_state',
   'Estado del circuito por breaker (0=CLOSED, 0.5=HALF_OPEN, 1=OPEN)',
-  ['breaker'],
+  ['breaker', 'dependency'],
 );
 
 export function CircuitBreakerOptions(options?: CircuitBreaker.Options) {
@@ -57,7 +61,7 @@ export function CircuitBreakerOptions(options?: CircuitBreaker.Options) {
             circuitBreakerState: 'OPEN',
             message: 'Circuito abierto; rechazando peticiones a la dependencia.',
           } satisfies OperableLog);
-          circuitStateGauge.set({ breaker: breakerName }, 1);
+          circuitStateGauge.set({ breaker: breakerName, dependency }, 1);
         });
         breaker.on('halfOpen', () => {
           logger.log({
@@ -66,7 +70,7 @@ export function CircuitBreakerOptions(options?: CircuitBreaker.Options) {
             circuitBreakerState: 'HALF_OPEN',
             message: 'Circuito medio abierto; probando una petición de sondeo.',
           } satisfies OperableLog);
-          circuitStateGauge.set({ breaker: breakerName }, 0.5);
+          circuitStateGauge.set({ breaker: breakerName, dependency }, 0.5);
         });
         breaker.on('close', () => {
           logger.log({
@@ -75,7 +79,7 @@ export function CircuitBreakerOptions(options?: CircuitBreaker.Options) {
             circuitBreakerState: 'CLOSED',
             message: 'Circuito cerrado; tráfico normal restablecido.',
           } satisfies OperableLog);
-          circuitStateGauge.set({ breaker: breakerName }, 0);
+          circuitStateGauge.set({ breaker: breakerName, dependency }, 0);
         });
         breaker.on('fallback', () =>
           logger.warn({
@@ -86,7 +90,7 @@ export function CircuitBreakerOptions(options?: CircuitBreaker.Options) {
         );
 
         // Estado inicial: CLOSED, para que el gauge sea visible desde el arranque.
-        circuitStateGauge.set({ breaker: breakerName }, 0);
+        circuitStateGauge.set({ breaker: breakerName, dependency }, 0);
         CIRCUIT_BREAKER_REGISTRY.set(breakerName, breaker);
       }
 

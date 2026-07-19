@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { computeKpis, METODOS_ORDEN } from './cajaMeta';
+import { computeKpis } from './cajaMeta';
 import type { MovimientoCajaDto } from '../../types/caja.types';
 
 describe('cajaMeta', () => {

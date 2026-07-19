@@ -3,7 +3,7 @@ import { renderHook, waitFor } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { useMesasQuery, MESAS_QUERY_KEY } from './useMesasQuery';
 import * as mesasApi from '../../api/mesas.api';
-import { mapMesas, mapMesa } from '../../mappers/mesa.mapper';
+import { mapMesas } from '../../mappers/mesa.mapper';
 import { queryClient } from '../../api/queryClient';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import React from 'react';
@@ -20,7 +20,6 @@ vi.mock('../../mappers/mesa.mapper', () => ({
 }));
 
 // We need to keep some real methods on queryClient for optimistic updates to work properly
-const realQueryClient = new QueryClient();
 
 vi.mock('../../api/queryClient', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../../api/queryClient')>()),

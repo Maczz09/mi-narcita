@@ -57,8 +57,7 @@ describe('AperturaCajaModal', () => {
 
     // Loading state
     rerender(<AperturaCajaModal loading={true} onClose={onClose} onOpen={onOpen} />);
-    const openBtnLoading = screen.getAllByRole('button', { name: /Abrir caja/i })[0];
-    // wait... `Abrir caja` is in h3 as well. `getAllByRole('button')` will only get buttons
+    // `Abrir caja` is in h3 as well. `getAllByRole('button')` will only get buttons
     // The button has text `Abrir caja`.
     expect(screen.getAllByRole('button')[1].hasAttribute('disabled') || screen.getAllByRole('button')[2].hasAttribute('disabled')).toBeDefined();
   });

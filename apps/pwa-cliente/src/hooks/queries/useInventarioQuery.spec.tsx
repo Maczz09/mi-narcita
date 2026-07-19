@@ -17,7 +17,7 @@ vi.mock('../../api/inventario.api', () => ({
 }));
 
 vi.mock('../../mappers/inventario.mapper', () => ({
-  mapProductos: vi.fn((prods, cats) => prods.map((p: any) => ({ ...p, mapped: true }))),
+  mapProductos: vi.fn((prods) => prods.map((p: any) => ({ ...p, mapped: true }))),
 }));
 
 vi.mock('../../api/queryClient', async (importOriginal) => ({

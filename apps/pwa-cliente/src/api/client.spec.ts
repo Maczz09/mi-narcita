@@ -2,7 +2,7 @@
 import { vi } from 'vitest';
 // @ts-nocheck
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { client, setAuthToken, getAuthToken, clearAuthToken, ApiError, refreshAccessToken } from './client';
+import { client, setAuthToken, getAuthToken, clearAuthToken, ApiError } from './client';
 
 describe('client', () => {
   beforeEach(() => {
