@@ -35,6 +35,10 @@ node stress-tests/run-k6-suite.js --level L2 --rate 1500     # 500.000 requests 
 node stress-tests/run-k6-suite.js --level L3 --rate 1500     # 1.000.000 requests totales
 node stress-tests/run-k6-suite.js --level L1 --services pedidos,reportes
 k6 run --env LEVEL=L1 stress-tests/k6/scenarios/pedidos.js   # un escenario suelto
+
+# Tráfico continuo (observabilidad en tiempo real, no medición de capacidad):
+k6 run --env LEVEL=CONTINUO --env K6_RATE=20 --env K6_DURATION=30m stress-tests/k6/scenarios/sistema.js
+# o desde varios nodos a la vez (LEVEL=CONTINUO es el default): ver run-distributed.md
 ```
 
 Resultados: `stress-tests/reports/k6-<nivel>-<servicio>-<ts>.json` (métricas por

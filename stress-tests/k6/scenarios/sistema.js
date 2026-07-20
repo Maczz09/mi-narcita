@@ -10,24 +10,42 @@
  * un solo servicio, y las capacidades por servicio medidas en L1 (caja ~130
  * it/s) hacen imposible 500k secuenciales por servicio en tiempo finito.
  *
+ * LEVEL=CONTINUO — tráfico sostenido a tasa baja constante (sin rampa de
+ * baja) para ejercitar dashboards/trazas/alertas en tiempo real, no para
+ * medir capacidad. Termina solo tras K6_DURATION o con Ctrl+C.
+ *
  * Uso:
  *   k6 run --env LEVEL=L2 --env K6_RATE=400 stress-tests/k6/scenarios/sistema.js
+ *   k6 run --env LEVEL=CONTINUO --env K6_RATE=20 --env K6_DURATION=30m stress-tests/k6/scenarios/sistema.js
  */
 import http from 'k6/http';
 import { LEVEL, buildThresholds } from '../levels.js';
 import { BASE, login, auth, evaluar, entidad, esperarHasta, nombreUnico } from '../helpers.js';
 
-const RATE_TOTAL = Number(__ENV.K6_RATE || 400); // req/s del sistema (calibrado)
+const isContinuo = LEVEL === 'CONTINUO';
+const RATE_TOTAL = Number(__ENV.K6_RATE || (isContinuo ? 20 : 400)); // req/s del sistema (calibrado)
+const DURATION = __ENV.K6_DURATION || '15m';
 const TOTALS = { L2: 500000, L3: 1000000 };
 const TOTAL = TOTALS[LEVEL];
-if (!TOTAL) throw new Error(`sistema.js es solo para L2/L3 (LEVEL=${LEVEL})`);
+if (!TOTAL && !isContinuo) throw new Error(`sistema.js es solo para L2/L3/CONTINUO (LEVEL=${LEVEL})`);
 
 const N = 9;
 const ratePorServicio = Math.max(1, Math.round(RATE_TOTAL / N));
 const rampSec = 60;
-const holdSec = Math.max(60, Math.ceil((TOTAL - (RATE_TOTAL * rampSec) / 2) / RATE_TOTAL));
+const holdSec = isContinuo ? 0 : Math.max(60, Math.ceil((TOTAL - (RATE_TOTAL * rampSec) / 2) / RATE_TOTAL));
 
 function escenario(execName) {
+  if (isContinuo) {
+    return {
+      executor: 'constant-arrival-rate',
+      rate: ratePorServicio,
+      timeUnit: '1s',
+      duration: DURATION,
+      preAllocatedVUs: Math.max(5, ratePorServicio * 3),
+      maxVUs: Math.max(20, ratePorServicio * 20),
+      exec: execName,
+    };
+  }
   return {
     executor: 'ramping-arrival-rate',
     startRate: 0,

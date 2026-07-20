@@ -6,10 +6,15 @@ métricas consolidadas en Prometheus. El wrapper por nodo es
 
 ## Wrapper por nodo
 
-Cada nodo ejecuta el mismo escenario del sistema, etiquetado con su `NODE_ID`:
+Cada nodo ejecuta el mismo escenario del sistema, etiquetado con su `NODE_ID`.
+Por defecto corre en `LEVEL=CONTINUO` (tráfico sostenido a tasa baja, sin fin
+programado salvo `K6_DURATION` — pensado para observar dashboards/trazas en
+tiempo real, no para medir capacidad; usa `LEVEL=L2`/`L3` para eso):
 
 ```sh
 NODE_ID=1 BASE_URL=http://localhost:8000 bash stress-tests/k6/run-node.sh
+# tasa/duración del tráfico continuo (defaults: K6_RATE=20, K6_DURATION=15m)
+NODE_ID=1 BASE_URL=http://localhost:8000 K6_RATE=30 K6_DURATION=1h bash stress-tests/k6/run-node.sh
 ```
 
 Para consolidar las series de todos los nodos en el Prometheus del stack

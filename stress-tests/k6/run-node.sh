@@ -4,7 +4,9 @@
 # métricas al Prometheus del stack vía remote-write para consolidarlas.
 #
 # Requeridas: NODE_ID, BASE_URL.
-# Opcional:   K6_PROMETHEUS_RW_SERVER_URL (activa la salida remote-write).
+# Opcional:   LEVEL (default CONTINUO — tráfico sostenido a tasa baja, ideal
+#             para observabilidad en tiempo real; también acepta L2/L3),
+#             K6_RATE, K6_DURATION, K6_PROMETHEUS_RW_SERVER_URL (remote-write).
 #
 # Uso:
 #   NODE_ID=1 BASE_URL=http://localhost:8000 bash stress-tests/k6/run-node.sh
@@ -18,10 +20,11 @@ set -euo pipefail
 
 : "${NODE_ID:?define NODE_ID (id único del nodo, p. ej. 1)}"
 : "${BASE_URL:?define BASE_URL (p. ej. http://localhost:8000)}"
+LEVEL="${LEVEL:-CONTINUO}"
 
 SCENARIO="stress-tests/k6/scenarios/sistema.js"
 
-args=(run --tag "node=${NODE_ID}" -e "BASE_URL=${BASE_URL}")
+args=(run --tag "node=${NODE_ID}" -e "BASE_URL=${BASE_URL}" -e "LEVEL=${LEVEL}")
 # Salida opcional a Prometheus (consolida las series de todos los nodos con el
 # label node="<id>"). Requiere k6 con el output experimental-prometheus-rw.
 if [[ -n "${K6_PROMETHEUS_RW_SERVER_URL:-}" ]]; then
@@ -29,5 +32,5 @@ if [[ -n "${K6_PROMETHEUS_RW_SERVER_URL:-}" ]]; then
 fi
 args+=("${SCENARIO}")
 
-echo "▶ k6 nodo ${NODE_ID} contra ${BASE_URL}${K6_PROMETHEUS_RW_SERVER_URL:+ (remote-write → ${K6_PROMETHEUS_RW_SERVER_URL})}"
+echo "▶ k6 nodo ${NODE_ID} contra ${BASE_URL} (LEVEL=${LEVEL})${K6_PROMETHEUS_RW_SERVER_URL:+ (remote-write → ${K6_PROMETHEUS_RW_SERVER_URL})}"
 exec k6 "${args[@]}"
