@@ -1,0 +1,15 @@
+{"context":"RouterExplorer","level":"info","message":"Mapped {/api/health/live, GET} route","service":"servicio-reservas","timestamp":"2026-07-20T06:02:49.490Z"}
+{"context":"RouterExplorer","level":"info","message":"Mapped {/api/health/ready, GET} route","service":"servicio-reservas","timestamp":"2026-07-20T06:02:49.490Z"}
+{"context":"RouterExplorer","level":"info","message":"Mapped {/api/health/dependencies, GET} route","service":"servicio-reservas","timestamp":"2026-07-20T06:02:49.490Z"}
+{"context":"RouterExplorer","level":"info","message":"Mapped {/api/health, GET} route","service":"servicio-reservas","timestamp":"2026-07-20T06:02:49.490Z"}
+{"context":"RoutesResolver","level":"info","message":"OutboxAdminController {/api/outbox}:","service":"servicio-reservas","timestamp":"2026-07-20T06:02:49.490Z"}
+{"context":"RouterExplorer","level":"info","message":"Mapped {/api/outbox/failed, GET} route","service":"servicio-reservas","timestamp":"2026-07-20T06:02:49.490Z"}
+{"context":"RouterExplorer","level":"info","message":"Mapped {/api/outbox/:id/retry, POST} route","service":"servicio-reservas","timestamp":"2026-07-20T06:02:49.490Z"}
+{"context":"servicio-reservas","level":"info","message":"Conectado a reservas_db vía PrismaPg","service":"servicio-reservas","timestamp":"2026-07-20T06:02:49.492Z"}
+{"context":"NestApplication","level":"info","message":"Nest application successfully started","service":"servicio-reservas","timestamp":"2026-07-20T06:02:49.492Z"}
+{"level":"info","message":"🚀 Servicio reservas corriendo en: http://localhost:3000/api","service":"servicio-reservas","timestamp":"2026-07-20T06:02:49.492Z"}
+{"context":"RabbitMQConnection","level":"info","message":"Conectado a RabbitMQ","service":"servicio-reservas","timestamp":"2026-07-20T06:02:49.564Z"}
+{"context":"RabbitMQPublisherService","level":"info","message":"Exchange \"NACHOPPS_DLX\" declarado","service":"servicio-reservas","timestamp":"2026-07-20T06:02:49.577Z"}
+{"context":"RabbitMQPublisherService","level":"info","message":"Exchange \"nachopps_exchange\" declarado","service":"servicio-reservas","timestamp":"2026-07-20T06:02:49.582Z"}
+{"level":"info","message":"Señal SIGTERM recibida; iniciando apagado graceful…","service":"servicio-reservas","timestamp":"2026-07-20T07:47:25.835Z"}
+OpenTelemetry SDK finalizado exitosamente

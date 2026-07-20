@@ -1,0 +1,71 @@
+{
+  "outBase": "docs/informe-resiliencia/raw/notificaciones_02",
+  "navLabel": "Inicio",
+  "postClick": null,
+  "loginNet": [
+    {
+      "method": "GET",
+      "url": "/v1/identidad/auth/me",
+      "status": 401
+    },
+    {
+      "method": "POST",
+      "url": "/v1/identidad/auth/refresh",
+      "status": 401
+    },
+    {
+      "method": "POST",
+      "url": "/v1/identidad/auth/login",
+      "status": 200
+    }
+  ],
+  "moduleNet": [
+    {
+      "method": "GET",
+      "url": "/v1/mesas",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "/v1/inventario/categorias",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "/v1/pedidos?limit=50",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "/v1/reportes/resumen",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "/v1/reservas?limit=50&fecha=2026-07-20",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "/v1/caja/turnos/activo/resumen",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "/v1/inventario/productos?limit=50",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "/v1/notificaciones",
+      "status": 504
+    }
+  ],
+  "consoleErrors": [
+    "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+    "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+    "WebSocket connection to 'ws://localhost:8000/notificaciones/socket.io/?EIO=4&transport=websocket' failed: Error during WebSocket handshake: Unexpected response code: 504",
+    "Failed to load resource: the server responded with a status of 504 (Gateway Time-out)"
+  ],
+  "bodyText": "Saltar al contenido\nN\nNachoPps\nBarranco · Lima\nOPERACIÓN\nInicio\nMesas\nPedidos\nCocina\nCaja\nReservas\nADMINISTRACIÓN\nCarta / Menú\nCompras\nInventario\nReportes\nUsuarios\nNachoPps · Operación\nNachoPps\nTurno Noche · 02:48\nEn línea\nA\nAdmin\nADMIN\nInicio\nResumen del día · Operación\nVer cocina\nIr a caja\n50 punto(s) requieren atención\n50 pedido(s) activos · 64 mesa(s) ocupadas · caja abierta\nRevisar ahora\nVentas del día\nS/ 1733.00\nacumulado del día\nTicket promedio\nS/ 35.37\npor cuenta cerrada\nCuentas del día\n49\n50 pedido(s) en curso\nMesas ocupadas\n64/144\n44% de ocupación\nTiempo cocina\n9217m\n50 en demora\nVentas por hora\nHoy\n12h\n13h\n14h\n15h\n16h\n17h\n18h\n19h\n20h\n21h\n22h\n05h\n06h\nTop productos del día\nPRODUCTO\tVENDIDOS\tINGRESOS\n\n1\nAlitas BBQ (8u)\n\t24\tS/ 624.00\n\n2\nCerveza Artesanal\n\t16\tS/ 224.00\n\n3\nAgua Mineral\n\t12\tS/ 60.00\n\n4\nChilcano de Pisco\n\t9\tS/ 198.00\n\n5\nFajitas Mixtas\n\t9\tS/ 378.00\n\n6\nBurrito de Carne\n\t6\tS/ 168.00\n\n7\nGuacamole con Totopos\n\t1\tS/ 18.00\n\n8\nAjí de Gallina\n\t1\tS/ 38.00\n\n9\nAnticucho de Corazón\n\t1\tS/ 25.00\nActividad reciente\nPedido a cocina\nMesa 67895 · 1 ítem(s)\nhace 2617m\nPedido a cocina\nMesa 39269 · 1 ítem(s)\nhace 2836m\nPedido a cocina\nMesa 939726 · 1 ítem(s)\nhace 9487m\nPedido a cocina\nMesa 939729 · 1 ítem(s)\nhace 9487m\nPedido a cocina\nMesa 939722 · 1 ítem(s)\nhace 9487m\nPedido a cocina\nMesa 939707 · 1 ítem(s)\nhace 9487m\nRequiere atención\n50\n50 pedido(s) en demora\nSLA de cocina vencido\nVer\nSalón ahora\n44% ocupado\nOcupadas\n64\nReservadas\n0\nLibres\n80\nVer mesas\nCocina ahora\n50\nPedidos activos\n50\nEn demora (SLA)\nAbrir KDS\nCaja\nAbierta\nS/ 2386.72\nEfectivo esperado\nS/ 62.24\nPropinas del turno\nIr a caja\nPróximas reservas\nhoy\n16:30\nCliente K6-1783964423223-364646\n2 pax · K6-257\n18:00\nCliente K6-1783964420265-146585\n2 pax · K6-329"
+}

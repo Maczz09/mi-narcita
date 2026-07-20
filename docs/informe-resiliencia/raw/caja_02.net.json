@@ -1,0 +1,62 @@
+{
+  "outBase": "docs/informe-resiliencia/raw/caja_02",
+  "navLabel": "Caja",
+  "postClick": null,
+  "loginNet": [
+    {
+      "method": "GET",
+      "url": "/v1/identidad/auth/me",
+      "status": 401
+    },
+    {
+      "method": "POST",
+      "url": "/v1/identidad/auth/refresh",
+      "status": 401
+    },
+    {
+      "method": "POST",
+      "url": "/v1/identidad/auth/login",
+      "status": 200
+    }
+  ],
+  "moduleNet": [
+    {
+      "method": "GET",
+      "url": "/v1/notificaciones",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "/v1/mesas",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "/v1/caja/turnos/activo/resumen",
+      "status": 504
+    },
+    {
+      "method": "GET",
+      "url": "/v1/caja/turnos/activo/resumen",
+      "status": 504
+    },
+    {
+      "method": "GET",
+      "url": "/v1/caja/turnos/activo/resumen",
+      "status": 504
+    },
+    {
+      "method": "GET",
+      "url": "/v1/mesas",
+      "status": 200
+    }
+  ],
+  "consoleErrors": [
+    "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+    "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+    "Failed to load resource: the server responded with a status of 504 (Gateway Time-out)",
+    "Failed to load resource: the server responded with a status of 504 (Gateway Time-out)",
+    "Failed to load resource: the server responded with a status of 504 (Gateway Time-out)"
+  ],
+  "bodyText": "Saltar al contenido\nN\nNachoPps\nBarranco · Lima\nOPERACIÓN\nInicio\nMesas\nPedidos\nCocina\nCaja\nReservas\nADMINISTRACIÓN\nCarta / Menú\nCompras\nInventario\nReportes\nUsuarios\nNachoPps · Operación\nNachoPps\nTurno Noche · 02:49\nEn línea\n9\nA\nAdmin\nADMIN\nCaja\nTurno, cobros y cierre Z\nAbrir caja\nCerrar caja\nCobrar cuenta\nSin turno abierto\nAPERTURA\nPendiente\nCAJERO\nAdmin\nCUENTAS COBRADAS\n0\nVentas del turno\nS/ 0.00\n0 cuentas cerradas\nEfectivo esperado en caja\nS/ 0.00\nFondo, ventas, propinas y movimientos en efectivo\nPropinas acumuladas\nS/ 0.00\nPendiente de repartir\nTickets internos\n0\nCuentas cobradas en el turno\nMovimientos del turno\n0 registros\nHORA\tDETALLE\tTX\tMÉTODO\tMONTO\nIngresos por método\nEF\nEfectivo\n0%\nS/ 0.00\nTJ\nTarjeta\n0%\nS/ 0.00\nY\nYape\n0%\nS/ 0.00\nP\nPlin\n0%\nS/ 0.00\nTR\nTransferencia\n0%\nS/ 0.00\nAcciones\nCobrar cuenta\nBoleta / Factura\nRegistrar egreso\nGastos del turno\nIngreso de efectivo\nVuelto / fondo\nCierre interno\nArqueo del turno\nTickets internos\nOperativo\nCuentas cobradas\n0\nTurno\nSin turno\nEstado\nPendiente"
+}

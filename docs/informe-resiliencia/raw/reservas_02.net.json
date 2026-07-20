@@ -1,0 +1,51 @@
+{
+  "outBase": "docs/informe-resiliencia/raw/reservas_02",
+  "navLabel": "Reservas",
+  "postClick": null,
+  "loginNet": [
+    {
+      "method": "GET",
+      "url": "/v1/identidad/auth/me",
+      "status": 401
+    },
+    {
+      "method": "POST",
+      "url": "/v1/identidad/auth/refresh",
+      "status": 401
+    },
+    {
+      "method": "POST",
+      "url": "/v1/identidad/auth/login",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "/v1/notificaciones",
+      "status": 200
+    }
+  ],
+  "moduleNet": [
+    {
+      "method": "GET",
+      "url": "/v1/mesas",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "/v1/reservas?limit=50&fecha=2026-07-20",
+      "status": 502
+    },
+    {
+      "method": "GET",
+      "url": "/v1/reservas?limit=50&fecha=2026-07-20",
+      "status": 502
+    }
+  ],
+  "consoleErrors": [
+    "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+    "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+    "Failed to load resource: the server responded with a status of 502 (Bad Gateway)",
+    "Failed to load resource: the server responded with a status of 502 (Bad Gateway)"
+  ],
+  "bodyText": "Saltar al contenido\nN\nNachoPps\nBarranco · Lima\nOPERACIÓN\nInicio\nMesas\nPedidos\nCocina\nCaja\nReservas\nADMINISTRACIÓN\nCarta / Menú\nCompras\nInventario\nReportes\nUsuarios\nNachoPps · Operación\nNachoPps\nTurno Noche · 02:47\nEn línea\n9\nA\nAdmin\nADMIN\nReservas\nAgenda del día, confirmación y cancelación\nAgenda\n0 reservas\nNueva reserva\nCliente\nTeléfono\nFecha\nHora\nMesa\nSelecciona una mesa\nMesa 01 · 2 pers.\nMesa 02 · 2 pers.\nMesa 03 · 4 pers.\nMesa 04 · 4 pers.\nMesa 05 · 4 pers.\nMesa 06 · 6 pers.\nMesa 07 · 4 pers.\nMesa 08 · 4 pers.\nMesa 09 · 4 pers.\nMesa 10 · 6 pers.\nMesa 11 · 2 pers.\nMesa 12 · 8 pers.\nMesa 13 · 6 pers.\nMesa 14 · 10 pers.\nPersonas\nVer disponibilidad\nCrear reserva"
+}

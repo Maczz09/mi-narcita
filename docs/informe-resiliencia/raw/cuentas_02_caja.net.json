@@ -1,0 +1,54 @@
+{
+  "outBase": "docs/informe-resiliencia/raw/cuentas_02_caja",
+  "navLabel": "Caja",
+  "postClick": null,
+  "loginNet": [
+    {
+      "method": "GET",
+      "url": "/v1/identidad/auth/me",
+      "status": 401
+    },
+    {
+      "method": "POST",
+      "url": "/v1/identidad/auth/refresh",
+      "status": 401
+    },
+    {
+      "method": "POST",
+      "url": "/v1/identidad/auth/login",
+      "status": 200
+    }
+  ],
+  "moduleNet": [
+    {
+      "method": "GET",
+      "url": "/v1/notificaciones",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "/v1/mesas",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "/v1/caja/turnos/activo/resumen",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "/v1/mesas",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "/v1/caja/turnos/activo/resumen",
+      "status": 200
+    }
+  ],
+  "consoleErrors": [
+    "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+    "Failed to load resource: the server responded with a status of 401 (Unauthorized)"
+  ],
+  "bodyText": "Saltar al contenido\nN\nNachoPps\nBarranco · Lima\nOPERACIÓN\nInicio\nMesas\nPedidos\nCocina\nCaja\nReservas\nADMINISTRACIÓN\nCarta / Menú\nCompras\nInventario\nReportes\nUsuarios\nNachoPps · Operación\nNachoPps\nTurno Noche · 02:57\nEn línea\n9\nA\nAdmin\nADMIN\nCaja\nTurno, cobros y cierre Z\nCerrar caja\nCobrar cuenta\nCaja abierta\nAPERTURA\n01:00 · S/ 200.00\nCAJERO\nAdmin\nCUENTAS COBRADAS\n75\nVentas del turno\nS/ 3947.70\n75 cuentas cerradas\nEfectivo esperado en caja\nS/ 2386.72\nFondo, ventas, propinas y movimientos en efectivo\nPropinas acumuladas\nS/ 62.24\nPendiente de repartir\nTickets internos\n75\nCuentas cobradas en el turno\nMovimientos del turno\n265 registros\nHORA\tDETALLE\tTX\tMÉTODO\tMONTO\n01:57\t\nCobro\nMesa 11\n\tcdfae45f\t\nEF\nEfectivo\n\tS/ 25.00\n01:54\t\nCobro\nMesa 09\n\t0d0b0468\t\nEF\nEfectivo\n\tS/ 5.00\n01:38\t\nCobro\nMesa 01\n\t875df532\t\nEF\nEfectivo\n\tS/ 5.00\n01:32\t\nCobro\nMesa 01\n\t2a674ec8\t\nEF\nEfectivo\n\tS/ 43.00\n01:06\t\nCobro\nMesa bf3c7bae-150c-4b17-91bb-289d78c155a8\n\tcc9ac9a8\t\nEF\nEfectivo\n\tS/ 126.00\n01:06\t\nCobro\nMesa 8c0147a0-be01-473c-9c1b-04868df5f70f\n\tc7f31daa\t\nEF\nEfectivo\n\tS/ 26.00\n01:06\t\nCobro\nMesa bf3c7bae-150c-4b17-91bb-289d78c155a8\n\t91c1539d\t\nEF\nEfectivo\n\tS/ 5.00\n01:06\t\nCobro\nMesa c3b6b40d-674d-4ba1-a9fc-e36fc7545562\n\tc8bb5a1b\t\nP\nPlin\n\tS/ 14.00\n01:06\t\nCobro\nMesa 4f27a33d-f40b-4440-b699-e1e5c57183d4\n\t018c512c\t\nTR\nTransferencia\n\tS/ 14.00\n01:06\t\nCobro\nMesa fd579f54-4336-4909-abfa-185ff8a983dc\n\tcab5bf71\t\nY\nYape\n\tS/ 14.00\n01:06\t\nCobro\nMesa b6e9ff01-5df4-49d9-8915-17834619a459\n\t141cbe3d\t\nTJ\nTarjeta\n\tS/ 14.00\n01:06\t\nCobro\nMesa c8d00e4e-0a18-437d-98f6-c005d2e61bef\n\te531c5ad\t\nEF\nEfectivo\n\tS/ 14.00\n01:06\t\nCobro\nMesa 59d6be76-6185-4618-b45b-4ac9a502d880\n\tf8fb6c15\t\nEF\nEfectivo\n\tS/ 26.00\n01:06\t\nCobro\nMesa 1836bb5c-5902-4e51-8c3a-b791b3bbf6e0\n\t0103022b\t\nEF\nEfectivo\n\tS/ 22.00\n01:06\t\nCobro\nMesa 547fd328-9e2b-4184-96de-6a385ff78822\n\tb3d56398\t\nEF\nEfectivo\n\tS/ 28.00\n01:06\t\nCobro\nMesa 74dc79a7-bec4-43d7-bf17-13f044a8e066\n\tecf39a16\t\nY\nYape\n\tS/ 26.00\n01:06\t\nCobro\nMesa 74dc79a7-bec4-43d7-bf17-13f044a8e066\n\t81ac693a\t\nEF\nEfectivo\n\tS/ 52.00\n01:06\t\nCobro\nMesa 24712def-cb1c-40fd-b3c3-be8399b3e164\n\t517766b3\t\nTJ\nTarjeta\n\tS/ 72.00\n01:05\t\nCobro\nMesa bf3c7bae-150c-4b17-91bb-289d78c155a8\n\t9097a179\t\nEF\nEfectivo\n\tS/ 88.00\n00:34\t\nCobro\nMesa bf3c7bae-150c-4b17-91bb-289d78c155a8\n\t598b5a6a\t\nEF\nEfectivo\n\tS/ 126.00\n00:34\t\nCobro\nMesa 8c0147a0-be01-473c-9c1b-04868df5f70f\n\t3d8a02a6\t\nEF\nEfectivo\n\tS/ 26.00\n00:34\t\nCobro\nMesa bf3c7bae-150c-4b17-91bb-289d78c155a8\n\t6756a010\t\nEF\nEfectivo\n\tS/ 5.00\n00:34\t\nCobro\nMesa c3b6b40d-674d-4ba1-a9fc-e36fc7545562\n\tcadb57e4\t\nP\nPlin\n\tS/ 14.00\n00:34\t\nCobro\nMesa 4f27a33d-f40b-4440-b699-e1e5c57183d4\n\tfb524081\t\nTR\nTransferencia\n\tS/ 14.00\n00:34\t\nCobro\nMesa fd579f54-4336-4909-abfa-185ff8a983dc\n\tcab6f066\t\nY\nYape\n\tS/ 14.00\n00:34\t\nCobro\nMesa b6e9ff01-5df4-49d9-8915-17834619a459\n\t8ba2823f\t\nTJ\nTarjeta\n\tS/ 14.00\n00:34\t\nCobro\nMesa c8d00e4e-0a18-437d-98f6-c005d2e61bef\n\td0587e62\t\nEF\nEfectivo\n\tS/ 14.00\n00:34\t\nCobro\nMesa 59d6be76-6185-4618-b45b-4ac9a502d880\n\t6920fec7\t\nEF\nEfectivo\n\tS/ 26.00\n00:34\t\nCobro\nMesa 1836bb5c-5902-4e51-8c3a-b791b3bbf6e0\n\te7ea6d92\t\nEF\nEfectivo\n\tS/ 22.00\n00:34\t\nCobro\nMesa 547fd328-9e2b-4184-96de-6a385ff78822\n\ta9c7ea52\t\nEF\nEfectivo\n\tS/ 28.00\n00:34\t\nCobro\nMesa 74dc79a7-bec4-43d7-bf17-13f044a8e066\n\tc21ec477\t\nY\nYape\n\tS/ 26.00\n00:34\t\nCobro\nMesa 74dc79a7-bec4-43d7-bf17-13f044a8e066\n\t2a57c205\t\nEF\nEfectivo\n\tS/ 52.00\n00:34\t\nCobro\nMesa 24712def-cb1c-40fd-b3c3-be8399b3e164\n\tc84909dc\t\nTJ\nTarjeta\n\tS/ 72.00\n00:34\t\nCobro\nMesa bf3c7bae-150c-4b17-91bb-289d78c155a8\n\t64f1e3ad\t\nEF\nEfectivo\n\tS/ 88.00\n00:29\t\nCobro\nMesa bf3c7bae-150c-4b17-91bb-289d78c155a8\n\t71a56c77\t\nEF\nEfectivo\n\tS/ 126.00\n00:29\t\nCobro\nMesa 8c0147a0-be01-473c-9c1b-04868df5f70f\n\t6009ce4b\t\nEF\nEfectivo\n\tS/ 26.00\n00:29\t\nCobro\nMesa bf3c7bae-150c-4b17-91bb-289d78c155a8\n\t5c75058f\t\nEF\nEfectivo\n\tS/ 5.00\n00:29\t\nCobro\nMesa c3b6b40d-674d-4ba1-a9fc-e36fc7545562\n\t8a7b7fec\t\nP\nPlin\n\tS/ 14.00\n00:29\t\nCobro\nMesa 4f27a33d-f40b-4440-b699-e1e5c57183d4\n\t6c8ffc9b\t\nTR\nTransferencia\n\tS/ 14.00\n00:29\t\nCobro\nMesa fd579f54-4336-4909-abfa-185ff8a983dc\n\te7abee"
+}

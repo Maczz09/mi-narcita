@@ -96,3 +96,5 @@ infra/sonarqube/.sonar-token.local
 .cursor/
 .codex/
 .commandcode/
+
+__pycache__/

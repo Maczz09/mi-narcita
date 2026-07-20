@@ -1,0 +1,70 @@
+{
+  "outBase": "docs/informe-resiliencia/raw/reportes_01_inicio",
+  "navLabel": "Inicio",
+  "postClick": null,
+  "loginNet": [
+    {
+      "method": "GET",
+      "url": "/v1/identidad/auth/me",
+      "status": 401
+    },
+    {
+      "method": "POST",
+      "url": "/v1/identidad/auth/refresh",
+      "status": 401
+    },
+    {
+      "method": "POST",
+      "url": "/v1/identidad/auth/login",
+      "status": 200
+    }
+  ],
+  "moduleNet": [
+    {
+      "method": "GET",
+      "url": "/v1/notificaciones",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "/v1/mesas",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "/v1/inventario/categorias",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "/v1/reservas?limit=50&fecha=2026-07-20",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "/v1/pedidos?limit=50",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "/v1/caja/turnos/activo/resumen",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "/v1/inventario/productos?limit=50",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "/v1/reportes/resumen",
+      "status": 502
+    }
+  ],
+  "consoleErrors": [
+    "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+    "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+    "Failed to load resource: the server responded with a status of 502 (Bad Gateway)"
+  ],
+  "bodyText": "Saltar al contenido\nN\nNachoPps\nBarranco · Lima\nOPERACIÓN\nInicio\nMesas\nPedidos\nCocina\nCaja\nReservas\nADMINISTRACIÓN\nCarta / Menú\nCompras\nInventario\nReportes\nUsuarios\nNachoPps · Operación\nNachoPps\nTurno Noche · 02:46\nEn línea\n9\nA\nAdmin\nADMIN\nInicio\nResumen del día · Operación\nVer cocina\nIr a caja\n50 punto(s) requieren atención\n50 pedido(s) activos · 64 mesa(s) ocupadas · caja abierta\nRevisar ahora\nVentas del día\nS/ 0.00\nacumulado del día\nTicket promedio\nS/ 0.00\npor cuenta cerrada\nCuentas del día\n0\n50 pedido(s) en curso\nMesas ocupadas\n64/144\n44% de ocupación\nTiempo cocina\n9215m\n50 en demora\nVentas por hora\nHoy\nSin ventas registradas hoy.\nTop productos del día\nPRODUCTO\tVENDIDOS\tINGRESOS\nAún no hay ventas en el turno.\nActividad reciente\nPedido a cocina\nMesa 67895 · 1 ítem(s)\nhace 2616m\nPedido a cocina\nMesa 39269 · 1 ítem(s)\nhace 2835m\nPedido a cocina\nMesa 939726 · 1 ítem(s)\nhace 9485m\nPedido a cocina\nMesa 939729 · 1 ítem(s)\nhace 9485m\nPedido a cocina\nMesa 939722 · 1 ítem(s)\nhace 9485m\nPedido a cocina\nMesa 939707 · 1 ítem(s)\nhace 9485m\nRequiere atención\n50\n50 pedido(s) en demora\nSLA de cocina vencido\nVer\nSalón ahora\n44% ocupado\nOcupadas\n64\nReservadas\n0\nLibres\n80\nVer mesas\nCocina ahora\n50\nPedidos activos\n50\nEn demora (SLA)\nAbrir KDS\nCaja\nAbierta\nS/ 2386.72\nEfectivo esperado\nS/ 62.24\nPropinas del turno\nIr a caja\nPróximas reservas\nhoy\n16:30\nCliente K6-1783964423223-364646\n2 pax · K6-257\n18:00\nCliente K6-1783964420265-146585\n2 pax · K6-329"
+}

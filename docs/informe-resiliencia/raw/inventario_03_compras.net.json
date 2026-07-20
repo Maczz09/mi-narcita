@@ -1,0 +1,34 @@
+{
+  "outBase": "docs/informe-resiliencia/raw/inventario_03_compras",
+  "navLabel": "Compras",
+  "postClick": null,
+  "loginNet": [
+    {
+      "method": "GET",
+      "url": "/v1/identidad/auth/me",
+      "status": 401
+    },
+    {
+      "method": "POST",
+      "url": "/v1/identidad/auth/refresh",
+      "status": 401
+    },
+    {
+      "method": "POST",
+      "url": "/v1/identidad/auth/login",
+      "status": 200
+    }
+  ],
+  "moduleNet": [
+    {
+      "method": "GET",
+      "url": "/v1/notificaciones",
+      "status": 200
+    }
+  ],
+  "consoleErrors": [
+    "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+    "Failed to load resource: the server responded with a status of 401 (Unauthorized)"
+  ],
+  "bodyText": "Saltar al contenido\nN\nNachoPps\nBarranco · Lima\nOPERACIÓN\nInicio\nMesas\nPedidos\nCocina\nCaja\nReservas\nADMINISTRACIÓN\nCarta / Menú\nCompras\nInventario\nReportes\nUsuarios\nNachoPps · Operación\nNachoPps\nTurno Noche · 02:59\nEn línea\n9\nA\nAdmin\nADMIN\nCompras y Proveedores\nÓrdenes de compra, recepción y costeo de insumos\nNueva orden\nÓrdenes abiertas\n3\npor enviar / recibir\nPor recibir\nS/ 930.00\nmercadería en tránsito\nGasto recibido\nS/ 582.00\neste periodo\nInsumos bajo mínimo\n5\nrequieren reposición\nÓrdenes de compra\nInsumos\nProveedores\nOC\tPROVEEDOR\tÍTEMS\tTOTAL\tEMISIÓN\tENTREGA\tESTADO\tACCIÓN\nOC-1042\tPesquera del Sur\t2 líneas · 17 und\tS/ 546.00\t02 Jun\t04 Jun\tEnviada\tRecepcionar\nOC-1041\tBodega Tabernero\t1 líneas · 12 und\tS/ 384.00\t01 Jun\t05 Jun\tEnviada\tRecepcionar\nOC-1040\tMercado Mayorista\t2 líneas · 28 und\tS/ 192.00\t01 Jun\t01 Jun\tRecibida\tCompletada\nOC-1039\tCarnes El Roble\t1 líneas · 15 und\tS/ 570.00\t02 Jun\t—\tBorrador\tEnviar\nOC-1038\tDistribuidora Lima\t2 líneas · 60 und\tS/ 390.00\t31 May\t31 May\tRecibida\tCompletada"
+}

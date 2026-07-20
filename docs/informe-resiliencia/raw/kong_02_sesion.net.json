@@ -1,0 +1,13 @@
+{
+  "outBase": "docs/informe-resiliencia/raw/kong_02_sesion",
+  "navLabel": null,
+  "postClick": null,
+  "loginNet": [],
+  "moduleNet": [],
+  "consoleErrors": [
+    "Failed to load resource: net::ERR_CONNECTION_REFUSED",
+    "Failed to load resource: net::ERR_CONNECTION_REFUSED",
+    "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+  ],
+  "bodyText": "N\nNachoPps\nSistema operativo de restobar\nLa consola de operación de tu salón, cocina y caja.\n\nMesas, pedidos, KDS, cuentas y cobros en una sola herramienta rápida, táctil y de alto rendimiento.\n\nFunciona offline\nSeguro por rol\nIniciar sesión\n\nIngresa para entrar a Operación.\n\nCorreo electrónico\nContraseña\nIngresar"
+}

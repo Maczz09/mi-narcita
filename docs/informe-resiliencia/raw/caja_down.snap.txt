@@ -1,0 +1,29 @@
+# SNAPSHOT caja_down — 2026-07-20T02:49:03-05:00
+## circuit_breaker_state (0=CLOSED 0.5=HALF_OPEN 1=OPEN)
+## circuit_breaker_open_total
+## dependency_timeout_total
+## retry_attempts_total
+## circuit_timeout_total
+## pedidos_rechazados_dependencia_total
+## pedidos_rechazados_sin_stock_total
+  pedidos_rechazados_sin_stock_total = 0
+## pagos_cierre_remoto_pendiente_total
+## pagos_cierre_reconciliado_total
+## dlq_messages_total
+  dlq_messages_total = 0
+  dlq_messages_total = 0
+  dlq_messages_total = 0
+  dlq_messages_total = 0
+  dlq_messages_total = 0
+  dlq_messages_total = 0
+## bulkhead_in_flight
+## /health/dependencies por servicio (vía Kong)
+  [identidad] UP | {'database': 'UP', 'rabbitmq': 'UP'}
+  [mesas] UP | {'database': 'UP', 'rabbitmq': 'UP'}
+  [pedidos] UP | {'database': 'UP', 'rabbitmq': 'UP'}
+  [cuentas] UP | {'database': 'UP', 'rabbitmq': 'UP'}
+  [reservas] UP | {'database': 'UP', 'rabbitmq': 'UP'}
+  [inventario] UP | {'database': 'UP', 'rabbitmq': 'UP'}
+  [notificaciones] UP | {'database': 'UP', 'rabbitmq': 'UP'}
+  [caja] None | None
+  [reportes] UP | {'database': 'UP', 'rabbitmq': 'UP'}

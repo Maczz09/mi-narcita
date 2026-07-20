@@ -1,0 +1,41 @@
+{
+  "outBase": "docs/informe-resiliencia/raw/identidad_01_login",
+  "navLabel": null,
+  "postClick": null,
+  "loginNet": [
+    {
+      "method": "GET",
+      "url": "/v1/identidad/auth/me",
+      "status": 401
+    },
+    {
+      "method": "POST",
+      "url": "/v1/identidad/auth/refresh",
+      "status": 504
+    },
+    {
+      "method": "POST",
+      "url": "/v1/identidad/auth/login",
+      "status": 504
+    },
+    {
+      "method": "POST",
+      "url": "/v1/identidad/auth/login",
+      "status": 504
+    },
+    {
+      "method": "POST",
+      "url": "/v1/identidad/auth/login",
+      "status": 504
+    }
+  ],
+  "moduleNet": [],
+  "consoleErrors": [
+    "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+    "Failed to load resource: the server responded with a status of 504 (Gateway Time-out)",
+    "Failed to load resource: the server responded with a status of 504 (Gateway Time-out)",
+    "Failed to load resource: the server responded with a status of 504 (Gateway Time-out)",
+    "Failed to load resource: the server responded with a status of 504 (Gateway Time-out)"
+  ],
+  "bodyText": "N\nNachoPps\nSistema operativo de restobar\nLa consola de operación de tu salón, cocina y caja.\n\nMesas, pedidos, KDS, cuentas y cobros en una sola herramienta rápida, táctil y de alto rendimiento.\n\nFunciona offline\nSeguro por rol\nIniciar sesión\n\nIngresa para entrar a Operación.\n\nEl servicio no está disponible en este momento.\nCorreo electrónico\nContraseña\nIngresar"
+}
