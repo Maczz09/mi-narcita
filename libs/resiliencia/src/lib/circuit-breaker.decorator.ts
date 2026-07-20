@@ -1,6 +1,6 @@
 import { Logger } from '@nestjs/common';
 import CircuitBreaker from 'opossum';
-import { getOrCreateGauge, getOrCreateHistogram, OperableLog } from '@org/observabilidad';
+import { getOrCreateCounter, getOrCreateGauge, getOrCreateHistogram, OperableLog } from '@org/observabilidad';
 
 export const CIRCUIT_BREAKER_REGISTRY = new Map<string, CircuitBreaker>();
 
@@ -23,6 +23,19 @@ const circuitStateGauge = getOrCreateGauge(
   'circuit_breaker_state',
   'Estado del circuito por breaker (0=CLOSED, 0.5=HALF_OPEN, 1=OPEN)',
   ['breaker', 'dependency'],
+);
+
+// Acumulados (el gauge de arriba solo da el estado actual): cuántas veces
+// abrió el circuito, cuántos fallbacks se sirvieron y cuántas llamadas
+// vencieron por timeout de opossum, por breaker/dependencia.
+const circuitOpenCounter = getOrCreateCounter(
+  'circuit_breaker_open_total', 'Aperturas de circuito acumuladas', ['breaker', 'dependency'],
+);
+const circuitFallbackCounter = getOrCreateCounter(
+  'circuit_fallback_total', 'Fallbacks ejecutados por el circuito', ['breaker', 'dependency'],
+);
+const circuitTimeoutCounter = getOrCreateCounter(
+  'circuit_timeout_total', 'Llamadas vencidas por timeout del circuito', ['breaker', 'dependency'],
 );
 
 export function CircuitBreakerOptions(options?: CircuitBreaker.Options) {
@@ -62,6 +75,7 @@ export function CircuitBreakerOptions(options?: CircuitBreaker.Options) {
             message: 'Circuito abierto; rechazando peticiones a la dependencia.',
           } satisfies OperableLog);
           circuitStateGauge.set({ breaker: breakerName, dependency }, 1);
+          circuitOpenCounter.inc({ breaker: breakerName, dependency });
         });
         breaker.on('halfOpen', () => {
           logger.log({
@@ -81,13 +95,22 @@ export function CircuitBreakerOptions(options?: CircuitBreaker.Options) {
           } satisfies OperableLog);
           circuitStateGauge.set({ breaker: breakerName, dependency }, 0);
         });
-        breaker.on('fallback', () =>
+        breaker.on('fallback', () => {
           logger.warn({
             operation: breakerName,
             dependency,
             message: 'Fallback ejecutado por el circuito.',
-          } satisfies OperableLog),
-        );
+          } satisfies OperableLog);
+          circuitFallbackCounter.inc({ breaker: breakerName, dependency });
+        });
+        breaker.on('timeout', () => {
+          logger.warn({
+            operation: breakerName,
+            dependency,
+            message: 'Llamada vencida por timeout del circuito.',
+          } satisfies OperableLog);
+          circuitTimeoutCounter.inc({ breaker: breakerName, dependency });
+        });
 
         // Estado inicial: CLOSED, para que el gauge sea visible desde el arranque.
         circuitStateGauge.set({ breaker: breakerName, dependency }, 0);

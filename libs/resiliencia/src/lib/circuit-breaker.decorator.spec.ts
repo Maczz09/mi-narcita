@@ -2,7 +2,7 @@
    Los métodos dummy son async sin await a propósito: solo existen para que el
    decorador los envuelva y para forzar el rechazo del breaker bajo prueba. */
 import { describe, expect, it, beforeEach, afterEach, vi } from 'vitest';
-import { register, Gauge } from 'prom-client';
+import { register, Gauge, Counter } from 'prom-client';
 import { Logger } from '@nestjs/common';
 import { CircuitBreakerOptions, CIRCUIT_BREAKER_REGISTRY } from './circuit-breaker.decorator';
 
@@ -35,6 +35,13 @@ function estadoGauge(breaker: string): number | undefined {
   return serieGauge(breaker)?.value;
 }
 
+async function contadorPorBreaker(metricName: string, breaker: string): Promise<number> {
+  const counter = register.getSingleMetric(metricName) as Counter<string> | undefined;
+  const data = await counter?.get();
+  const values = data?.values as Array<{ labels: { breaker?: string }; value: number }> | undefined;
+  return values?.find((v) => v.labels.breaker === breaker)?.value ?? 0;
+}
+
 function limpiarBreakers() {
   for (const [name, b] of CIRCUIT_BREAKER_REGISTRY) {
     b.shutdown();
@@ -65,6 +72,29 @@ describe('CircuitBreakerOptions — gauge circuit_breaker_state (R-04)', () => {
 
     breaker.emit('close');
     expect(estadoGauge(breakerName)).toBe(0);
+  });
+
+  it('acumula counters de aperturas, fallbacks y timeouts por breaker', async () => {
+    const dummy = new Dummy();
+    await expect(dummy.llamar()).rejects.toBeDefined();
+    const breaker = CIRCUIT_BREAKER_REGISTRY.get(breakerName)!;
+
+    // Los counters son acumulativos entre tests (a diferencia del gauge, no hay
+    // reset en limpiarBreakers), así que se mide el delta, no el valor absoluto.
+    const antes = {
+      open: await contadorPorBreaker('circuit_breaker_open_total', breakerName),
+      fallback: await contadorPorBreaker('circuit_fallback_total', breakerName),
+      timeout: await contadorPorBreaker('circuit_timeout_total', breakerName),
+    };
+
+    breaker.emit('open');
+    breaker.emit('open');
+    breaker.emit('fallback');
+    breaker.emit('timeout');
+
+    expect(await contadorPorBreaker('circuit_breaker_open_total', breakerName)).toBe(antes.open + 2);
+    expect(await contadorPorBreaker('circuit_fallback_total', breakerName)).toBe(antes.fallback + 1);
+    expect(await contadorPorBreaker('circuit_timeout_total', breakerName)).toBe(antes.timeout + 1);
   });
 
   // Log operable (sesión 29): al abrir, emite circuitBreakerState + dependency
