@@ -67,6 +67,17 @@ plugins:
       bandwidth_metrics: false
       upstream_health_metrics: true
 
+  # Correlación de reintentos del cliente (gap hallado en sesión de caos manual):
+  # el access log nativo de Kong da un kong_request_id NUEVO por cada intento, así
+  # que 3 reintentos de un mismo click en la PWA (misma Idempotency-Key) quedaban
+  # como 3 líneas sin relación entre sí. JSON estructurado a stdout, mismo stream
+  # que ya scrapea Promtail → queryable en Loki con `| json | idempotency_key="..."`.
+  - name: file-log
+    config:
+      path: /dev/stdout
+      custom_fields_by_lua:
+        idempotency_key: "return kong.request.get_header('Idempotency-Key')"
+
 # ── Consumers (JWT) ──────────────────────────────────────────────
 
 consumers:

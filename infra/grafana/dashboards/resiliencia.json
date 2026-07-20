@@ -1,0 +1,265 @@
+{
+  "annotations": { "list": [] },
+  "editable": true,
+  "graphTooltip": 1,
+  "schemaVersion": 38,
+  "title": "NachoPps — Resiliencia",
+  "uid": "nachopps-resiliencia",
+  "tags": ["nachopps", "resiliencia", "plataforma"],
+  "time": { "from": "now-30m", "to": "now" },
+  "refresh": "10s",
+  "templating": {
+    "list": [
+      {
+        "name": "service",
+        "label": "Servicio",
+        "type": "query",
+        "datasource": { "type": "prometheus", "uid": "prometheus" },
+        "query": { "query": "label_values(http_requests_total{job=\"nestjs-microservices\"}, instance)", "refId": "vars" },
+        "refresh": 2,
+        "sort": 1,
+        "includeAll": true,
+        "allValue": ".*",
+        "multi": true,
+        "current": { "text": "All", "value": "$__all" }
+      }
+    ]
+  },
+  "panels": [
+    { "id": 100, "type": "row", "title": "Gateway (Kong)", "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 } },
+    {
+      "id": 1,
+      "title": "Throughput — peticiones/s (Kong)",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 1 },
+      "fieldConfig": { "defaults": { "unit": "reqps", "custom": { "drawStyle": "line", "fillOpacity": 10 } }, "overrides": [] },
+      "targets": [
+        { "expr": "sum by (service) (rate(kong_http_requests_total[5m]))", "legendFormat": "{{service}}", "refId": "A" }
+      ]
+    },
+    {
+      "id": 2,
+      "title": "Latencia p50/p95/p99 (Kong request_latency)",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 1 },
+      "fieldConfig": { "defaults": { "unit": "ms", "custom": { "drawStyle": "line", "fillOpacity": 0 } }, "overrides": [] },
+      "targets": [
+        { "expr": "histogram_quantile(0.50, sum by (le) (rate(kong_request_latency_ms_bucket[5m])))", "legendFormat": "p50", "refId": "A" },
+        { "expr": "histogram_quantile(0.95, sum by (le) (rate(kong_request_latency_ms_bucket[5m])))", "legendFormat": "p95", "refId": "B" },
+        { "expr": "histogram_quantile(0.99, sum by (le) (rate(kong_request_latency_ms_bucket[5m])))", "legendFormat": "p99", "refId": "C" }
+      ]
+    },
+    {
+      "id": 3,
+      "title": "Error rate (%) — 5xx del Gateway",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 1 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "min": 0,
+          "custom": { "drawStyle": "line", "fillOpacity": 10 },
+          "thresholds": { "mode": "absolute", "steps": [ { "color": "green", "value": null }, { "color": "red", "value": 0.05 } ] }
+        },
+        "overrides": []
+      },
+      "targets": [
+        { "expr": "sum(rate(kong_http_requests_total{code=~\"5..\"}[5m])) / clamp_min(sum(rate(kong_http_requests_total[5m])), 1e-9)", "legendFormat": "% error", "refId": "A" }
+      ]
+    },
+    {
+      "id": 4,
+      "title": "429 del rate-limiting (Kong)",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 6, "w": 24, "x": 0, "y": 9 },
+      "fieldConfig": { "defaults": { "unit": "ops", "custom": { "drawStyle": "bars", "fillOpacity": 40 } }, "overrides": [] },
+      "targets": [
+        { "expr": "sum by (route) (rate(kong_http_requests_total{code=\"429\"}[5m]))", "legendFormat": "{{route}}", "refId": "A" }
+      ]
+    },
+
+    { "id": 101, "type": "row", "title": "Circuit Breaker", "gridPos": { "h": 1, "w": 24, "x": 0, "y": 15 } },
+    {
+      "id": 5,
+      "title": "Estado del circuito por breaker (0=CLOSED, 0.5=HALF_OPEN, 1=OPEN)",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 16 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "min": 0,
+          "max": 1,
+          "custom": { "drawStyle": "line", "fillOpacity": 15, "stepAfter": true }
+        },
+        "overrides": []
+      },
+      "targets": [
+        { "expr": "circuit_breaker_state{instance=~\"$service\"}", "legendFormat": "{{dependency}} ({{breaker}})", "refId": "A" }
+      ]
+    },
+    {
+      "id": 6,
+      "title": "Aperturas de circuito acumuladas",
+      "type": "stat",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 6, "x": 12, "y": 16 },
+      "fieldConfig": { "defaults": { "unit": "short" }, "overrides": [] },
+      "targets": [
+        { "expr": "sum by (dependency) (circuit_breaker_open_total{instance=~\"$service\"})", "legendFormat": "{{dependency}}", "refId": "A" }
+      ]
+    },
+    {
+      "id": 7,
+      "title": "Latencia por dependencia p95 (con breaker)",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 6, "x": 18, "y": 16 },
+      "fieldConfig": { "defaults": { "unit": "s", "custom": { "drawStyle": "line", "fillOpacity": 0 } }, "overrides": [] },
+      "targets": [
+        { "expr": "histogram_quantile(0.95, sum by (le, breaker) (rate(dependency_request_duration_seconds_bucket{instance=~\"$service\"}[5m])))", "legendFormat": "{{breaker}}", "refId": "A" }
+      ]
+    },
+
+    { "id": 102, "type": "row", "title": "Retry, fallback y timeouts", "gridPos": { "h": 1, "w": 24, "x": 0, "y": 24 } },
+    {
+      "id": 8,
+      "title": "Reintentos (/s) por servicio",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 7, "w": 8, "x": 0, "y": 25 },
+      "fieldConfig": { "defaults": { "unit": "ops", "custom": { "drawStyle": "line", "fillOpacity": 10 } }, "overrides": [] },
+      "targets": [
+        { "expr": "sum by (instance, surface) (rate(retry_attempts_total{instance=~\"$service\"}[5m]))", "legendFormat": "{{instance}} / {{surface}}", "refId": "A" }
+      ]
+    },
+    {
+      "id": 9,
+      "title": "Fallbacks servidos (/s) por dependencia",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 7, "w": 8, "x": 8, "y": 25 },
+      "fieldConfig": { "defaults": { "unit": "ops", "custom": { "drawStyle": "line", "fillOpacity": 10 } }, "overrides": [] },
+      "targets": [
+        { "expr": "sum by (dependency) (rate(circuit_fallback_total{instance=~\"$service\"}[5m]))", "legendFormat": "{{dependency}}", "refId": "A" }
+      ]
+    },
+    {
+      "id": 10,
+      "title": "Timeouts de circuito (/s) por dependencia",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 7, "w": 8, "x": 16, "y": 25 },
+      "fieldConfig": { "defaults": { "unit": "ops", "custom": { "drawStyle": "line", "fillOpacity": 10 } }, "overrides": [] },
+      "targets": [
+        { "expr": "sum by (dependency) (rate(circuit_timeout_total{instance=~\"$service\"}[5m]))", "legendFormat": "{{dependency}}", "refId": "A" }
+      ]
+    },
+
+    { "id": 103, "type": "row", "title": "Contención: bulkhead", "gridPos": { "h": 1, "w": 24, "x": 0, "y": 32 } },
+    {
+      "id": 11,
+      "title": "Bulkhead: llamadas en vuelo por dependencia",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 7, "w": 12, "x": 0, "y": 33 },
+      "fieldConfig": { "defaults": { "unit": "short", "min": 0, "custom": { "drawStyle": "line", "fillOpacity": 10 } }, "overrides": [] },
+      "targets": [
+        { "expr": "bulkhead_in_flight{instance=~\"$service\"}", "legendFormat": "{{instance}} / {{dependency}}", "refId": "A" }
+      ]
+    },
+    {
+      "id": 12,
+      "title": "Bulkhead: rechazos (/s) por dependencia (shed load)",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 7, "w": 12, "x": 12, "y": 33 },
+      "fieldConfig": { "defaults": { "unit": "ops", "custom": { "drawStyle": "bars", "fillOpacity": 40 } }, "overrides": [] },
+      "targets": [
+        { "expr": "sum by (dependency) (rate(bulkhead_rejected_total{instance=~\"$service\"}[5m]))", "legendFormat": "{{dependency}}", "refId": "A" }
+      ]
+    },
+
+    { "id": 104, "type": "row", "title": "Saturación: CPU, memoria y event loop", "gridPos": { "h": 1, "w": 24, "x": 0, "y": 40 } },
+    {
+      "id": 13,
+      "title": "CPU por servicio (núcleos)",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 7, "w": 8, "x": 0, "y": 41 },
+      "fieldConfig": { "defaults": { "unit": "short", "custom": { "drawStyle": "line", "fillOpacity": 10 } }, "overrides": [] },
+      "targets": [
+        { "expr": "sum by (instance) (rate(process_cpu_seconds_total{instance=~\"$service\"}[5m]))", "legendFormat": "{{instance}}", "refId": "A" }
+      ]
+    },
+    {
+      "id": 14,
+      "title": "Memoria residente por servicio",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 7, "w": 8, "x": 8, "y": 41 },
+      "fieldConfig": { "defaults": { "unit": "bytes", "custom": { "drawStyle": "line", "fillOpacity": 10 } }, "overrides": [] },
+      "targets": [
+        { "expr": "process_resident_memory_bytes{instance=~\"$service\"}", "legendFormat": "{{instance}}", "refId": "A" }
+      ]
+    },
+    {
+      "id": 15,
+      "title": "Event loop lag p99 por servicio",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 7, "w": 8, "x": 16, "y": 41 },
+      "fieldConfig": { "defaults": { "unit": "s", "custom": { "drawStyle": "line", "fillOpacity": 10 } }, "overrides": [] },
+      "targets": [
+        { "expr": "nodejs_eventloop_lag_p99_seconds{instance=~\"$service\"}", "legendFormat": "{{instance}}", "refId": "A" }
+      ]
+    },
+
+    { "id": 105, "type": "row", "title": "RabbitMQ: profundidad de cola, DLQ y lag", "gridPos": { "h": 1, "w": 24, "x": 0, "y": 48 } },
+    {
+      "id": 16,
+      "title": "Profundidad de cola (mensajes listos)",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 49 },
+      "fieldConfig": { "defaults": { "unit": "short", "min": 0, "custom": { "drawStyle": "line", "fillOpacity": 10 } }, "overrides": [] },
+      "targets": [
+        { "expr": "rabbitmq_queue_messages{queue!~\"dlq\\\\..*\"}", "legendFormat": "{{queue}}", "refId": "A" }
+      ]
+    },
+    {
+      "id": 17,
+      "title": "DLQ — mensajes en cola muerta",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 6, "x": 12, "y": 49 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "min": 0,
+          "custom": { "drawStyle": "line", "fillOpacity": 20 },
+          "thresholds": { "mode": "absolute", "steps": [ { "color": "green", "value": null }, { "color": "red", "value": 1 } ] }
+        },
+        "overrides": []
+      },
+      "targets": [
+        { "expr": "rabbitmq_queue_messages{queue=~\"dlq\\\\..*\"}", "legendFormat": "{{queue}}", "refId": "A" }
+      ]
+    },
+    {
+      "id": 18,
+      "title": "Lag broker→consumidor p95 (s) por servicio",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 6, "x": 18, "y": 49 },
+      "fieldConfig": { "defaults": { "unit": "s", "custom": { "drawStyle": "line", "fillOpacity": 0 } }, "overrides": [] },
+      "targets": [
+        { "expr": "histogram_quantile(0.95, sum by (le, instance) (rate(broker_consumer_lag_seconds_bucket{instance=~\"$service\"}[5m])))", "legendFormat": "{{instance}}", "refId": "A" }
+      ]
+    }
+  ]
+}

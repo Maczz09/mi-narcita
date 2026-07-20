@@ -873,6 +873,11 @@ services:
   jaeger:
     image: jaegertracing/all-in-one:latest
     container_name: nachopps-jaeger
+    # La imagen :latest pasó a correr como UID 10001 no-root; el volumen nombrado
+    # se crea con dueño root y el proceso no puede mkdir /badger/key ni /badger/data.
+    # ponytail: root en dev alcanza (SOLO DESARROLLO, ver cabecera del archivo); si
+    # esto pasa a prod, fijar el volumen con la UID 10001 en vez de correr como root.
+    user: root
     environment:
       SPAN_STORAGE_TYPE: badger
       BADGER_EPHEMERAL: 'false'
@@ -884,7 +889,9 @@ services:
       - jaeger_data:/badger
     profiles: ['infra', 'all', 'dev']
     restart: unless-stopped
-    mem_limit: 512m
+    # Badger reserva 256m solo de BlockCache + 185 tablas al abrir; con 512m
+    # la DB acumulada no entraba y el kernel lo mataba por OOM (exit 137) en bucle.
+    mem_limit: 1g
 
   prometheus:
     image: prom/prometheus:latest
