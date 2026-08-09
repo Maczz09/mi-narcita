@@ -9,6 +9,7 @@ import type {
   UbicacionDto as ContractUbicacionDto,
   CrearUbicacionCommand,
   ActualizarUbicacionCommand,
+  UnirMesasCommand,
 } from '@org/contracts';
 
 // ─── Enums ──────────────────────────────────────────────────────
@@ -37,6 +38,8 @@ export interface MesaVM {
   estadoClass: string;
   /** Label legible del estado */
   estadoLabel: string;
+  /** Unir mesas: id de la mesa anfitriona compartida por todo el grupo (incluida ella misma). null = no unida. */
+  grupoId: string | null;
 }
 
 // ─── Comando para actualizar estado ─────────────────────────────
@@ -44,6 +47,9 @@ export type ActualizarEstadoMesaPayload = ActualizarEstadoMesaCommand;
 
 // ─── Comando para crear mesa ────────────────────────────────────
 export type CrearMesaPayload = CrearMesaCommand;
+
+// ─── Unir mesas ──────────────────────────────────────────────────
+export type UnirMesasPayload = UnirMesasCommand;
 
 // ─── Ubicaciones (CRUD) ──────────────────────────────────────────
 export type UbicacionDto = ContractUbicacionDto;

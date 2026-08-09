@@ -155,6 +155,190 @@ describe('AppService — Mesas', () => {
     });
   });
 
+  describe('unirMesas', () => {
+    const mesaA = { id: 'm-a', numero: 1, capacidad: 4, grupoId: null, cuentaAsociada: null, estado: MesaEstado.Libre };
+    const mesaB = { id: 'm-b', numero: 2, capacidad: 4, grupoId: null, cuentaAsociada: null, estado: MesaEstado.Libre };
+
+    it('rechaza con menos de 2 mesas distintas', async () => {
+      await expect(service.unirMesas(['m-a'])).rejects.toThrow('al menos 2 mesas');
+      await expect(service.unirMesas(['m-a', 'm-a'])).rejects.toThrow('al menos 2 mesas');
+    });
+
+    it('rechaza si alguna mesa no existe', async () => {
+      mockPrisma.mesa.findMany.mockResolvedValue([mesaA]);
+      await expect(service.unirMesas(['m-a', 'm-b'])).rejects.toThrow(NotFoundException);
+    });
+
+    it('rechaza mesas virtuales (numero >= 90, canales delivery/llevar)', async () => {
+      mockPrisma.mesa.findMany.mockResolvedValue([mesaA, { ...mesaB, numero: 99 }]);
+      await expect(service.unirMesas(['m-a', 'm-b'])).rejects.toThrow('virtual');
+    });
+
+    it('rechaza si las mesas ya pertenecen a grupos distintos', async () => {
+      mockPrisma.mesa.findMany.mockResolvedValue([{ ...mesaA, grupoId: 'g1' }, { ...mesaB, grupoId: 'g2' }]);
+      await expect(service.unirMesas(['m-a', 'm-b'])).rejects.toThrow('grupos distintos');
+    });
+
+    it('rechaza si las mesas tienen cuentas abiertas distintas', async () => {
+      mockPrisma.mesa.findMany.mockResolvedValue([{ ...mesaA, cuentaAsociada: 'c1' }, { ...mesaB, cuentaAsociada: 'c2' }]);
+      await expect(service.unirMesas(['m-a', 'm-b'])).rejects.toThrow('cuentas abiertas distintas');
+    });
+
+    it('une dos mesas libres: la anfitriona es la primera de la selección y ninguna cambia de estado', async () => {
+      mockPrisma.mesa.findMany.mockResolvedValueOnce([mesaA, mesaB]);
+      mockPrisma.mesa.update.mockImplementation(({ where, data }: any) =>
+        Promise.resolve({ id: where.id, numero: where.id === 'm-a' ? 1 : 2, ...data, ubicacion: ubicacionBase }),
+      );
+
+      const result = await service.unirMesas(['m-a', 'm-b']);
+
+      expect(result.mesas.every((m) => m.grupoId === 'm-a')).toBe(true);
+      expect(mockPrisma.mesa.update).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { id: 'm-a' }, data: { grupoId: 'm-a' } }),
+      );
+    });
+
+    it('une una mesa ocupada con una libre: la libre hereda estado y cuenta, la anfitriona es la ocupada', async () => {
+      const ocupada = { ...mesaA, estado: MesaEstado.Ocupada, cuentaAsociada: 'c-1' };
+      mockPrisma.mesa.findMany.mockResolvedValueOnce([ocupada, mesaB]);
+      mockPrisma.mesa.update.mockImplementation(({ where, data }: any) =>
+        Promise.resolve({ id: where.id, numero: where.id === 'm-a' ? 1 : 2, ...data, ubicacion: ubicacionBase }),
+      );
+
+      const result = await service.unirMesas(['m-a', 'm-b']);
+
+      expect(mockPrisma.mesa.update).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { id: 'm-b' }, data: { grupoId: 'm-a', estado: MesaEstado.Ocupada, cuentaAsociada: 'c-1' } }),
+      );
+      expect(result.mesas.every((m) => m.grupoId === 'm-a')).toBe(true);
+    });
+
+    it('amplía un grupo existente arrastrando también a los miembros que no vinieron en esta selección', async () => {
+      const anfitrionaYaAgrupada = { ...mesaA, grupoId: 'm-a' };
+      const miembroPrevio = { id: 'm-c', numero: 3, capacidad: 4, grupoId: 'm-a', cuentaAsociada: null, estado: MesaEstado.Libre };
+      mockPrisma.mesa.findMany
+        .mockResolvedValueOnce([anfitrionaYaAgrupada, mesaB]) // seleccionadas
+        .mockResolvedValueOnce([anfitrionaYaAgrupada, miembroPrevio]); // miembros previos del grupo m-a
+      mockPrisma.mesa.update.mockImplementation(({ where, data }: any) =>
+        Promise.resolve({ id: where.id, numero: 1, ...data, ubicacion: ubicacionBase }),
+      );
+
+      const result = await service.unirMesas(['m-a', 'm-b']);
+
+      const idsActualizados = result.mesas.map((m) => m.id).sort();
+      expect(idsActualizados).toEqual(['m-a', 'm-b', 'm-c']);
+    });
+  });
+
+  describe('separarMesas', () => {
+    it('lanza NotFoundException si la mesa no existe', async () => {
+      mockPrisma.mesa.findUnique.mockResolvedValue(null);
+      await expect(service.separarMesas('inexistente')).rejects.toThrow(NotFoundException);
+    });
+
+    it('rechaza si la mesa no está unida a otras', async () => {
+      mockPrisma.mesa.findUnique.mockResolvedValue({ ...mesaBase, grupoId: null });
+      await expect(service.separarMesas('m-001')).rejects.toThrow('no está unida');
+    });
+
+    it('rechaza con 409 si el grupo tiene una cuenta compartida abierta', async () => {
+      mockPrisma.mesa.findUnique.mockResolvedValue({ ...mesaBase, grupoId: 'm-001' });
+      mockPrisma.mesa.findMany.mockResolvedValue([{ ...mesaBase, grupoId: 'm-001', cuentaAsociada: 'c-1' }]);
+      await expect(service.separarMesas('m-001')).rejects.toThrow(ConflictException);
+    });
+
+    it('separa todas las mesas del grupo cuando no hay cuenta activa', async () => {
+      mockPrisma.mesa.findUnique.mockResolvedValue({ ...mesaBase, id: 'm-001', grupoId: 'm-001' });
+      mockPrisma.mesa.findMany.mockResolvedValue([
+        { id: 'm-001', numero: 1, grupoId: 'm-001', cuentaAsociada: null },
+        { id: 'm-002', numero: 2, grupoId: 'm-001', cuentaAsociada: null },
+      ]);
+      mockPrisma.mesa.update.mockImplementation(({ where, data }: any) =>
+        Promise.resolve({ id: where.id, numero: where.id === 'm-001' ? 1 : 2, ...data, ubicacion: ubicacionBase }),
+      );
+
+      const result = await service.separarMesas('m-001');
+
+      expect(result.mesas).toHaveLength(2);
+      expect(result.mesas.every((m) => m.grupoId === null)).toBe(true);
+    });
+  });
+
+  describe('propagarCuentaAGrupo', () => {
+    it('no hace nada si la mesa disparadora no está agrupada', async () => {
+      mockPrisma.mesa.findUnique.mockResolvedValue({ ...mesaBase, grupoId: null });
+      await service.propagarCuentaAGrupo('m-001', 'c-1', MesaEstado.Ocupada);
+      expect(mockPrisma.mesa.findMany).not.toHaveBeenCalled();
+    });
+
+    it('omite hermanas que ya tienen el mismo estado y cuenta (sin transacción de más)', async () => {
+      mockPrisma.mesa.findUnique.mockResolvedValue({ ...mesaBase, id: 'm-001', grupoId: 'm-001' });
+      mockPrisma.mesa.findMany.mockResolvedValue([
+        { id: 'm-002', numero: 2, estado: MesaEstado.Ocupada, cuentaAsociada: 'c-1' },
+      ]);
+      await service.propagarCuentaAGrupo('m-001', 'c-1', MesaEstado.Ocupada);
+      expect(mockPrisma.$transaction).not.toHaveBeenCalled();
+    });
+
+    it('actualiza a las hermanas del grupo con el mismo estado y cuenta', async () => {
+      mockPrisma.mesa.findUnique.mockImplementation(({ where }: any) => {
+        if (where.id === 'm-001') return Promise.resolve({ ...mesaBase, id: 'm-001', grupoId: 'm-001' });
+        return Promise.resolve({ id: 'm-002', numero: 2, estado: MesaEstado.Libre, cuentaAsociada: null });
+      });
+      mockPrisma.mesa.findMany.mockResolvedValue([{ id: 'm-002', numero: 2, estado: MesaEstado.Libre, cuentaAsociada: null }]);
+      mockPrisma.$transaction.mockImplementation(async (cb: (m: unknown) => unknown) => {
+        const txMock = {
+          ...mockPrisma,
+          mesa: {
+            ...mockPrisma.mesa,
+            updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+            findUnique: jest.fn().mockResolvedValue({ id: 'm-002', numero: 2, estado: MesaEstado.Ocupada, cuentaAsociada: 'c-1', ubicacion: ubicacionBase }),
+          },
+          outboxEvent: { create: jest.fn() },
+        };
+        return cb(txMock);
+      });
+
+      await service.propagarCuentaAGrupo('m-001', 'c-1', MesaEstado.Ocupada);
+
+      expect(mockPrisma.$transaction).toHaveBeenCalled();
+    });
+  });
+
+  describe('liberarGrupo', () => {
+    it('no hace nada si la mesa disparadora no está agrupada', async () => {
+      mockPrisma.mesa.findUnique.mockResolvedValue({ ...mesaBase, grupoId: null });
+      await service.liberarGrupo('m-001');
+      expect(mockPrisma.mesa.findMany).not.toHaveBeenCalled();
+      expect(mockPrisma.mesa.updateMany).not.toHaveBeenCalled();
+    });
+
+    it('libera a las hermanas y desagrupa a todo el grupo (incluida la mesa disparadora)', async () => {
+      mockPrisma.mesa.findUnique.mockImplementation(({ where }: any) => {
+        if (where.id === 'm-001') return Promise.resolve({ ...mesaBase, id: 'm-001', grupoId: 'm-001' });
+        return Promise.resolve({ id: 'm-002', numero: 2, estado: MesaEstado.Ocupada, cuentaAsociada: 'c-1' });
+      });
+      mockPrisma.mesa.findMany.mockResolvedValue([{ id: 'm-002', numero: 2, estado: MesaEstado.Ocupada, cuentaAsociada: 'c-1' }]);
+      mockPrisma.$transaction.mockImplementation(async (cb: (m: unknown) => unknown) => {
+        const txMock = {
+          ...mockPrisma,
+          mesa: {
+            ...mockPrisma.mesa,
+            updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+            findUnique: jest.fn().mockResolvedValue({ id: 'm-002', numero: 2, estado: MesaEstado.Libre, cuentaAsociada: null, ubicacion: ubicacionBase }),
+          },
+          outboxEvent: { create: jest.fn() },
+        };
+        return cb(txMock);
+      });
+      mockPrisma.mesa.updateMany.mockResolvedValue({ count: 2 });
+
+      await service.liberarGrupo('m-001');
+
+      expect(mockPrisma.mesa.updateMany).toHaveBeenCalledWith({ where: { grupoId: 'm-001' }, data: { grupoId: null } });
+    });
+  });
+
   describe('obtenerMesa', () => {
     it('debe retornar la mesa por id', async () => {
       mockPrisma.mesa.findUnique.mockResolvedValue(mesaBase);

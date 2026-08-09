@@ -3,7 +3,7 @@ import * as mesasApi from '../../api/mesas.api';
 import { mapMesas, mapMesa } from '../../mappers/mesa.mapper';
 import { queryClient, retrySalvo404, refetchSiError } from '../../api/queryClient';
 import { primerMensaje } from '../../utils/feedback';
-import type { CrearMesaPayload, EstadoMesa, MesaVM } from '../../types/mesa.types';
+import type { CrearMesaPayload, EstadoMesa, MesaVM, UnirMesasPayload } from '../../types/mesa.types';
 
 export const MESAS_QUERY_KEY = ['mesas'];
 
@@ -62,15 +62,35 @@ export function useMesasQuery() {
     },
   });
 
+  // Unir/separar tocan varias mesas a la vez — más simple invalidar y
+  // refrescar que parchear el cache mesa por mesa.
+  const mutationUnir = useMutation({
+    mutationFn: (payload: UnirMesasPayload) => mesasApi.unirMesas(payload),
+    onSettled: () => {
+      void queryClient.invalidateQueries({ queryKey: MESAS_QUERY_KEY });
+    },
+  });
+
+  const mutationSeparar = useMutation({
+    mutationFn: (mesaId: string) => mesasApi.separarMesas(mesaId),
+    onSettled: () => {
+      void queryClient.invalidateQueries({ queryKey: MESAS_QUERY_KEY });
+    },
+  });
+
   return {
     mesas: query.data ?? [],
     loading: query.isLoading,
-    saving: mutationCrear.isPending || mutationEstado.isPending,
+    saving: mutationCrear.isPending || mutationEstado.isPending || mutationUnir.isPending || mutationSeparar.isPending,
     loadError: query.isError ? query.error.message : null,
-    error: query.isError ? query.error.message : mutationCrear.error?.message || mutationEstado.error?.message || null,
+    error:
+      query.isError ? query.error.message
+        : mutationCrear.error?.message || mutationEstado.error?.message || mutationUnir.error?.message || mutationSeparar.error?.message || null,
     success: primerMensaje(
       [mutationCrear.isSuccess, 'Mesa creada.'],
       [mutationEstado.isSuccess, 'Estado actualizado.'],
+      [mutationUnir.isSuccess, 'Mesas unidas.'],
+      [mutationSeparar.isSuccess, 'Mesas separadas.'],
     ),
     fetch: query.refetch,
     crearMesa: async (payload: CrearMesaPayload) => {
@@ -79,9 +99,13 @@ export function useMesasQuery() {
     optimisticCambiarEstado: async (id: string, estado: EstadoMesa) => {
       return mutationEstado.mutateAsync({ id, estado });
     },
+    unirMesas: (mesaIds: string[]) => mutationUnir.mutateAsync({ mesaIds }),
+    separarMesas: (mesaId: string) => mutationSeparar.mutateAsync(mesaId),
     clearFeedback: () => {
       mutationCrear.reset();
       mutationEstado.reset();
+      mutationUnir.reset();
+      mutationSeparar.reset();
     },
   };
 }

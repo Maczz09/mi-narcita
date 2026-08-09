@@ -34,7 +34,9 @@ describe('MesasScreen', () => {
     (useAuthStore as any).mockReturnValue('ADMIN'); // rol
     (useMesasQuery as any).mockReturnValue({
       mesas: [], loading: false, saving: false, loadError: null, error: null, success: null,
-      fetch: vi.fn(), crearMesa: vi.fn().mockResolvedValue(true), clearFeedback: vi.fn()
+      fetch: vi.fn(), crearMesa: vi.fn().mockResolvedValue(true),
+      unirMesas: vi.fn().mockResolvedValue(true), separarMesas: vi.fn().mockResolvedValue(true),
+      clearFeedback: vi.fn()
     });
     (useUbicacionesQuery as any).mockReturnValue({
       ubicaciones: [{ id: 'u-terraza', nombre: 'Terraza' }, { id: 'u-vip', nombre: 'VIP' }],
@@ -152,6 +154,92 @@ describe('MesasScreen', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Nuevo pedido' }));
     expect(screen.getByTestId('comandero')).toBeInTheDocument();
     fireEvent.click(screen.getByText('Created Comandero'));
+  });
+
+  it('modo unir mesas: selecciona 2 mesas y confirma la unión', async () => {
+    const unirMesas = vi.fn().mockResolvedValue(true);
+    (useMesasQuery as any).mockReturnValue({
+      mesas: [
+        { id: 'm1', numero: '01', numeroRaw: 1, capacidad: 4, ubicacion: 'Terraza', estado: 'LIBRE', grupoId: null },
+        { id: 'm2', numero: '02', numeroRaw: 2, capacidad: 2, ubicacion: 'Terraza', estado: 'LIBRE', grupoId: null },
+      ],
+      fetch: vi.fn(), crearMesa: vi.fn(), unirMesas, separarMesas: vi.fn(), clearFeedback: vi.fn(),
+    });
+
+    renderScreen();
+
+    fireEvent.click(screen.getByRole('button', { name: /Unir mesas/i }));
+    expect(screen.getByText(/Toca 2 o más mesas/)).toBeInTheDocument();
+
+    const tiles = screen.getAllByRole('button').filter((b) => b.className.includes('mesa-tile'));
+    expect(tiles).toHaveLength(2);
+    fireEvent.click(tiles[0]);
+    fireEvent.click(tiles[1]);
+
+    const confirmar = screen.getByRole('button', { name: /^Unir$/ });
+    expect(confirmar).not.toBeDisabled();
+    fireEvent.click(confirmar);
+
+    await waitFor(() => expect(unirMesas).toHaveBeenCalledWith(['m1', 'm2']));
+  });
+
+  it('muestra "Unida con Mesa X" y el botón Separar en el drawer de una mesa agrupada', () => {
+    (useMesasQuery as any).mockReturnValue({
+      mesas: [
+        { id: 'm1', numero: '01', numeroRaw: 1, capacidad: 4, ubicacion: 'Terraza', estado: 'LIBRE', grupoId: 'm1' },
+        { id: 'm2', numero: '02', numeroRaw: 2, capacidad: 2, ubicacion: 'Terraza', estado: 'LIBRE', grupoId: 'm1' },
+      ],
+      fetch: vi.fn(), crearMesa: vi.fn(), unirMesas: vi.fn(), separarMesas: vi.fn(), clearFeedback: vi.fn(),
+    });
+    (useCuentasQuery as any).mockReturnValue({ cuentaActiva: null, loading: false });
+
+    renderScreen();
+
+    const tiles = screen.getAllByRole('button').filter((b) => b.className.includes('mesa-tile'));
+    fireEvent.click(tiles[0]); // abre el drawer de la mesa 01 (anfitriona)
+
+    expect(screen.getByText(/Unida con Mesa 02/)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Separar' })).toBeEnabled();
+  });
+
+  it('separa las mesas desde el drawer', async () => {
+    const separarMesas = vi.fn().mockResolvedValue(true);
+    (useMesasQuery as any).mockReturnValue({
+      mesas: [
+        { id: 'm1', numero: '01', numeroRaw: 1, capacidad: 4, ubicacion: 'Terraza', estado: 'LIBRE', grupoId: 'm1' },
+        { id: 'm2', numero: '02', numeroRaw: 2, capacidad: 2, ubicacion: 'Terraza', estado: 'LIBRE', grupoId: 'm1' },
+      ],
+      fetch: vi.fn(), crearMesa: vi.fn(), unirMesas: vi.fn(), separarMesas, clearFeedback: vi.fn(),
+    });
+    (useCuentasQuery as any).mockReturnValue({ cuentaActiva: null, loading: false });
+
+    renderScreen();
+
+    const tiles = screen.getAllByRole('button').filter((b) => b.className.includes('mesa-tile'));
+    fireEvent.click(tiles[0]);
+    fireEvent.click(screen.getByRole('button', { name: 'Separar' }));
+
+    await waitFor(() => expect(separarMesas).toHaveBeenCalledWith('m1'));
+  });
+
+  it('deshabilita Separar mientras la mesa unida está ocupada (cuenta compartida abierta)', () => {
+    (useMesasQuery as any).mockReturnValue({
+      mesas: [
+        { id: 'm1', numero: '01', numeroRaw: 1, capacidad: 4, ubicacion: 'Terraza', estado: 'OCUPADA', grupoId: 'm1' },
+        { id: 'm2', numero: '02', numeroRaw: 2, capacidad: 2, ubicacion: 'Terraza', estado: 'OCUPADA', grupoId: 'm1' },
+      ],
+      fetch: vi.fn(), crearMesa: vi.fn(), unirMesas: vi.fn(), separarMesas: vi.fn(), clearFeedback: vi.fn(),
+    });
+    (useCuentasQuery as any).mockReturnValue({
+      cuentaActiva: { pedidos: [], createdAt: new Date().toISOString(), cantidadItems: 0, total: 0 }, loading: false,
+    });
+
+    renderScreen();
+
+    const tiles = screen.getAllByRole('button').filter((b) => b.className.includes('mesa-tile'));
+    fireEvent.click(tiles[0]);
+
+    expect(screen.getByRole('button', { name: 'Separar' })).toBeDisabled();
   });
 
   it('atencion multiple waiters', () => {

@@ -12,6 +12,8 @@ vi.mock('../../api/mesas.api', () => ({
   getAll: vi.fn(),
   cambiarEstado: vi.fn(),
   crear: vi.fn(),
+  unirMesas: vi.fn(),
+  separarMesas: vi.fn(),
 }));
 
 vi.mock('../../mappers/mesa.mapper', () => ({
@@ -154,6 +156,34 @@ describe('useMesasQuery', () => {
 
     result.current.clearFeedback();
     await waitFor(() => expect(result.current.error).toBeNull());
+  });
+
+  it('should unirMesas and invalidate the mesas cache', async () => {
+    vi.mocked(mesasApi.getAll).mockResolvedValue([] as any);
+    vi.mocked(mesasApi.unirMesas).mockResolvedValue([{ id: 'm1' }, { id: 'm2' }] as any);
+
+    const { result } = renderHook(() => useMesasQuery(), { wrapper: createWrapper() });
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    await result.current.unirMesas(['m1', 'm2']);
+
+    expect(mesasApi.unirMesas).toHaveBeenCalledWith({ mesaIds: ['m1', 'm2'] });
+    expect(queryClient.invalidateQueries).toHaveBeenCalledWith({ queryKey: MESAS_QUERY_KEY });
+    await waitFor(() => expect(result.current.success).toBe('Mesas unidas.'));
+  });
+
+  it('should separarMesas and invalidate the mesas cache', async () => {
+    vi.mocked(mesasApi.getAll).mockResolvedValue([] as any);
+    vi.mocked(mesasApi.separarMesas).mockResolvedValue([{ id: 'm1' }] as any);
+
+    const { result } = renderHook(() => useMesasQuery(), { wrapper: createWrapper() });
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    await result.current.separarMesas('m1');
+
+    expect(mesasApi.separarMesas).toHaveBeenCalledWith('m1');
+    expect(queryClient.invalidateQueries).toHaveBeenCalledWith({ queryKey: MESAS_QUERY_KEY });
+    await waitFor(() => expect(result.current.success).toBe('Mesas separadas.'));
   });
 
   it('should expose fetch', async () => {

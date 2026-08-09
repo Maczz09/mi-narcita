@@ -1,7 +1,7 @@
 import { Controller, Get, Post, Body, Param, Patch, Delete, ParseUUIDPipe, UseGuards } from '@nestjs/common';
 import { Roles, RolesGuard } from '@org/shared-auth';
 import { AppService } from './app.service';
-import { CrearMesaCommand, ActualizarEstadoMesaCommand, CrearUbicacionCommand, ActualizarUbicacionCommand } from '@org/contracts';
+import { CrearMesaCommand, ActualizarEstadoMesaCommand, CrearUbicacionCommand, ActualizarUbicacionCommand, UnirMesasCommand } from '@org/contracts';
 
 // Salón: lo consultan/operan mesero, cajero y recepción (mapa de roles del PWA).
 @UseGuards(RolesGuard)
@@ -56,5 +56,16 @@ export class AppController {
   @Patch(':id/estado')
   actualizarEstado(@Param('id', ParseUUIDPipe) id: string, @Body() body: ActualizarEstadoMesaCommand) {
     return this.appService.actualizarEstado(id, body);
+  }
+
+  // Unir/separar mesas: tarea operativa de salón, mismo alcance de roles que el resto del recurso.
+  @Post('unir')
+  unirMesas(@Body() body: UnirMesasCommand) {
+    return this.appService.unirMesas(body.mesaIds);
+  }
+
+  @Post(':id/separar')
+  separarMesas(@Param('id', ParseUUIDPipe) id: string) {
+    return this.appService.separarMesas(id);
   }
 }

@@ -9,6 +9,7 @@ import type {
   UbicacionDto,
   CrearUbicacionPayload,
   ActualizarUbicacionPayload,
+  UnirMesasPayload,
 } from '../types/mesa.types';
 
 /** GET /mesas — Listar todas las mesas */
@@ -59,4 +60,16 @@ export async function actualizarUbicacion(id: string, payload: ActualizarUbicaci
 /** DELETE /mesas/ubicaciones/:id — Eliminar ubicación (falla si tiene mesas asociadas) */
 export async function eliminarUbicacion(id: string): Promise<void> {
   await client.delete(`/mesas/ubicaciones/${id}`);
+}
+
+/** POST /mesas/unir — Unir 2+ mesas en un solo grupo con cuenta compartida */
+export async function unirMesas(payload: UnirMesasPayload): Promise<MesaDto[]> {
+  const response = await client.post<MesaDto[] | { mesas: MesaDto[] }>('/mesas/unir', payload);
+  return unwrapArray<MesaDto>(response, 'mesas');
+}
+
+/** POST /mesas/:id/separar — Separar el grupo de mesas al que pertenece `id` */
+export async function separarMesas(id: string): Promise<MesaDto[]> {
+  const response = await client.post<MesaDto[] | { mesas: MesaDto[] }>(`/mesas/${id}/separar`);
+  return unwrapArray<MesaDto>(response, 'mesas');
 }

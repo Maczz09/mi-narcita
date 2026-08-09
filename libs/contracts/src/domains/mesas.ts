@@ -1,4 +1,4 @@
-import { IsString, IsNumber, IsOptional, IsEnum } from 'class-validator';
+import { IsString, IsNumber, IsOptional, IsEnum, IsArray, ArrayMinSize } from 'class-validator';
 
 export const MesaEstado = {
   Libre: 'LIBRE',
@@ -24,6 +24,9 @@ export class MesaDto {
   @IsOptional()
   @IsString()
   cuentaAsociada?: string | null;
+  @IsOptional()
+  @IsString()
+  grupoId?: string | null;
 }
 
 export class UbicacionDto {
@@ -78,4 +81,11 @@ export class ActualizarEstadoMesaCommand {
   @IsOptional()
   @IsString()
   cuentaAsociada?: string | null;
+}
+
+export class UnirMesasCommand {
+  @IsArray()
+  @ArrayMinSize(2)
+  @IsString({ each: true })
+  mesaIds: string[];
 }

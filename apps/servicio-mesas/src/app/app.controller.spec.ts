@@ -28,6 +28,8 @@ describe('AppController — Mesas', () => {
       crearUbicacion: jest.fn() as any,
       actualizarUbicacion: jest.fn() as any,
       eliminarUbicacion: jest.fn() as any,
+      unirMesas: jest.fn() as any,
+      separarMesas: jest.fn() as any,
     } as unknown as jest.Mocked<AppService>;
 
     const module: TestingModule = await Test.createTestingModule({
@@ -148,6 +150,46 @@ describe('AppController — Mesas', () => {
       const { ConflictException } = await import('@nestjs/common');
       (appService.eliminarUbicacion as unknown as any).mockRejectedValue(new ConflictException('No se puede eliminar: tiene 3 mesa(s) asociada(s).'));
       await expect(controller.eliminarUbicacion('u-001')).rejects.toThrow('No se puede eliminar');
+    });
+  });
+
+  describe('unirMesas', () => {
+    it('une mesas', async () => {
+      const expected = { message: 'Mesas unidas exitosamente', mesas: [mesaDto] };
+      (appService.unirMesas as unknown as any).mockResolvedValue(expected);
+
+      const result = await controller.unirMesas({ mesaIds: ['m-001', 'm-002'] });
+
+      expect(result).toEqual(expected);
+      expect(appService.unirMesas).toHaveBeenCalledWith(['m-001', 'm-002']);
+    });
+
+    it('propaga BadRequestException si hay cuentas distintas', async () => {
+      const { BadRequestException } = await import('@nestjs/common');
+      (appService.unirMesas as unknown as any).mockRejectedValue(
+        new BadRequestException('No se pueden unir mesas con cuentas abiertas distintas.'),
+      );
+      await expect(controller.unirMesas({ mesaIds: ['m-001', 'm-002'] })).rejects.toThrow('cuentas abiertas distintas');
+    });
+  });
+
+  describe('separarMesas', () => {
+    it('separa mesas', async () => {
+      const expected = { message: 'Mesas separadas exitosamente', mesas: [mesaDto] };
+      (appService.separarMesas as unknown as any).mockResolvedValue(expected);
+
+      const result = await controller.separarMesas('m-001');
+
+      expect(result).toEqual(expected);
+      expect(appService.separarMesas).toHaveBeenCalledWith('m-001');
+    });
+
+    it('propaga ConflictException si la cuenta compartida sigue abierta', async () => {
+      const { ConflictException } = await import('@nestjs/common');
+      (appService.separarMesas as unknown as any).mockRejectedValue(
+        new ConflictException('No se puede separar: el grupo tiene una cuenta compartida abierta.'),
+      );
+      await expect(controller.separarMesas('m-001')).rejects.toThrow('cuenta compartida abierta');
     });
   });
 

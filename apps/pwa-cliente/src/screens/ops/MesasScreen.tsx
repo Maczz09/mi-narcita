@@ -46,16 +46,34 @@ export function MesasScreen() {
   const { toast } = useToast();
   const rol = useAuthStore((s) => s.user?.rol);
   const puedeCrearMesa = rol === 'ADMIN' || rol === 'SISTEMA';
-  const { mesas, loading, saving, loadError, error, success, fetch, crearMesa, clearFeedback } = useMesasQuery();
+  const { mesas, loading, saving, loadError, error, success, fetch, crearMesa, unirMesas, separarMesas, clearFeedback } = useMesasQuery();
   const { ubicaciones: ubicacionesCrud } = useUbicacionesQuery();
   const [ubicacion, setUbicacion] = useState('TODAS');
   const [sel, setSel] = useState<MesaVM | null>(null);
   const [mesaForm, setMesaForm] = useState<CrearMesaPayload>(INITIAL_MESA_FORM);
   const [comandero, setComandero] = useState<ComanderoState>({ open: false });
   const [gestionUbicaciones, setGestionUbicaciones] = useState(false);
+  const [modoUnir, setModoUnir] = useState(false);
+  const [seleccionUnir, setSeleccionUnir] = useState<Set<string>>(new Set());
 
   // Sólo mesas físicas (excluir virtuales 98/99 de delivery/llevar)
   const fisicas = useMemo(() => mesas.filter((m) => m.numeroRaw < 90), [mesas]);
+
+  // Unir mesas: todas las mesas de un mismo grupo (grupoId), agrupadas por id.
+  const gruposPorId = useMemo(() => {
+    const mapa = new Map<string, MesaVM[]>();
+    for (const m of fisicas) {
+      if (!m.grupoId) continue;
+      const lista = mapa.get(m.grupoId) ?? [];
+      lista.push(m);
+      mapa.set(m.grupoId, lista);
+    }
+    return mapa;
+  }, [fisicas]);
+  const hermanasDe = (m: MesaVM): MesaVM[] => (m.grupoId ? (gruposPorId.get(m.grupoId) ?? []).filter((h) => h.id !== m.id) : []);
+  // Pedidos/cobros de cualquier mesa del grupo se toman contra la anfitriona
+  // (grupoId apunta a su propio id) — así comparten una sola cuenta real.
+  const anfitrionaDe = (m: MesaVM): MesaVM => (m.grupoId ? fisicas.find((x) => x.id === m.grupoId) ?? m : m);
 
   const ubicacionesFiltro = useMemo(
     () => ['TODAS', ...ubicacionesCrud.map((u) => u.nombre)],
@@ -122,6 +140,40 @@ export function MesasScreen() {
     setMesaForm((current) => ({ ...current, [key]: value }));
   };
 
+  const toggleModoUnir = () => {
+    setModoUnir((v) => !v);
+    setSeleccionUnir(new Set());
+  };
+
+  const toggleSeleccionUnir = (mesaId: string) => {
+    setSeleccionUnir((prev) => {
+      const next = new Set(prev);
+      if (next.has(mesaId)) next.delete(mesaId); else next.add(mesaId);
+      return next;
+    });
+  };
+
+  const handleUnir = async () => {
+    if (seleccionUnir.size < 2 || !online) return;
+    try {
+      await unirMesas([...seleccionUnir]);
+      setModoUnir(false);
+      setSeleccionUnir(new Set());
+    } catch (e) {
+      toast({ title: 'No se pudieron unir las mesas', msg: e instanceof Error ? e.message : 'Inténtalo de nuevo', icon: 'Alert', kind: 'err' });
+    }
+  };
+
+  const handleSeparar = async (mesaId: string) => {
+    if (!online) return;
+    try {
+      await separarMesas(mesaId);
+      setSel(null);
+    } catch (e) {
+      toast({ title: 'No se pudieron separar las mesas', msg: e instanceof Error ? e.message : 'Inténtalo de nuevo', icon: 'Alert', kind: 'err' });
+    }
+  };
+
   // ─── Loading ────────────────────────────────────────────────
   if (loading && mesas.length === 0) {
     return (
@@ -162,8 +214,23 @@ export function MesasScreen() {
         </div>
         <span className="spacer" />
         <button className="btn btn-ghost btn-sm" onClick={() => fetch()} title="Refrescar mesas" aria-label="Refrescar mesas"><Icons.Refresh s={16} /></button>
+        <button className={`btn btn-sm ${modoUnir ? 'btn-primary' : 'btn-ghost'}`} disabled={!online} onClick={toggleModoUnir}>
+          <Icons.Layers s={16} /> {modoUnir ? 'Cancelar unión' : 'Unir mesas'}
+        </button>
         <button className="btn btn-primary" onClick={() => setComandero({ open: true, modoAgregar: false })}><Icons.Plus s={16} /> Nuevo pedido</button>
       </div>
+
+      {modoUnir && (
+        <output className="banner info module-feedback" role="status" aria-live="polite">
+          <Icons.Layers s={17} />
+          <span>Toca 2 o más mesas para unirlas en una sola cuenta compartida. Seleccionadas: {seleccionUnir.size}.</span>
+          <span className="spacer" />
+          <button className="btn btn-sm btn-primary" disabled={seleccionUnir.size < 2 || saving} onClick={() => void handleUnir()}>
+            {saving ? <span className="spinner" style={{ width: 14, height: 14, borderWidth: 2 }} /> : <Icons.Check s={14} />} Unir
+          </button>
+          <button className="btn btn-sm btn-ghost" onClick={toggleModoUnir}>Cancelar</button>
+        </output>
+      )}
 
       {!online && (
         <output className="banner warn module-feedback" role="alert">
@@ -206,7 +273,14 @@ export function MesasScreen() {
 
           <div className="mesa-floor">
             {visibles.map((m) => (
-              <MesaTile key={m.id} mesa={m} onSelect={() => setSel(m)} />
+              <MesaTile
+                key={m.id}
+                mesa={m}
+                hermanas={hermanasDe(m)}
+                modoUnir={modoUnir}
+                seleccionada={seleccionUnir.has(m.id)}
+                onSelect={() => (modoUnir ? toggleSeleccionUnir(m.id) : setSel(m))}
+              />
             ))}
             {visibles.length === 0 && (
               <div className="empty mesas-empty">
@@ -291,10 +365,13 @@ export function MesasScreen() {
       {sel && (
         <MesaDrawer
           mesa={sel}
+          hermanas={hermanasDe(sel)}
+          online={online}
           onClose={() => setSel(null)}
-          onCobrar={() => { const id = sel.id; setSel(null); navigate(`/app/caja?mesaId=${id}`); }}
-          onTomar={() => { setComandero({ open: true, mesaId: sel.id, mesaNumero: sel.numero, mesaUbicacion: sel.ubicacion, modoAgregar: false }); setSel(null); }}
-          onAgregar={() => { setComandero({ open: true, mesaId: sel.id, mesaNumero: sel.numero, mesaUbicacion: sel.ubicacion, modoAgregar: true }); setSel(null); }}
+          onSeparar={() => void handleSeparar(sel.id)}
+          onCobrar={() => { const anfitriona = anfitrionaDe(sel); setSel(null); navigate(`/app/caja?mesaId=${anfitriona.id}`); }}
+          onTomar={() => { const anfitriona = anfitrionaDe(sel); setComandero({ open: true, mesaId: anfitriona.id, mesaNumero: anfitriona.numero, mesaUbicacion: anfitriona.ubicacion, modoAgregar: false }); setSel(null); }}
+          onAgregar={() => { const anfitriona = anfitrionaDe(sel); setComandero({ open: true, mesaId: anfitriona.id, mesaNumero: anfitriona.numero, mesaUbicacion: anfitriona.ubicacion, modoAgregar: true }); setSel(null); }}
         />
       )}
 
@@ -315,7 +392,10 @@ export function MesasScreen() {
 
 interface MesaDrawerProps {
   mesa: MesaVM;
+  hermanas: MesaVM[];
+  online: boolean;
   onClose: () => void;
+  onSeparar: () => void;
   onCobrar: () => void;
   onTomar: () => void;
   onAgregar: () => void;
@@ -323,6 +403,9 @@ interface MesaDrawerProps {
 
 interface MesaDrawerBodyProps {
   mesa: MesaVM;
+  hermanas: MesaVM[];
+  online: boolean;
+  onSeparar: () => void;
   ocupada: boolean;
   loading: boolean;
   cuentaActiva: CuentaVM | null | undefined;
@@ -331,27 +414,53 @@ interface MesaDrawerBodyProps {
   now: number;
 }
 
-function MesaDrawerBody({ mesa: m, ocupada, loading, cuentaActiva, items, atencion, now }: Readonly<MesaDrawerBodyProps>) {
+function GrupoUnidoBanner({ hermanas, online, ocupada, onSeparar }: Readonly<{ hermanas: MesaVM[]; online: boolean; ocupada: boolean; onSeparar: () => void }>) {
+  if (hermanas.length === 0) return null;
+  const numeros = hermanas.map((h) => h.numero).join(', ');
+  return (
+    <div className="banner info" style={{ marginBottom: 12 }}>
+      <Icons.Layers s={16} />
+      <span>Unida con Mesa {numeros} · cuenta compartida.</span>
+      <span className="spacer" />
+      <button
+        className="btn btn-sm btn-ghost"
+        disabled={!online || ocupada}
+        title={ocupada ? 'Cobra o cierra la cuenta compartida antes de separar' : 'Separar mesas'}
+        onClick={onSeparar}
+      >
+        Separar
+      </button>
+    </div>
+  );
+}
+
+function MesaDrawerBody({ mesa: m, hermanas, online, onSeparar, ocupada, loading, cuentaActiva, items, atencion, now }: Readonly<MesaDrawerBodyProps>) {
+  const grupoBanner = <GrupoUnidoBanner hermanas={hermanas} online={online} ocupada={ocupada} onSeparar={onSeparar} />;
+
   if (!ocupada) {
     if (m.estado === 'RESERVADA') {
-      return <div className="banner info"><Icons.Reservas s={16} /><span>Mesa reservada.</span></div>;
+      return <><div className="banner info"><Icons.Reservas s={16} /><span>Mesa reservada.</span></div></>;
     }
     return (
-      <div className="empty" style={{ padding: 28 }}>
-        <div className="e-ic"><Icons.Mesas s={24} /></div>
-        <h3>Mesa libre</h3>
-        <p>Toma un nuevo pedido para abrir la cuenta de esta mesa.</p>
-      </div>
+      <>
+        {grupoBanner}
+        <div className="empty" style={{ padding: 28 }}>
+          <div className="e-ic"><Icons.Mesas s={24} /></div>
+          <h3>Mesa libre</h3>
+          <p>Toma un nuevo pedido para abrir la cuenta de esta mesa.</p>
+        </div>
+      </>
     );
   }
   if (loading) {
     return <div className="muted" style={{ padding: 16, textAlign: 'center' }}>Cargando cuenta…</div>;
   }
   if (!cuentaActiva) {
-    return <div className="banner info"><Icons.Receipt s={16} /><span>Mesa ocupada sin cuenta cargada. Toma un pedido para abrirla.</span></div>;
+    return <><div className="banner info"><Icons.Receipt s={16} /><span>Mesa ocupada sin cuenta cargada. Toma un pedido para abrirla.</span></div></>;
   }
   return (
     <>
+      {grupoBanner}
       <div className="mesa-open-meta">
         <div>
           <span className="k">Atiende</span>
@@ -420,7 +529,7 @@ function MesaDrawerFoot({ ocupada, estado, onCobrar, onTomar, onAgregar, onClose
   );
 }
 
-function MesaDrawer({ mesa: m, onClose, onCobrar, onTomar, onAgregar }: Readonly<MesaDrawerProps>) {
+function MesaDrawer({ mesa: m, hermanas, online, onClose, onSeparar, onCobrar, onTomar, onAgregar }: Readonly<MesaDrawerProps>) {
   const ocupada = m.estado === 'OCUPADA';
   const { cuentaActiva, loading } = useCuentasQuery(ocupada ? m.id : undefined);
   const now = useNow();
@@ -452,6 +561,9 @@ function MesaDrawer({ mesa: m, onClose, onCobrar, onTomar, onAgregar }: Readonly
         <div className="drawer-body">
           <MesaDrawerBody
             mesa={m}
+            hermanas={hermanas}
+            online={online}
+            onSeparar={onSeparar}
             ocupada={ocupada}
             loading={loading}
             cuentaActiva={cuentaActiva}
@@ -477,23 +589,38 @@ function MesaDrawer({ mesa: m, onClose, onCobrar, onTomar, onAgregar }: Readonly
 
 interface MesaTileProps {
   mesa: MesaVM;
+  hermanas: MesaVM[];
+  modoUnir: boolean;
+  seleccionada: boolean;
   onSelect: () => void;
 }
 
-function MesaTile({ mesa: m, onSelect }: Readonly<MesaTileProps>) {
+function MesaTile({ mesa: m, hermanas, modoUnir, seleccionada, onSelect }: Readonly<MesaTileProps>) {
   const ocupada = m.estado === 'OCUPADA';
   const meta = EST_META[m.estado];
   const now = useNow();
   const { cuentaActiva, loading } = useCuentasQuery(ocupada ? m.id : undefined);
   const atencion = cuentaActiva ? atencionDeCuenta(cuentaActiva) : null;
+  const unida = hermanas.length > 0;
 
   return (
-    <button className={`mesa-tile ${meta.cls}`} onClick={onSelect}>
+    <button
+      className={`mesa-tile ${meta.cls} ${seleccionada ? 'sel-unir' : ''}`}
+      onClick={onSelect}
+      aria-pressed={modoUnir ? seleccionada : undefined}
+    >
       <div className="mt-top">
         <span className="mt-num">{m.numero}</span>
-        <span className="mt-cap"><Icons.Users2 s={12} /> {m.capacidad}</span>
+        {modoUnir ? (
+          <span className={`mt-check ${seleccionada ? 'on' : ''}`}><Icons.Check s={12} /></span>
+        ) : (
+          <span className="mt-cap"><Icons.Users2 s={12} /> {m.capacidad}</span>
+        )}
       </div>
-      <div className="mt-zone">{m.ubicacion}</div>
+      <div className="mt-zone">
+        {m.ubicacion}
+        {unida && <span title={`Unida con Mesa ${hermanas.map((h) => h.numero).join(', ')}`}> · <Icons.Layers s={11} /> unida</span>}
+      </div>
       {ocupada && cuentaActiva ? (
         <div className="mt-live">
           <span title={atencion?.title}>{atencion?.label ?? 'Sin asignar'}</span>

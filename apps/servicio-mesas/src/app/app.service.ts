@@ -1,4 +1,4 @@
-import { Injectable, ConflictException, NotFoundException, Logger } from '@nestjs/common';
+import { Injectable, ConflictException, NotFoundException, BadRequestException, Logger } from '@nestjs/common';
 import { OperableLog } from '@org/observabilidad';
 import { PrismaService } from '../prisma/prisma.service';
 import {
@@ -136,6 +136,145 @@ export class AppService {
       throw new NotFoundException(`Mesa con ID ${id} no encontrada.`);
     }
     return this.toMesaDto(mesa);
+  }
+
+  // --- UNIR MESAS ---
+  // Todas las mesas de un grupo (incluida la anfitriona) comparten
+  // grupoId = id de la mesa anfitriona. Los pedidos/cobros de cualquier
+  // mesa del grupo se toman contra la anfitriona (routing en el PWA); acá
+  // solo se mantiene el estado/cuenta visible en sincro para todo el grupo.
+
+  async unirMesas(mesaIds: string[]): Promise<{ message: string; mesas: MesaDto[] }> {
+    const idsUnicos = Array.from(new Set(mesaIds));
+    if (idsUnicos.length < 2) {
+      throw new BadRequestException('Selecciona al menos 2 mesas distintas para unir.');
+    }
+
+    const seleccionadas = await this.prisma.mesa.findMany({ where: { id: { in: idsUnicos } } });
+    if (seleccionadas.length !== idsUnicos.length) {
+      throw new NotFoundException('Una o más mesas no existen.');
+    }
+    const virtual = seleccionadas.find((m) => m.numero >= 90);
+    if (virtual) {
+      throw new BadRequestException(`La mesa ${virtual.numero} es virtual (delivery/llevar) y no se puede unir.`);
+    }
+
+    const gruposExistentes = new Set(seleccionadas.map((m) => m.grupoId).filter((g): g is string => g != null));
+    if (gruposExistentes.size > 1) {
+      throw new BadRequestException('Las mesas seleccionadas ya pertenecen a grupos distintos. Sepáralas primero.');
+    }
+
+    const cuentasActivas = new Set(seleccionadas.map((m) => m.cuentaAsociada).filter((c): c is string => c != null));
+    if (cuentasActivas.size > 1) {
+      throw new BadRequestException('No se pueden unir mesas con cuentas abiertas distintas. Cobra o cierra una primero.');
+    }
+    const cuentaCompartida = [...cuentasActivas][0] ?? null;
+
+    // Si ya son parte de un grupo, se conserva su anfitriona; si no, la
+    // anfitriona es la mesa con la cuenta activa (si hay) o la primera elegida.
+    const grupoExistente = [...gruposExistentes][0];
+    const anfitrionaId = grupoExistente
+      ?? seleccionadas.find((m) => cuentaCompartida && m.cuentaAsociada === cuentaCompartida)?.id
+      ?? idsUnicos[0];
+
+    // Si se está ampliando un grupo existente, hay que arrastrar también a
+    // los miembros que ya estaban en él y no vinieron en esta selección.
+    const miembrosPrevios = grupoExistente
+      ? await this.prisma.mesa.findMany({ where: { grupoId: grupoExistente } })
+      : [];
+    const todasLasMesas = new Map([...miembrosPrevios, ...seleccionadas].map((m) => [m.id, m]));
+
+    const actualizadas = await this.prisma.$transaction(async (prisma) => {
+      const resultados: MesaConUbicacion[] = [];
+      for (const mesa of todasLasMesas.values()) {
+        const data: { grupoId: string; estado?: MesaEstado; cuentaAsociada?: string } = { grupoId: anfitrionaId };
+        if (cuentaCompartida) {
+          data.estado = MesaEstado.Ocupada;
+          data.cuentaAsociada = cuentaCompartida;
+        }
+        const actualizada = await prisma.mesa.update({ where: { id: mesa.id }, data, include: { ubicacion: true } });
+        resultados.push(actualizada);
+        await prisma.outboxEvent.create({
+          data: {
+            routingKey: RoutingKeys.MesaActualizada,
+            payload: JSON.stringify({ mesa: this.toMesaDto(actualizada) }),
+            status: 'PENDING',
+          },
+        });
+      }
+      return resultados;
+    });
+
+    this.logger.log({
+      operation: 'unirMesas',
+      aggregateId: anfitrionaId,
+      message: `Mesas unidas: ${actualizadas.map((m) => m.numero).join(', ')}.`,
+    } satisfies OperableLog);
+
+    return { message: 'Mesas unidas exitosamente', mesas: actualizadas.map((m) => this.toMesaDto(m)) };
+  }
+
+  async separarMesas(mesaId: string): Promise<{ message: string; mesas: MesaDto[] }> {
+    const mesa = await this.prisma.mesa.findUnique({ where: { id: mesaId } });
+    if (!mesa) throw new NotFoundException(`Mesa con ID ${mesaId} no encontrada.`);
+    if (!mesa.grupoId) {
+      throw new BadRequestException('Esta mesa no está unida a otras.');
+    }
+
+    const grupoId = mesa.grupoId;
+    const miembros = await this.prisma.mesa.findMany({ where: { grupoId } });
+    if (miembros.some((m) => m.cuentaAsociada)) {
+      throw new ConflictException('No se puede separar: el grupo tiene una cuenta compartida abierta. Cóbrala o ciérrala primero.');
+    }
+
+    const actualizadas = await this.prisma.$transaction(async (prisma) => {
+      const resultados: MesaConUbicacion[] = [];
+      for (const m of miembros) {
+        const actualizada = await prisma.mesa.update({ where: { id: m.id }, data: { grupoId: null }, include: { ubicacion: true } });
+        resultados.push(actualizada);
+        await prisma.outboxEvent.create({
+          data: {
+            routingKey: RoutingKeys.MesaActualizada,
+            payload: JSON.stringify({ mesa: this.toMesaDto(actualizada) }),
+            status: 'PENDING',
+          },
+        });
+      }
+      return resultados;
+    });
+
+    this.logger.log({
+      operation: 'separarMesas',
+      aggregateId: grupoId,
+      message: `Mesas separadas: ${actualizadas.map((m) => m.numero).join(', ')}.`,
+    } satisfies OperableLog);
+
+    return { message: 'Mesas separadas exitosamente', mesas: actualizadas.map((m) => this.toMesaDto(m)) };
+  }
+
+  /** Propaga estado/cuenta de una mesa a sus hermanas de grupo (evento CuentaAbierta). */
+  async propagarCuentaAGrupo(mesaId: string, cuentaId: string, estado: MesaEstado): Promise<void> {
+    const mesa = await this.prisma.mesa.findUnique({ where: { id: mesaId } });
+    if (!mesa?.grupoId) return;
+
+    const hermanas = await this.prisma.mesa.findMany({ where: { grupoId: mesa.grupoId, id: { not: mesaId } } });
+    for (const hermana of hermanas) {
+      if (hermana.estado === estado && hermana.cuentaAsociada === cuentaId) continue;
+      await this.actualizarEstado(hermana.id, { estado, cuentaAsociada: cuentaId });
+    }
+  }
+
+  /** Libera y desagrupa todo el grupo cuando su cuenta compartida se cierra (evento CuentaCerrada). */
+  async liberarGrupo(mesaId: string): Promise<void> {
+    const mesa = await this.prisma.mesa.findUnique({ where: { id: mesaId } });
+    if (!mesa?.grupoId) return;
+
+    const grupoId = mesa.grupoId;
+    const miembros = await this.prisma.mesa.findMany({ where: { grupoId, id: { not: mesaId } } });
+    for (const miembro of miembros) {
+      await this.actualizarEstado(miembro.id, { estado: MesaEstado.Libre, cuentaAsociada: null });
+    }
+    await this.prisma.mesa.updateMany({ where: { grupoId }, data: { grupoId: null } });
   }
 
   // --- UBICACIONES ---

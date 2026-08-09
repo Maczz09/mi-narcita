@@ -28,6 +28,9 @@ export class EventsController {
       estado: 'OCUPADA',
       cuentaAsociada: payload.cuentaId,
     });
+    // Unir mesas: si esta mesa está agrupada, sus hermanas comparten la
+    // misma cuenta y deben verse OCUPADAS con ella también.
+    await this.appService.propagarCuentaAGrupo(payload.mesaId, payload.cuentaId, 'OCUPADA');
     this.logger.log({
       operation: 'handleCuentaAbierta',
       aggregateId: payload.mesaId,
@@ -50,6 +53,9 @@ export class EventsController {
       estado: 'LIBRE',
       cuentaAsociada: null,
     });
+    // Unir mesas: la cuenta compartida se cerró — libera y desagrupa a
+    // todo el grupo, no solo a la mesa que disparó el evento.
+    await this.appService.liberarGrupo(payload.mesaId);
     this.logger.log({
       operation: 'handleCuentaCerrada',
       aggregateId: payload.mesaId,

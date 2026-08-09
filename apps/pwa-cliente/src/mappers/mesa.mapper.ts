@@ -26,6 +26,7 @@ export function mapMesa(dto: MesaDto): MesaVM {
     cuentaAsociada: dto.cuentaAsociada ?? null,
     estadoClass: ESTADO_CSS[dto.estado] ?? '',
     estadoLabel: ESTADO_LABEL[dto.estado] ?? dto.estado,
+    grupoId: dto.grupoId ?? null,
   };
 }
 

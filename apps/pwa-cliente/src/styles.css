@@ -1349,7 +1349,11 @@ fieldset { border: 0; padding: 0; margin: 0; min-width: 0; }
 .mt-num { font-size: 24px; font-weight: 800; letter-spacing: -.02em; color: var(--text); }
 .mesa-tile.ocupada .mt-num { color: var(--accent-text); }
 .mt-cap { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; font-weight: 700; color: var(--muted); }
-.mt-zone { font-size: 12px; font-weight: 600; color: var(--muted); }
+.mt-zone { font-size: 12px; font-weight: 600; color: var(--muted); display: flex; align-items: center; gap: 3px; }
+/* Unir mesas: check de selección (modo unión) y borde de mesa ya unida */
+.mt-check { width: 20px; height: 20px; border-radius: 50%; border: 1.5px solid var(--border-strong); display: grid; place-items: center; color: transparent; flex: none; }
+.mt-check.on { background: var(--accent); border-color: var(--accent); color: var(--accent-contrast, #fff); }
+.mesa-tile.sel-unir { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent); }
 .mt-foot { margin-top: auto; display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
 .mt-live { display: grid; gap: 3px; min-width: 0; font-size: 12px; font-weight: 700; color: var(--accent-text); }
 .mt-live span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

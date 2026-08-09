@@ -22,11 +22,17 @@ model Mesa {
   ubicacion      Ubicacion  @relation(fields: [ubicacionId], references: [id])
   estado         MesaEstado @default(LIBRE)
   cuentaAsociada String?
+  // Unir mesas: todas las mesas de un mismo grupo (incluida la anfitriona)
+  // comparten el mismo grupoId = id de la mesa anfitriona. null = no unida.
+  grupoId        String?
+  grupo          Mesa?      @relation("GrupoMesas", fields: [grupoId], references: [id])
+  mesasDelGrupo  Mesa[]     @relation("GrupoMesas")
   createdAt      DateTime   @default(now())
   updatedAt      DateTime   @updatedAt
 
   @@index([estado])
   @@index([ubicacionId])
+  @@index([grupoId])
   @@map("mesas")
 }
 
