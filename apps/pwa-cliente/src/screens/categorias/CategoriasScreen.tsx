@@ -28,7 +28,8 @@ export function CategoriasScreen() {
     actualizarCategoria,
     eliminarCategoria,
     clearFeedback,
-  } = useInventarioQuery(undefined, { limit: 200 });
+  // El backend valida limit <= 100 (ListarProductosQuery); 200 rompía la carga.
+  } = useInventarioQuery(undefined, { limit: 100 });
 
   const [form, setForm] = useState(INITIAL_FORM);
   const [edit, setEdit] = useState<CategoriaDto | null>(null);

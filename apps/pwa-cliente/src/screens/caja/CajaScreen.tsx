@@ -16,6 +16,7 @@ import { MovimientoModal } from './MovimientoModal';
 import { CierreDrawer } from './CierreDrawer';
 import { CobroMesaDrawer } from './CobroMesaDrawer';
 import { AperturaCajaModal } from './AperturaCajaModal';
+import { TransaccionDetalleDrawer } from './TransaccionDetalleDrawer';
 import type { MovimientoCajaDto } from '../../types/caja.types';
 import type { MesaVM } from '../../types/mesa.types';
 
@@ -68,6 +69,7 @@ export function CajaScreen() {
   const [modal, setModal] = useState<Modal>(null);
   const [cobro, setCobro] = useState<CobroState | null>(null);
   const [cobroPicker, setCobroPicker] = useState(false);
+  const [detalleTx, setDetalleTx] = useState<{ transaccionId: string; cuentaId: string | null } | null>(null);
 
   const movs = resumen?.movimientos ?? [];
   const k = useMemo(() => computeKpis(movs, resumen?.efectivoEsperado ?? 0), [movs, resumen?.efectivoEsperado]);
@@ -163,24 +165,39 @@ export function CajaScreen() {
           <div className="mov-table-wrap table-wrap table-wrap-flat">
             <table className="dt">
               <thead>
-                <tr><th>Hora</th><th>Detalle</th><th className="col-mobile-hidden">TX</th><th className="col-mobile-hidden">Método</th><th style={{ textAlign: 'right' }}>Monto</th></tr>
+                <tr><th>Hora</th><th>Detalle</th><th className="col-mobile-hidden">TX</th><th className="col-mobile-hidden">Método</th><th style={{ textAlign: 'right' }}>Monto</th><th className="cell-action"></th></tr>
               </thead>
               <tbody>
-                {movs.map((m) => <MovRow key={m.id} m={m} />)}
+                {movs.map((m) => (
+                  <MovRow key={m.id} m={m} onVerDetalle={m.tipo === 'VENTA' && m.transaccionId ? () => setDetalleTx({ transaccionId: m.transaccionId!, cuentaId: m.cuentaId }) : undefined} />
+                ))}
               </tbody>
             </table>
           </div>
           <div className="mov-list panel">
-            {movs.map((m) => (
-              <div className="mov-card" key={m.id}>
-                <span className="mc-hora">{horaOf(m.createdAt)}</span>
-                <span className="mc-tipo">{m.tipo} {m.donde}</span>
-                <span className="mc-monto">{fmt(Math.abs(m.monto))}</span>
-                <div className="mc-meta">
-                  <span className="badge badge-muted">{METODO_META[m.metodo]?.label ?? m.metodo}</span>
+            {movs.map((m) => {
+              const verDetalle = m.tipo === 'VENTA' && m.transaccionId
+                ? () => setDetalleTx({ transaccionId: m.transaccionId!, cuentaId: m.cuentaId })
+                : undefined;
+              return (
+                <div
+                  className="mov-card"
+                  key={m.id}
+                  role={verDetalle ? 'button' : undefined}
+                  tabIndex={verDetalle ? 0 : undefined}
+                  style={verDetalle ? { cursor: 'pointer' } : undefined}
+                  onClick={verDetalle}
+                >
+                  <span className="mc-hora">{horaOf(m.createdAt)}</span>
+                  <span className="mc-tipo">{m.tipo} {m.donde}</span>
+                  <span className="mc-monto">{fmt(Math.abs(m.monto))}</span>
+                  <div className="mc-meta">
+                    <span className="badge badge-muted">{METODO_META[m.metodo]?.label ?? m.metodo}</span>
+                    {verDetalle && <span className="muted" style={{ fontSize: 11 }}>Ver detalle</span>}
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </section>
 
@@ -252,6 +269,14 @@ export function CajaScreen() {
         />
       )}
 
+      {detalleTx && (
+        <TransaccionDetalleDrawer
+          transaccionId={detalleTx.transaccionId}
+          cuentaId={detalleTx.cuentaId}
+          onClose={() => setDetalleTx(null)}
+        />
+      )}
+
       {cobro && (
         <CobroMesaDrawer
           mesaId={cobro.mesaId}
@@ -303,7 +328,7 @@ export function CajaScreen() {
   );
 }
 
-function MovRow({ m }: Readonly<{ m: MovimientoCajaDto }>) {
+function MovRow({ m, onVerDetalle }: Readonly<{ m: MovimientoCajaDto; onVerDetalle?: () => void }>) {
   const apertura = m.tipo === 'APERTURA';
   const egreso = m.tipo === 'EGRESO';
   const ingreso = m.tipo === 'INGRESO';
@@ -340,6 +365,13 @@ function MovRow({ m }: Readonly<{ m: MovimientoCajaDto }>) {
         <span className="monto" style={montoStyle}>{signo}{fmt(Math.abs(m.monto))}</span>
         {m.descuento ? <div className="muted" style={{ fontSize: 11 }}>Subtotal {fmt(Math.abs(m.monto) + m.descuento)}</div> : null}
         {m.propina ? <div className="muted" style={{ fontSize: 11 }}>+{fmt(m.propina)} prop.</div> : null}
+      </td>
+      <td className="cell-action">
+        {onVerDetalle && (
+          <button className="btn btn-sm btn-ghost" onClick={onVerDetalle} aria-label={`Ver detalle del cobro de ${m.donde}`}>
+            Ver detalle
+          </button>
+        )}
       </td>
     </tr>
   );

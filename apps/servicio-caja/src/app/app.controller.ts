@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Query, Param, UseGuards, UseInterceptors } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Body, Query, Param, UseGuards, UseInterceptors } from '@nestjs/common';
 import { Roles, RolesGuard } from '@org/shared-auth';
 import { IdempotencyInterceptor } from '@org/resiliencia';
 import { AppService } from './app.service';
@@ -6,6 +6,7 @@ import { ListarTransaccionesQuery, ListarTurnosQuery, TransaccionListResponse, T
 import { UsuarioActual } from '@org/observabilidad';
 import {
   AbrirTurnoCajaCommand,
+  ActualizarTransaccionCommand,
   CerrarTurnoCajaCommand,
   CrearMovimientoCajaCommand,
   PagarCuentaCajaCommand,
@@ -104,5 +105,17 @@ export class AppController {
     @UsuarioActual() usuarioId: string | null,
   ) {
     return this.appService.cerrarTurno(id, body, usuarioId);
+  }
+
+  // Detalle/edición de una transacción — después de las rutas 'turnos/*'
+  // para que ':id' no las capture (mismo orden de ruteo que el resto).
+  @Get(':id')
+  obtenerTransaccion(@Param('id') id: string) {
+    return this.appService.obtenerTransaccion(id);
+  }
+
+  @Patch(':id')
+  actualizarTransaccion(@Param('id') id: string, @Body() body: ActualizarTransaccionCommand) {
+    return this.appService.actualizarTransaccion(id, body);
   }
 }

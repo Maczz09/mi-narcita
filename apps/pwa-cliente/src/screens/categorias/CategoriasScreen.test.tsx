@@ -46,6 +46,12 @@ describe('CategoriasScreen', () => {
     vi.mocked(useInventarioQuery).mockReturnValue(baseMock() as any);
   });
 
+  it('pide productos con un limit permitido por el backend (<=100)', () => {
+    render(<CategoriasScreen />);
+    const [, options] = vi.mocked(useInventarioQuery).mock.calls[0];
+    expect((options as any).limit).toBeLessThanOrEqual(100);
+  });
+
   it('renderiza la lista con el conteo de productos por categoría', () => {
     render(<CategoriasScreen />);
     expect(screen.getByRole('heading', { level: 1, name: 'Categorías' })).toBeInTheDocument();

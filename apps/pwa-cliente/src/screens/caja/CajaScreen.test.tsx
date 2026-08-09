@@ -88,6 +88,15 @@ vi.mock('./CobroMesaDrawer', () => ({
   )
 }));
 
+vi.mock('./TransaccionDetalleDrawer', () => ({
+  TransaccionDetalleDrawer: ({ transaccionId, cuentaId, onClose }: any) => (
+    <div data-testid="tx-detalle-drawer">
+      <span>{transaccionId} · {cuentaId}</span>
+      <button onClick={onClose}>Close Detalle</button>
+    </div>
+  )
+}));
+
 const mockTurno = {
   id: 'turno1',
   abiertoAt: new Date().toISOString(),
@@ -100,7 +109,8 @@ const mockResumen = {
   movimientos: [
     { id: 'm1', createdAt: new Date().toISOString(), tipo: 'APERTURA', donde: 'Caja Principal', metodo: 'EFECTIVO', monto: 100, descuento: 0, propina: 0 },
     { id: 'm2', createdAt: new Date().toISOString(), tipo: 'INGRESO', donde: 'Venta', metodo: 'EFECTIVO', monto: 50, descuento: 10, propina: 5, transaccionId: 'txn123' },
-    { id: 'm3', createdAt: new Date().toISOString(), tipo: 'EGRESO', donde: 'Compra', metodo: 'EFECTIVO', monto: -30, motivo: 'motivo test' }
+    { id: 'm3', createdAt: new Date().toISOString(), tipo: 'EGRESO', donde: 'Compra', metodo: 'EFECTIVO', monto: -30, motivo: 'motivo test' },
+    { id: 'm4', createdAt: new Date().toISOString(), tipo: 'VENTA', donde: 'Mesa 5', metodo: 'EFECTIVO', monto: 45, descuento: 0, propina: 0, transaccionId: 'txn-venta-1', cuentaId: 'cuenta-1' },
   ]
 };
 
@@ -247,6 +257,49 @@ describe('CajaScreen', () => {
     // onPaid
     fireEvent.click(screen.getByText('Paid Cobro'));
     expect(toastMock).toHaveBeenCalledWith(expect.objectContaining({ title: 'Pago registrado correctamente.' }));
+  });
+
+  it('abre el detalle de un cobro (VENTA) y lo cierra', () => {
+    vi.mocked(useCajaQuery).mockReturnValue({
+      resumen: mockResumen,
+      turno: mockTurno,
+      loading: false,
+      error: null,
+      abrirTurno: vi.fn(),
+      crearMovimiento: vi.fn(),
+      cerrarTurno: vi.fn()
+    } as any);
+
+    render(<CajaScreen />);
+
+    expect(screen.queryByTestId('tx-detalle-drawer')).toBeNull();
+
+    const botones = screen.getAllByRole('button', { name: /Ver detalle/i });
+    fireEvent.click(botones[0]);
+
+    expect(screen.getByTestId('tx-detalle-drawer')).toBeDefined();
+    expect(screen.getByText('txn-venta-1 · cuenta-1')).toBeDefined();
+
+    fireEvent.click(screen.getByText('Close Detalle'));
+    expect(screen.queryByTestId('tx-detalle-drawer')).toBeNull();
+  });
+
+  it('no ofrece "Ver detalle" para movimientos que no son VENTA', () => {
+    vi.mocked(useCajaQuery).mockReturnValue({
+      resumen: mockResumen,
+      turno: mockTurno,
+      loading: false,
+      error: null,
+      abrirTurno: vi.fn(),
+      crearMovimiento: vi.fn(),
+      cerrarTurno: vi.fn()
+    } as any);
+
+    render(<CajaScreen />);
+
+    // Solo hay 1 VENTA en el mock (m4); INGRESO/EGRESO/APERTURA no cuentan.
+    const botones = screen.getAllByRole('button', { name: /Ver detalle/i });
+    expect(botones).toHaveLength(2); // tabla + tarjeta mobile del mismo movimiento
   });
 
   it('handles empty picker', () => {

@@ -1,11 +1,13 @@
 import { client } from './client';
 import type {
   AbrirTurnoPayload,
+  ActualizarTransaccionPayload,
   CajaResumenDto,
   CerrarTurnoPayload,
   CrearMovimientoCajaPayload,
   ListarTurnosQuery,
   MovimientoCajaDto,
+  TransaccionDto,
   TurnoCajaDto,
   TurnoListResponse,
 } from '../types/caja.types';
@@ -39,4 +41,14 @@ export function crearMovimiento(turnoId: string, payload: CrearMovimientoCajaPay
 
 export function cerrarTurno(turnoId: string, payload: CerrarTurnoPayload) {
   return client.post(`/caja/turnos/${turnoId}/cerrar`, payload);
+}
+
+/** GET /caja/:id — Detalle de una transacción (cobro) */
+export function obtenerTransaccion(id: string): Promise<TransaccionDto> {
+  return client.get<TransaccionDto>(`/caja/${id}`);
+}
+
+/** PATCH /caja/:id — Corrige método de pago y/o notas de un cobro ya cerrado */
+export function actualizarTransaccion(id: string, payload: ActualizarTransaccionPayload): Promise<{ message: string; transaccion: TransaccionDto }> {
+  return client.patch<{ message: string; transaccion: TransaccionDto }>(`/caja/${id}`, payload);
 }

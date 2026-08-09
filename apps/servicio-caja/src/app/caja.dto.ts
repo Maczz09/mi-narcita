@@ -127,3 +127,16 @@ export class TransaccionesBulkQuery {
   @IsArray()
   cuentaIds?: string[];
 }
+
+// Edición acotada a lo que no rompe el cuadre de caja del turno: monto,
+// descuento e ítems de una transacción ya cerrada quedan fijos a propósito.
+export class ActualizarTransaccionCommand {
+  @IsOptional()
+  @IsIn(MetodoPagoCaja)
+  metodo?: (typeof MetodoPagoCaja)[number];
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(240)
+  notas?: string;
+}

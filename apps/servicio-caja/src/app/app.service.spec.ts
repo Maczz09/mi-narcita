@@ -22,6 +22,7 @@ jest.mock('@org/resiliencia', () => {
   };
 });
 
+import { NotFoundException } from '@nestjs/common';
 import { AppService } from './app.service';
 import { CuentasHttpClient } from './cuentas-http.client';
 
@@ -34,6 +35,8 @@ function createMockPrismaService(): any {
     transaccion: {
       create: jest.fn(),
       findMany: jest.fn(),
+      findUnique: jest.fn(),
+      update: jest.fn(),
       aggregate: jest.fn(),
     },
     outboxEvent: {
@@ -50,6 +53,7 @@ function createMockPrismaService(): any {
     },
     movimientoCaja: {
       create: jest.fn(),
+      updateMany: jest.fn(),
     },
     $executeRaw: jest.fn(),
   };
@@ -286,6 +290,64 @@ describe('AppService — Caja', () => {
       expect(result.data).toHaveLength(2);
       expect(result.data[0].monto).toBe(50);
       expect(result.data[1].monto).toBe(80);
+    });
+  });
+
+  describe('obtenerTransaccion', () => {
+    it('devuelve el detalle de la transacción', async () => {
+      mockPrisma.transaccion.findUnique.mockResolvedValue({
+        id: 't-001', cuentaId: 'c-001', monto: 50, descuento: 0, metodo: 'EFECTIVO', referencia: null, notas: null, createdAt: new Date(),
+      });
+
+      const result = await service.obtenerTransaccion('t-001');
+
+      expect(result.id).toBe('t-001');
+      expect(result.metodo).toBe('EFECTIVO');
+    });
+
+    it('lanza NotFoundException si la transacción no existe', async () => {
+      mockPrisma.transaccion.findUnique.mockResolvedValue(null);
+      await expect(service.obtenerTransaccion('inexistente')).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  describe('actualizarTransaccion', () => {
+    it('lanza NotFoundException si la transacción no existe', async () => {
+      mockPrisma.transaccion.findUnique.mockResolvedValue(null);
+      await expect(service.actualizarTransaccion('inexistente', { metodo: 'TARJETA' })).rejects.toThrow(NotFoundException);
+    });
+
+    it('actualiza el método y también corrige el MovimientoCaja vinculado (cuadre de caja)', async () => {
+      mockPrisma.transaccion.findUnique.mockResolvedValue({
+        id: 't-001', cuentaId: 'c-001', monto: 50, descuento: 0, metodo: 'YAPE', referencia: null, notas: null, createdAt: new Date(),
+      });
+      mockPrisma.transaccion.update.mockResolvedValue({
+        id: 't-001', cuentaId: 'c-001', monto: 50, descuento: 0, metodo: 'EFECTIVO', referencia: null, notas: null, createdAt: new Date(),
+      });
+
+      const result = await service.actualizarTransaccion('t-001', { metodo: 'EFECTIVO' });
+
+      expect(result.transaccion.metodo).toBe('EFECTIVO');
+      expect(mockPrisma.transaccion.update).toHaveBeenCalledWith({ where: { id: 't-001' }, data: { metodo: 'EFECTIVO' } });
+      expect(mockPrisma.movimientoCaja.updateMany).toHaveBeenCalledWith({
+        where: { transaccionId: 't-001' },
+        data: { metodo: 'EFECTIVO' },
+      });
+    });
+
+    it('actualiza solo las notas sin tocar el MovimientoCaja (el método no cambió)', async () => {
+      mockPrisma.transaccion.findUnique.mockResolvedValue({
+        id: 't-001', cuentaId: 'c-001', monto: 50, descuento: 0, metodo: 'EFECTIVO', referencia: null, notas: null, createdAt: new Date(),
+      });
+      mockPrisma.transaccion.update.mockResolvedValue({
+        id: 't-001', cuentaId: 'c-001', monto: 50, descuento: 0, metodo: 'EFECTIVO', referencia: null, notas: 'Cliente pidió factura', createdAt: new Date(),
+      });
+
+      const result = await service.actualizarTransaccion('t-001', { notas: 'Cliente pidió factura' });
+
+      expect(result.transaccion.notas).toBe('Cliente pidió factura');
+      expect(mockPrisma.transaccion.update).toHaveBeenCalledWith({ where: { id: 't-001' }, data: { notas: 'Cliente pidió factura' } });
+      expect(mockPrisma.movimientoCaja.updateMany).not.toHaveBeenCalled();
     });
   });
 });

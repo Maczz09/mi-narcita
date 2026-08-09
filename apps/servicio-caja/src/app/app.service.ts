@@ -19,6 +19,7 @@ import {
 import { Prisma } from '../generated/prisma';
 import {
   AbrirTurnoCajaCommand,
+  ActualizarTransaccionCommand,
   CerrarTurnoCajaCommand,
   CrearMovimientoCajaCommand,
   PagarCuentaCajaCommand,
@@ -509,6 +510,55 @@ export class AppService {
       data: data.map((t) => this.mapTransaccion(t)),
       nextCursor: hasMore ? data.at(-1)?.id ?? null : null,
     };
+  }
+
+  async obtenerTransaccion(id: string): Promise<TransaccionDto> {
+    const transaccion = await this.prisma.transaccion.findUnique({ where: { id } });
+    if (!transaccion) {
+      throw new NotFoundException(`Transacción ${id} no encontrada.`);
+    }
+    return this.mapTransaccion(transaccion);
+  }
+
+  /**
+   * Edición acotada a método de pago y notas — el monto/descuento de una
+   * transacción ya cerrada queda fijo a propósito (cambiar el monto después
+   * de cerrada rompería el cuadre de caja del turno). Si cambia el método,
+   * también se corrige el MovimientoCaja vinculado: "Ingresos por método" y
+   * "Efectivo esperado" en el resumen del turno se calculan desde ahí, no
+   * desde la Transacción — sin este paso el cambio se vería pero no cuadraría.
+   */
+  async actualizarTransaccion(
+    id: string,
+    command: ActualizarTransaccionCommand,
+  ): Promise<{ message: string; transaccion: TransaccionDto }> {
+    const existente = await this.prisma.transaccion.findUnique({ where: { id } });
+    if (!existente) {
+      throw new NotFoundException(`Transacción ${id} no encontrada.`);
+    }
+
+    const data: { metodo?: string; notas?: string | null } = {};
+    if (command.metodo !== undefined) data.metodo = command.metodo;
+    if (command.notas !== undefined) data.notas = command.notas;
+
+    const transaccion = await this.prisma.$transaction(async (prisma) => {
+      const actualizada = await prisma.transaccion.update({ where: { id }, data });
+      if (command.metodo !== undefined) {
+        await prisma.movimientoCaja.updateMany({
+          where: { transaccionId: id },
+          data: { metodo: command.metodo },
+        });
+      }
+      return actualizada;
+    });
+
+    this.logger.log({
+      operation: 'actualizarTransaccion',
+      aggregateId: id,
+      message: `Transacción actualizada (metodo=${command.metodo ?? 'sin cambio'}).`,
+    } satisfies OperableLog);
+
+    return { message: 'Transacción actualizada', transaccion: this.mapTransaccion(transaccion) };
   }
 
   /** Historial de turnos (p.ej. cierres de caja pasados). Sin filtro de estado, lista todos. */

@@ -22,6 +22,8 @@ describe('AppController — Caja', () => {
       crearMovimiento: jest.fn().mockResolvedValue({ id: 'mov-1' }),
       registrarArqueo: jest.fn().mockResolvedValue({ id: 'arq-1' }),
       cerrarTurno: jest.fn().mockResolvedValue({ turno: { estado: 'CERRADA' } }),
+      obtenerTransaccion: jest.fn().mockResolvedValue({ id: 't-1' }),
+      actualizarTransaccion: jest.fn().mockResolvedValue({ message: 'Transacción actualizada', transaccion: { id: 't-1' } }),
     };
     controller = new AppController(service as any);
   });
@@ -89,5 +91,16 @@ describe('AppController — Caja', () => {
     const body = { denominaciones: {} } as any;
     await controller.cerrarTurno('turno-1', body, 'u-1');
     expect(service.cerrarTurno).toHaveBeenCalledWith('turno-1', body, 'u-1');
+  });
+
+  it('obtenerTransaccion delega el id', async () => {
+    await controller.obtenerTransaccion('t-1');
+    expect(service.obtenerTransaccion).toHaveBeenCalledWith('t-1');
+  });
+
+  it('actualizarTransaccion delega id y body', async () => {
+    const body = { metodo: 'EFECTIVO' } as any;
+    await controller.actualizarTransaccion('t-1', body);
+    expect(service.actualizarTransaccion).toHaveBeenCalledWith('t-1', body);
   });
 });

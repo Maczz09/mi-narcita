@@ -32,6 +32,26 @@ export interface MovimientoCajaDto {
   createdAt: string;
 }
 
+export interface TransaccionDto {
+  id: string;
+  cuentaId: string;
+  monto: number;
+  descuento: number;
+  metodo: MetodoPagoCaja;
+  referencia: string | null;
+  notas: string | null;
+  usuarioId: string | null;
+  cajeroNombre: string | null;
+  createdAt: string;
+}
+
+/** Edición acotada: el monto/descuento de una venta ya cerrada queda fijo
+ * a propósito (cambiarlo rompería el cuadre de caja del turno). */
+export interface ActualizarTransaccionPayload {
+  metodo?: MetodoPagoCaja;
+  notas?: string;
+}
+
 export interface ArqueoCajaDto {
   id: string;
   turnoId: string;
