@@ -286,4 +286,101 @@ describe('CobroMesaDrawer', () => {
     render(<CobroMesaDrawer mesaId="mesa1" onClose={vi.fn()} />);
     expect(screen.getByText('La cuenta no tiene ítems.')).toBeDefined();
   });
+
+  it('T-16: divide la cuenta en partes iguales y cobra cada parte por separado', async () => {
+    const registrarPago = vi.fn()
+      .mockResolvedValueOnce({ transaccion: { id: 'tx1' }, pendiente: 50 })
+      .mockResolvedValueOnce({ transaccion: { id: 'tx2' }, pendiente: 0 });
+    const onClose = vi.fn();
+    const onPaid = vi.fn();
+    vi.mocked(useCuentasQuery).mockReturnValue({
+      cuentaActiva: mockCuenta, loading: false, error: null, success: null,
+      registrarPago, clearFeedback: vi.fn(),
+    } as any);
+
+    render(<CobroMesaDrawer mesaId="mesa1" mesaNumero="12" onClose={onClose} onPaid={onPaid} />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Partes iguales' }));
+
+    const cobrarParte1 = screen.getByRole('button', { name: /Cobrar parte 1 de 2/i });
+    fireEvent.click(cobrarParte1);
+
+    await waitFor(() => {
+      expect(registrarPago).toHaveBeenNthCalledWith(1, {
+        cuentaId: 'cuenta1',
+        montoRecibido: 50,
+        metodo: 'EFECTIVO',
+        descuento: 0,
+        propina: 0,
+        mesaNumero: '12',
+      });
+    });
+    // Pago parcial: no cierra el drawer todavía, pasa a la parte 2.
+    expect(onClose).not.toHaveBeenCalled();
+    expect(onPaid).not.toHaveBeenCalled();
+
+    const cobrarParte2 = await screen.findByRole('button', { name: /Registrar pago y cerrar cuenta/i });
+    await waitFor(() => expect(cobrarParte2).not.toBeDisabled());
+    fireEvent.click(cobrarParte2);
+
+    await waitFor(() => {
+      expect(registrarPago).toHaveBeenNthCalledWith(2, {
+        cuentaId: 'cuenta1',
+        montoRecibido: 50,
+        metodo: 'EFECTIVO',
+        descuento: 0,
+        propina: 0,
+        mesaNumero: '12',
+      });
+      expect(onPaid).toHaveBeenCalled();
+      expect(onClose).toHaveBeenCalled();
+    });
+  });
+
+  it('T-16: divide la cuenta por plato asignando cada ítem a un comensal', async () => {
+    const registrarPago = vi.fn()
+      .mockResolvedValueOnce({ transaccion: { id: 'tx1' }, pendiente: 40 })
+      .mockResolvedValueOnce({ transaccion: { id: 'tx2' }, pendiente: 0 });
+    vi.mocked(useCuentasQuery).mockReturnValue({
+      cuentaActiva: mockCuenta, loading: false, error: null, success: null,
+      registrarPago, clearFeedback: vi.fn(),
+    } as any);
+
+    render(<CobroMesaDrawer mesaId="mesa1" mesaNumero="12" onClose={vi.fn()} onPaid={vi.fn()} />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Por plato' }));
+
+    // Plato 1 ($60) queda en Comensal 1 (default). Plato 2 ($40) se reasigna a Comensal 2.
+    const chipsC2 = screen.getAllByRole('button', { name: 'C2' });
+    fireEvent.click(chipsC2[1]);
+
+    const cobrarComensal1 = screen.getByRole('button', { name: /Cobrar comensal 1/i });
+    fireEvent.click(cobrarComensal1);
+
+    await waitFor(() => {
+      expect(registrarPago).toHaveBeenNthCalledWith(1, {
+        cuentaId: 'cuenta1',
+        montoRecibido: 60,
+        metodo: 'EFECTIVO',
+        descuento: 0,
+        propina: 0,
+        mesaNumero: '12',
+      });
+    });
+
+    const cobrarComensal2 = await screen.findByRole('button', { name: /Registrar pago y cerrar cuenta/i });
+    await waitFor(() => expect(cobrarComensal2).not.toBeDisabled());
+    fireEvent.click(cobrarComensal2);
+
+    await waitFor(() => {
+      expect(registrarPago).toHaveBeenNthCalledWith(2, {
+        cuentaId: 'cuenta1',
+        montoRecibido: 40,
+        metodo: 'EFECTIVO',
+        descuento: 0,
+        propina: 0,
+        mesaNumero: '12',
+      });
+    });
+  });
 });

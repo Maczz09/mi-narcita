@@ -288,6 +288,18 @@ export class AppService {
       return;
     }
 
+    // T-16 (pagos divididos): un pago parcial no cierra la cuenta — solo el
+    // pago que la deja en 0 pendiente dispara el cierre automático aquí.
+    if (payload.pendiente > 0.01) {
+      this.logger.log({
+        operation: 'procesarPagoRegistrado',
+        aggregateId: payload.cuentaId,
+        resultingState: 'ABIERTA',
+        message: `Pago parcial registrado (transacción ${payload.transaccionId}); cuenta sigue abierta, pendiente ${payload.pendiente}.`,
+      } satisfies OperableLog);
+      return;
+    }
+
     await this.cerrarCuenta(cuenta.id, {});
     this.logger.log({
       operation: 'procesarPagoRegistrado',

@@ -56,7 +56,7 @@ const cases = [
     consumer: 'servicio-pedidos',
     routingKey: RoutingKeys.PagoRegistrado,
     Payload: PagoRegistradoPayload,
-    sample: { transaccionId: 't1', cuentaId: 'c1', mesaId: 'm1', monto: 100, metodo: 'EFECTIVO' },
+    sample: { transaccionId: 't1', cuentaId: 'c1', mesaId: 'm1', monto: 100, metodo: 'EFECTIVO', pendiente: 0 },
     breakPath: (s: { monto?: number }) => { delete s.monto; },
   },
   {

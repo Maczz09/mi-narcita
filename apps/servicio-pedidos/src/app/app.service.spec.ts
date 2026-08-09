@@ -146,7 +146,8 @@ describe('AppService — Pedidos', () => {
         mesaId: 'mesa-1',
         monto: 100,
         metodo: 'EFECTIVO',
-        transaccionId: 'tx-1'
+        transaccionId: 'tx-1',
+        pendiente: 0,
       });
 
       expect(mockPrisma.pedido.updateMany).toHaveBeenCalledWith({
@@ -171,21 +172,27 @@ describe('AppService — Pedidos', () => {
         .mockResolvedValueOnce({ count: 1 })
         .mockResolvedValueOnce({ count: 0 });
 
-      await service.procesarPagoRecibido({ cuentaId: 'c-001', mesaId: 'm-1', monto: 100, metodo: 'EFECTIVO', transaccionId: 'tx-1' });
-      await expect(service.procesarPagoRecibido({ cuentaId: 'c-001', mesaId: 'm-empty', monto: 100, metodo: 'EFECTIVO', transaccionId: 'tx-2' })).resolves.not.toThrow();
+      await service.procesarPagoRecibido({ cuentaId: 'c-001', mesaId: 'm-1', monto: 100, metodo: 'EFECTIVO', transaccionId: 'tx-1', pendiente: 0 });
+      await expect(service.procesarPagoRecibido({ cuentaId: 'c-001', mesaId: 'm-empty', monto: 100, metodo: 'EFECTIVO', transaccionId: 'tx-2', pendiente: 0 })).resolves.not.toThrow();
       expect(mockPrisma.pedido.updateMany).toHaveBeenCalledTimes(2);
     });
 
     it('es idempotente si atrapa error P2002 de base de datos', async () => {
       mockPrisma.$transaction.mockRejectedValueOnce({ code: 'P2002' });
-      await expect(service.procesarPagoRecibido({ cuentaId: 'c-1', mesaId: 'm-1', monto: 1, metodo: 'EF', transaccionId: 'tx-3' })).resolves.toBeUndefined();
+      await expect(service.procesarPagoRecibido({ cuentaId: 'c-1', mesaId: 'm-1', monto: 1, metodo: 'EF', transaccionId: 'tx-3', pendiente: 0 })).resolves.toBeUndefined();
     });
 
     it('re-lanza error si no es P2002', async () => {
       const err = new Error('test db crash');
       (err as any).code = 'P500';
       mockPrisma.$transaction.mockRejectedValueOnce(err);
-      await expect(service.procesarPagoRecibido({ cuentaId: 'c-1', mesaId: 'm-1', monto: 1, metodo: 'EF', transaccionId: 'tx-4' })).rejects.toThrow('test db crash');
+      await expect(service.procesarPagoRecibido({ cuentaId: 'c-1', mesaId: 'm-1', monto: 1, metodo: 'EF', transaccionId: 'tx-4', pendiente: 0 })).rejects.toThrow('test db crash');
+    });
+
+    it('T-16: no marca pedidos como pagados si el pago es parcial (pendiente > 0)', async () => {
+      await service.procesarPagoRecibido({ cuentaId: 'c-001', mesaId: 'm-1', monto: 40, metodo: 'EFECTIVO', transaccionId: 'tx-parcial', pendiente: 37 });
+      expect(mockPrisma.$transaction).not.toHaveBeenCalled();
+      expect(mockPrisma.pedido.updateMany).not.toHaveBeenCalled();
     });
   });
 

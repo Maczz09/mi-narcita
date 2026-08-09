@@ -485,6 +485,17 @@ export class AppService {
   }
 
   async procesarPagoRecibido(payload: PagoRegistradoPayload): Promise<void> {
+    // T-16 (pagos divididos): un pago parcial no marca los pedidos como
+    // pagados — solo el pago que deja la cuenta en 0 pendiente lo hace.
+    if (payload.pendiente > 0.01) {
+      this.logger.log({
+        operation: 'procesarPagoRecibido',
+        aggregateId: payload.cuentaId,
+        message: `Pago parcial (transacción ${payload.transaccionId}); pedidos de la mesa ${payload.mesaId} no se marcan pagados aún.`,
+      } satisfies OperableLog);
+      return;
+    }
+
     this.logger.log({
       operation: 'procesarPagoRecibido',
       aggregateId: payload.cuentaId,
@@ -493,7 +504,10 @@ export class AppService {
 
     try {
       await this.prisma.$transaction(async (prisma) => {
-        await prisma.idempotencyKey.create({ data: { key: `pago:${payload.cuentaId}` } });
+        // Clave por transacción (no por cuenta): con pagos divididos puede
+        // haber varios eventos PagoRegistrado legítimos para la misma
+        // cuenta — uno por parte — y solo el último (pendiente=0) llega aquí.
+        await prisma.idempotencyKey.create({ data: { key: `pago:${payload.transaccionId}` } });
         await prisma.pedido.updateMany({
           where: {
             mesaId: payload.mesaId,

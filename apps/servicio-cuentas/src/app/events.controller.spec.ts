@@ -71,7 +71,8 @@ describe('EventsController (Cuentas)', () => {
       cuentaId: 'c-1',
       mesaId: 'm-1',
       monto: 100,
-      metodo: 'EFECTIVO'
+      metodo: 'EFECTIVO',
+      pendiente: 0,
     };
     await eventsController.handlePagoRegistrado(payload);
     expect(appService.procesarPagoRegistrado).toHaveBeenCalledWith(payload);

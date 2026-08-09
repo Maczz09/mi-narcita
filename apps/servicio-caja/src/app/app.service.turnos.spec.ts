@@ -329,7 +329,7 @@ describe('AppService — Caja (turnos, movimientos, arqueo, cierre)', () => {
       ).rejects.toThrow('No se pudo obtener la cuenta');
     });
 
-    it('rechaza un segundo pago sobre una cuenta que ya pagó (idempotencia de negocio)', async () => {
+    it('rechaza un segundo pago sobre una cuenta que ya pagó por completo (idempotencia de negocio)', async () => {
       prisma.turnoCaja.findFirst.mockResolvedValue({ ...baseTurno });
       jest.mocked(axios.get).mockResolvedValue({ data: { id: 'c-001', mesaId: 'm-001', total: 50, estado: 'ABIERTA' } });
       prisma.cuentaAbierta.upsert.mockResolvedValue({ cuentaId: 'c-001', mesaId: 'm-001', total: 50, estado: 'ABIERTA' });
@@ -337,7 +337,19 @@ describe('AppService — Caja (turnos, movimientos, arqueo, cierre)', () => {
 
       await expect(
         service.registrarPago({ cuentaId: 'c-001', montoRecibido: 50, metodo: 'EFECTIVO' } as any),
-      ).rejects.toThrow('ya tiene un pago registrado');
+      ).rejects.toThrow('ya fue cobrada por completo');
+    });
+
+    it('rechaza un pago (parcial o no) que supera el saldo pendiente de la cuenta (T-16)', async () => {
+      prisma.turnoCaja.findFirst.mockResolvedValue({ ...baseTurno });
+      jest.mocked(axios.get).mockResolvedValue({ data: { id: 'c-001', mesaId: 'm-001', total: 100, estado: 'ABIERTA' } });
+      prisma.cuentaAbierta.upsert.mockResolvedValue({ cuentaId: 'c-001', mesaId: 'm-001', total: 100, estado: 'ABIERTA' });
+      // Ya se pagaron 60 de 100 (una parte previa de un cobro dividido); quedan 40 pendientes.
+      prisma.transaccion.aggregate.mockResolvedValue({ _sum: { monto: 60 } });
+
+      await expect(
+        service.registrarPago({ cuentaId: 'c-001', montoRecibido: 50, metodo: 'EFECTIVO' } as any),
+      ).rejects.toThrow('supera lo pendiente');
     });
 
     it('rechaza el pago si la cuenta ya no está ABIERTA', async () => {

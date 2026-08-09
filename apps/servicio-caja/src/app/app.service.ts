@@ -325,11 +325,15 @@ export class AppService {
     };
   }
 
+  // Tolerancia de 1 céntimo: absorbe el redondeo de dividir un total entre N
+  // partes (p.ej. 100/3 = 33.33+33.33+33.34 puede dejar ±0.01 de residuo).
+  private static readonly TOLERANCIA_CENTAVO = new Prisma.Decimal(0.01);
+
   async registrarPago(
     command: PagarCuentaCajaCommand,
     usuarioId?: string | null,
     cajeroNombre?: string | null,
-  ): Promise<{ message?: string; transaccion: TransaccionDto; ticket?: unknown; turno: unknown }> {
+  ): Promise<{ message?: string; transaccion: TransaccionDto; ticket?: unknown; turno: unknown; pendiente: number }> {
     const turno = await this.prisma.turnoCaja.findFirst({
       where: { estado: 'ABIERTA' },
       orderBy: { abiertoAt: 'desc' },
@@ -356,13 +360,13 @@ export class AppService {
       this.money(cuentaRemota.total).minus(descuento),
     );
 
-    if (!montoRecibido.equals(totalConDescuento)) {
-      throw new BadRequestException(
-        `El pago debe cubrir el total exacto. Total con descuento: ${totalConDescuento.toNumber()}, recibido: ${montoRecibido.toNumber()}.`,
-      );
-    }
-
-    const transaccion = await this.prisma.$transaction(async (prisma: import('../generated/prisma').Prisma.TransactionClient) => {
+    // Pagos divididos (T-16): varias transacciones pueden cubrir una misma
+    // cuenta — cada llamada paga una "parte" (posiblemente con método
+    // distinto). El descuento debe venir IGUAL en todas las partes de un
+    // mismo cobro dividido: totalConDescuento se recalcula en cada llamada
+    // desde cuentaRemota.total (que no cambia hasta el cierre), así que un
+    // descuento inconsistente entre partes correría el total pendiente.
+    const { tx: transaccion, montoPendienteDespues } = await this.prisma.$transaction(async (prisma: import('../generated/prisma').Prisma.TransactionClient) => {
       // classid 1234 compartido entre servicios A PROPOSITO: cada servicio tiene su propia BD (database-per-service), el espacio de locks no se cruza.
       await prisma.$executeRaw`SELECT pg_advisory_xact_lock(1234, ('x' || substr(md5(${command.cuentaId}), 1, 8))::bit(32)::int)`;
 
@@ -390,9 +394,15 @@ export class AppService {
         _sum: { monto: true },
       });
       const montoTotalPagado = this.money(pagosPrevios._sum.monto ?? 0);
+      const montoPendienteAntes = Prisma.Decimal.max(new Prisma.Decimal(0), totalConDescuento.minus(montoTotalPagado));
 
-      if (montoTotalPagado.greaterThan(0)) {
-        throw new BadRequestException('La cuenta ya tiene un pago registrado.');
+      if (montoPendienteAntes.lessThanOrEqualTo(AppService.TOLERANCIA_CENTAVO)) {
+        throw new BadRequestException('La cuenta ya fue cobrada por completo.');
+      }
+      if (montoRecibido.greaterThan(montoPendienteAntes.plus(AppService.TOLERANCIA_CENTAVO))) {
+        throw new BadRequestException(
+          `El pago (${montoRecibido.toNumber()}) supera lo pendiente de la cuenta (${montoPendienteAntes.toNumber()}).`,
+        );
       }
 
       const tx = await prisma.transaccion.create({
@@ -426,12 +436,15 @@ export class AppService {
         },
       });
 
+      const montoPendienteDespues = Prisma.Decimal.max(new Prisma.Decimal(0), montoPendienteAntes.minus(montoRecibido));
+
       const payload: PagoRegistradoPayload = {
         transaccionId: tx.id,
         cuentaId: command.cuentaId,
         mesaId: cuenta.mesaId,
         monto: montoRecibido.toNumber(),
         metodo: command.metodo,
+        pendiente: montoPendienteDespues.toNumber(),
       };
 
       await prisma.outboxEvent.create({
@@ -442,33 +455,36 @@ export class AppService {
         },
       });
 
-      return tx;
+      return { tx, montoPendienteDespues };
     });
 
     let ticket: unknown;
-    const cierreStart = Date.now();
-    try {
-      const cierre = await this.cuentasHttp.cerrarCuenta(command.cuentaId, descuento.toNumber());
-      ticket = (cierre as Record<string, unknown>)?.ticket;
-      await this.prisma.cuentaAbierta.update({
-        where: { cuentaId: command.cuentaId },
-        data: { estado: 'CERRADA', total: totalConDescuento },
-      });
-    } catch (error) {
-      this.pagosCierrePendienteCounter.inc();
-      // Ruta de dinero: el pago SÍ se persistió, la cuenta queda en un estado
-      // degradado real (PAGO_SIN_CIERRE_CONFIRMADO) → resultingState es fiel y
-      // dispara la reconciliación. aggregateId=cuentaId es la clave de búsqueda
-      // de soporte; el id de transacción queda en el message.
-      this.logger.warn({
-        operation: 'cerrarCuenta',
-        aggregateId: command.cuentaId,
-        dependency: 'cuentas',
-        durationMs: Date.now() - cierreStart,
-        errorCode: 'CIERRE_REMOTO_FAILED',
-        resultingState: 'PAGO_SIN_CIERRE_CONFIRMADO',
-        message: `Pago ${transaccion.id} registrado; cierre remoto de cuenta pendiente: ${(error as Error).message}`,
-      } satisfies OperableLog);
+    const cierreCompleta = montoPendienteDespues.lessThanOrEqualTo(AppService.TOLERANCIA_CENTAVO);
+    if (cierreCompleta) {
+      const cierreStart = Date.now();
+      try {
+        const cierre = await this.cuentasHttp.cerrarCuenta(command.cuentaId, descuento.toNumber());
+        ticket = (cierre as Record<string, unknown>)?.ticket;
+        await this.prisma.cuentaAbierta.update({
+          where: { cuentaId: command.cuentaId },
+          data: { estado: 'CERRADA', total: totalConDescuento },
+        });
+      } catch (error) {
+        this.pagosCierrePendienteCounter.inc();
+        // Ruta de dinero: el pago SÍ se persistió, la cuenta queda en un estado
+        // degradado real (PAGO_SIN_CIERRE_CONFIRMADO) → resultingState es fiel y
+        // dispara la reconciliación. aggregateId=cuentaId es la clave de búsqueda
+        // de soporte; el id de transacción queda en el message.
+        this.logger.warn({
+          operation: 'cerrarCuenta',
+          aggregateId: command.cuentaId,
+          dependency: 'cuentas',
+          durationMs: Date.now() - cierreStart,
+          errorCode: 'CIERRE_REMOTO_FAILED',
+          resultingState: 'PAGO_SIN_CIERRE_CONFIRMADO',
+          message: `Pago ${transaccion.id} registrado; cierre remoto de cuenta pendiente: ${(error as Error).message}`,
+        } satisfies OperableLog);
+      }
     }
 
     const transaccionDto = this.mapTransaccion(transaccion);
@@ -477,13 +493,16 @@ export class AppService {
     this.logger.log({
       operation: 'registrarPago',
       aggregateId: command.cuentaId,
-      message: 'Pago registrado para la cuenta.',
+      message: cierreCompleta ? 'Pago registrado para la cuenta (completa el total).' : `Pago parcial registrado; pendiente ${montoPendienteDespues.toNumber()}.`,
     } satisfies OperableLog);
     return {
-      message: ticket ? 'Pago registrado, cuenta cerrada y ticket generado' : 'Pago registrado; cierre de cuenta en proceso',
+      message: !cierreCompleta
+        ? `Pago parcial registrado. Falta ${montoPendienteDespues.toNumber()} por cobrar.`
+        : ticket ? 'Pago registrado, cuenta cerrada y ticket generado' : 'Pago registrado; cierre de cuenta en proceso',
       transaccion: transaccionDto,
       ticket,
       turno: this.mapTurno(turno),
+      pendiente: montoPendienteDespues.toNumber(),
     };
   }
 

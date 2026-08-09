@@ -571,6 +571,7 @@ describe('AppService — Cuentas (comprehensive)', () => {
       mesaId: 'm-001',
       monto: 50,
       metodo: 'EFECTIVO' as const,
+      pendiente: 0,
     };
 
     it('ignora si la cuenta no existe en la BD', async () => {
@@ -597,6 +598,15 @@ describe('AppService — Cuentas (comprehensive)', () => {
       await service.procesarPagoRegistrado(payload);
 
       expect(cerrarSpy).toHaveBeenCalledWith('c-001', {});
+    });
+
+    it('T-16: no cierra la cuenta si el pago fue parcial (pendiente > 0)', async () => {
+      mockPrisma.cuenta.findUnique.mockResolvedValue(cuentaAbierta);
+      const cerrarSpy = jest.spyOn(service, 'cerrarCuenta');
+
+      await service.procesarPagoRegistrado({ ...payload, pendiente: 27 });
+
+      expect(cerrarSpy).not.toHaveBeenCalled();
     });
   });
 });

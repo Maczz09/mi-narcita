@@ -71,6 +71,12 @@ export class PagoRegistradoPayload {
   monto: number;
   @IsString()
   metodo: string;
+  // T-16 (pagos divididos): saldo que queda por cobrar de la cuenta tras
+  // este pago. Los consumidores (cuentas, pedidos) solo deben cerrar la
+  // cuenta / marcar pedidos como pagados cuando llega en 0 — un pago
+  // parcial no debe disparar el cierre.
+  @IsNumber()
+  pendiente: number;
 }
 
 export class ArqueoRealizadoPayload {

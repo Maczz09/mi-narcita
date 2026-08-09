@@ -219,13 +219,34 @@ describe('AppService — Caja', () => {
       );
     });
 
-    it('debe rechazar si el monto no cubre el total exacto de la cuenta', async () => {
+    it('debe rechazar si el monto supera lo pendiente de la cuenta (T-16: pagos parciales)', async () => {
       mockPrisma.turnoCaja.findFirst.mockResolvedValue(turnoAbierto);
       jest.mocked(axios.get).mockResolvedValue({ data: { id: 'c-001', mesaId: 'm-001', total: 50, estado: 'ABIERTA' } });
+      mockPrisma.cuentaAbierta.upsert.mockResolvedValue({ cuentaId: 'c-001', mesaId: 'm-001', total: 50, estado: 'ABIERTA' });
+      mockPrisma.transaccion.aggregate.mockResolvedValue({ _sum: { monto: 0 } });
 
       await expect(
         service.registrarPago({ cuentaId: 'c-001', montoRecibido: 60, metodo: 'EFECTIVO' })
-      ).rejects.toThrow('total exacto');
+      ).rejects.toThrow('supera lo pendiente');
+    });
+
+    it('acepta un pago parcial y devuelve el saldo pendiente sin cerrar la cuenta (T-16)', async () => {
+      mockPrisma.turnoCaja.findFirst.mockResolvedValue(turnoAbierto);
+      jest.mocked(axios.get).mockResolvedValue({ data: { id: 'c-001', mesaId: 'm-001', total: 100, estado: 'ABIERTA' } });
+      mockPrisma.cuentaAbierta.upsert.mockResolvedValue({ cuentaId: 'c-001', mesaId: 'm-001', total: 100, estado: 'ABIERTA' });
+      mockPrisma.cuentaAbierta.update.mockResolvedValue({});
+      mockPrisma.transaccion.aggregate.mockResolvedValue({ _sum: { monto: 0 } });
+      mockPrisma.transaccion.create.mockResolvedValue({
+        id: 't-001', cuentaId: 'c-001', turnoId: 'turno-001', mesaId: 'm-001',
+        monto: 40, metodo: 'EFECTIVO', referencia: null, notas: null, createdAt: new Date(),
+      });
+      mockPrisma.movimientoCaja.create.mockResolvedValue({});
+      mockPrisma.outboxEvent.create.mockResolvedValue({});
+
+      const result = await service.registrarPago({ cuentaId: 'c-001', montoRecibido: 40, metodo: 'EFECTIVO' });
+
+      expect(result.pendiente).toBe(60);
+      expect(axios.post).not.toHaveBeenCalledWith(expect.stringContaining('/cerrar'), expect.anything(), expect.anything());
     });
   });
 

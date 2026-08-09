@@ -115,4 +115,7 @@ export interface RegistrarPagoResponse {
   message?: string;
   transaccion: TransaccionDto;
   ticket?: TicketDto;
+  // Saldo que queda por cobrar de la cuenta tras este pago; 0 cuando el pago
+  // (parcial o único) completó el total y la cuenta quedó cerrada.
+  pendiente?: number;
 }
