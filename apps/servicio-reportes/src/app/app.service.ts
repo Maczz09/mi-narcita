@@ -125,15 +125,12 @@ export class AppService {
     };
   }
 
-  async obtenerResumenDiario() {
-    const hoy = new Date();
-    hoy.setHours(0, 0, 0, 0);
+  async obtenerResumenDiario(query?: { desde?: string; hasta?: string }) {
+    const { gte, lte } = this.rango(query);
 
     const ventas = await this.prisma.ventaDiaria.findMany({
       where: {
-        fecha: {
-          gte: hoy,
-        },
+        fecha: { gte, lte },
       },
     });
 
@@ -187,7 +184,8 @@ export class AppService {
       .slice(0, 10);
 
     return {
-      fecha: hoy,
+      fecha: gte,
+      hasta: lte,
       totalVentas: ventas.length,
       ingresosTotales: totalIngresos,
       ventasPorHora,

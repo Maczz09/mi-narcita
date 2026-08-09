@@ -86,11 +86,26 @@ export function useUsuariosQuery(filters: UsuariosFilters = {}) {
     },
   });
 
-  const saving = mutationCrear.isPending || mutationCambiarRol.isPending;
-  const error = usuariosQuery.error || mutationCrear.error || mutationCambiarRol.error;
+  const mutationCambiarEstado = useMutation({
+    mutationFn: async ({ id, activo }: { id: string; activo: boolean }) => {
+      const dto = await usuariosApi.cambiarEstado(id, { activo });
+      return mapUsuario(dto);
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({
+        queryKey: USUARIOS_QUERY_KEY,
+        exact: false,
+        refetchType: 'active',
+      });
+    },
+  });
+
+  const saving = mutationCrear.isPending || mutationCambiarRol.isPending || mutationCambiarEstado.isPending;
+  const error = usuariosQuery.error || mutationCrear.error || mutationCambiarRol.error || mutationCambiarEstado.error;
   const success = primerMensaje(
     [mutationCrear.isSuccess, 'Usuario creado.'],
     [mutationCambiarRol.isSuccess, 'Rol actualizado.'],
+    [mutationCambiarEstado.isSuccess, 'Estado actualizado.'],
   );
 
   return {
@@ -113,9 +128,13 @@ export function useUsuariosQuery(filters: UsuariosFilters = {}) {
     cambiarRol: async (id: string, rol: RolUsuario) => {
       await mutationCambiarRol.mutateAsync({ id, rol });
     },
+    cambiarEstado: async (id: string, activo: boolean) => {
+      await mutationCambiarEstado.mutateAsync({ id, activo });
+    },
     clearFeedback: () => {
       mutationCrear.reset();
       mutationCambiarRol.reset();
+      mutationCambiarEstado.reset();
     },
   };
 }

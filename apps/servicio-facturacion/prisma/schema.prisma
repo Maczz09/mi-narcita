@@ -1,0 +1,127 @@
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["driverAdapters"]
+  output          = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum TipoComprobante {
+  BOLETA
+  FACTURA
+}
+
+enum EstadoComprobantePago {
+  DISPONIBLE
+  EMITIDO
+}
+
+enum EstadoComprobante {
+  FIRMADO
+  ENVIADO
+  ACEPTADO
+  RECHAZADO
+  OBSERVADO
+}
+
+// Una fila por RUC (slot 1 = La Barra del Ceviche 1, slot 2 = La Barra del
+// Ceviche 2). El certificado/credenciales SOL de cada una viven en secretos
+// de infraestructura (SUNAT_*_EMPRESA_<slot>_*), no en esta tabla — aquí solo
+// va lo no sensible: identidad fiscal y numeración.
+model Empresa {
+  id                 String   @id @default(uuid())
+  slot               Int      @unique
+  ruc                String   @unique
+  razonSocial        String
+  nombreComercial    String?
+  direccion          String?
+  ubigeo             String?
+  serieBoleta        String   @default("B001")
+  serieFactura       String   @default("F001")
+  correlativoBoleta  Int      @default(0)
+  correlativoFactura Int      @default(0)
+  activo             Boolean  @default(true)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  comprobantes Comprobante[]
+
+  @@map("empresas")
+}
+
+// Read-model local del cierre de cuenta (consume cuenta.cerrada). Es el
+// "comprobante de pago" interno que caja/admin ve para elegir qué emitir
+// como boleta o factura electrónica ante SUNAT. No es un documento fiscal.
+model ComprobantePago {
+  id           String                @id @default(uuid())
+  cuentaId     String                @unique
+  mesaId       String
+  total        Decimal               @db.Decimal(10, 2)
+  items        Json?
+  meseroId     String?
+  meseroNombre String?
+  estado       EstadoComprobantePago @default(DISPONIBLE)
+  fecha        DateTime              @default(now())
+
+  comprobante Comprobante?
+
+  @@index([estado, fecha])
+  @@map("comprobantes_pago")
+}
+
+// El documento fiscal SUNAT propiamente dicho: uno por ComprobantePago
+// emitido, con su XML ya firmado (XMLDSig) y el resultado del envío.
+model Comprobante {
+  id                 String            @id @default(uuid())
+  comprobantePagoId  String            @unique
+  empresaId          String
+  tipo               TipoComprobante
+  serie              String
+  correlativo        Int
+  clienteRuc         String?
+  clienteDni         String?
+  clienteRazonSocial String?
+  clienteNombre      String?
+  subtotal           Decimal           @db.Decimal(10, 2)
+  igv                Decimal           @db.Decimal(10, 2)
+  total              Decimal           @db.Decimal(10, 2)
+  xmlFirmado         String
+  estado             EstadoComprobante @default(FIRMADO)
+  ticketSunat        String?
+  cdrXml             String?
+  motivoRechazo      String?
+  intentos           Int               @default(0)
+  emitidoPorUserId   String?
+  createdAt          DateTime          @default(now())
+  updatedAt          DateTime          @updatedAt
+
+  empresa         Empresa         @relation(fields: [empresaId], references: [id])
+  comprobantePago ComprobantePago @relation(fields: [comprobantePagoId], references: [id])
+
+  @@unique([empresaId, tipo, serie, correlativo])
+  @@index([estado])
+  @@map("comprobantes")
+}
+
+model OutboxEvent {
+  id         String    @id @default(uuid())
+  routingKey String
+  payload    String
+  status     String    @default("PENDING") // PENDING, PROCESSED, FAILED
+  attempts   Int       @default(0)
+  claimedAt  DateTime?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  @@index([status, createdAt])
+  @@map("outbox_events")
+}
+
+model IdempotencyKey {
+  key       String   @id
+  createdAt DateTime @default(now())
+
+  @@map("idempotency_keys")
+}

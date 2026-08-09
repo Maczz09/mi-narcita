@@ -7,7 +7,7 @@ on:
 
 env:
   REGISTRY: ghcr.io
-  REGISTRY_NAME: ghcr.io/marcos7py/nachoppssoa
+  REGISTRY_NAME: ghcr.io/${{ github.repository_owner }}/nachoppssoa
 
 jobs:
   build-and-push:
@@ -54,6 +54,10 @@ jobs:
             dockerfile: Dockerfile
             context: .
             build-args: APP_NAME=servicio-reportes
+          - name: servicio-facturacion
+            dockerfile: Dockerfile
+            context: .
+            build-args: APP_NAME=servicio-facturacion
           - name: pwa-cliente
             dockerfile: apps/pwa-cliente/Dockerfile
             context: .

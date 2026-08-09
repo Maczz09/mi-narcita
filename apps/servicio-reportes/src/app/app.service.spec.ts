@@ -64,8 +64,10 @@ describe('AppService — Reportes', () => {
     const inicioDiaLocal = new Date('2026-01-02T15:00:00.000Z');
     inicioDiaLocal.setHours(0, 0, 0, 0);
     expect(prisma.ventaDiaria.findMany).toHaveBeenCalledWith({
-      where: { fecha: { gte: inicioDiaLocal } },
+      where: { fecha: { gte: inicioDiaLocal, lte: new Date('2026-01-02T15:00:00.000Z') } },
     });
+    expect(resumen.fecha).toEqual(inicioDiaLocal);
+    expect(resumen.hasta).toEqual(new Date('2026-01-02T15:00:00.000Z'));
     expect(resumen.totalVentas).toBe(2);
     expect(resumen.ingresosTotales).toBe(100);
     expect(resumen.ventasPorHora.find((item) => item.hora === '13:00')).toEqual({
@@ -80,6 +82,21 @@ describe('AppService — Reportes', () => {
     });
 
     jest.useRealTimers();
+  });
+
+  it('obtenerResumenDiario acepta un rango desde/hasta explícito (filtros de reportes)', async () => {
+    prisma.ventaDiaria.findMany.mockResolvedValue([
+      { total: 50, fecha: new Date('2026-01-05T14:00:00.000Z'), items: [] },
+    ]);
+
+    const resumen = await service.obtenerResumenDiario({ desde: '2026-01-01', hasta: '2026-01-31' });
+
+    expect(prisma.ventaDiaria.findMany).toHaveBeenCalledWith({
+      where: { fecha: { gte: new Date('2026-01-01'), lte: new Date('2026-01-31') } },
+    });
+    expect(resumen.fecha).toEqual(new Date('2026-01-01'));
+    expect(resumen.hasta).toEqual(new Date('2026-01-31'));
+    expect(resumen.totalVentas).toBe(1);
   });
 
   describe('reportes ricos (plan 6.3)', () => {

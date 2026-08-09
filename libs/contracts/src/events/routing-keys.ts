@@ -24,6 +24,9 @@ export const RoutingKeys = {
   // Caja
   PagoRegistrado: 'pago.registrado',
 
+  // Facturación electrónica (SUNAT)
+  ComprobanteEmitido: 'comprobante.emitido',
+
   // Inventario
   StockInsuficiente: 'stock.insuficiente',
   ProductoCreado: 'producto.creado',

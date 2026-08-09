@@ -14,6 +14,7 @@ import {
   LoginCommand,
   LoginResponseDto,
   CambiarRolCommand,
+  CambiarEstadoUsuarioCommand,
   RolUsuario,
   ListarUsuariosQuery,
   UsuarioListResponse,
@@ -411,6 +412,81 @@ export class AuthService {
       aggregateId: actualizado.id,
       resultingState: command.rol,
       message: 'Rol de usuario actualizado.',
+    } satisfies OperableLog);
+    return toUsuarioDto(actualizado);
+  }
+
+  /**
+   * Activar/desactivar usuario (soft-delete). No se expone borrado real:
+   * AuditoriaLog.usuarioId y RefreshToken.userId no tienen FK con cascada,
+   * un DELETE dejaría el historial de auditoría huérfano.
+   */
+  async cambiarEstado(id: string, command: CambiarEstadoUsuarioCommand, ejecutadoPor: string) {
+    const usuario = await this.prisma.usuario.findUnique({ where: { id } });
+    if (!usuario) {
+      throw new NotFoundException('Usuario no encontrado');
+    }
+
+    if (id === ejecutadoPor && !command.activo) {
+      throw new ConflictException('No se puede auto-desactivar: use otro administrador');
+    }
+
+    let actualizado;
+    if (usuario.rol === 'ADMIN' && !command.activo) {
+      // Mismo patrón de lock que cambiarRol (T-31): serializa desactivaciones
+      // concurrentes para no dejar el sistema sin ningún admin activo.
+      actualizado = await this.prisma.$transaction(async (tx) => {
+        const admins = await tx.$queryRaw<{ id: string }[]>`
+          SELECT id FROM "Usuario"
+          WHERE rol = 'ADMIN' AND activo = true
+          FOR UPDATE
+        `;
+        if (admins.length <= 1) {
+          throw new ConflictException('No se puede desactivar al último administrador activo');
+        }
+        const usuarioActualizado = await tx.usuario.update({
+          where: { id },
+          data: { activo: command.activo },
+        });
+        await tx.refreshToken.updateMany({
+          where: { userId: id, revokedAt: null },
+          data: { revokedAt: new Date() },
+        });
+        await tx.auditoriaLog.create({
+          data: {
+            accion: `CAMBIAR_ESTADO:${command.activo ? 'ACTIVAR' : 'DESACTIVAR'}:por:${ejecutadoPor}`,
+            usuarioId: id,
+            servicio: 'servicio-identidad',
+          },
+        });
+        return usuarioActualizado;
+      });
+    } else {
+      actualizado = await this.prisma.$transaction(async (tx) => {
+        const usuarioActualizado = await tx.usuario.update({
+          where: { id },
+          data: { activo: command.activo },
+        });
+        if (!command.activo) {
+          await tx.refreshToken.updateMany({
+            where: { userId: id, revokedAt: null },
+            data: { revokedAt: new Date() },
+          });
+        }
+        return usuarioActualizado;
+      });
+      await this.registrarAuditoria(
+        `CAMBIAR_ESTADO:${command.activo ? 'ACTIVAR' : 'DESACTIVAR'}:por:${ejecutadoPor}`,
+        id,
+        'servicio-identidad',
+      );
+    }
+
+    this.logger.log({
+      operation: 'cambiarEstado',
+      aggregateId: actualizado.id,
+      resultingState: command.activo ? 'ACTIVO' : 'INACTIVO',
+      message: 'Estado de usuario actualizado.',
     } satisfies OperableLog);
     return toUsuarioDto(actualizado);
   }

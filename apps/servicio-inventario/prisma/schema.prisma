@@ -9,13 +9,19 @@ datasource db {
 }
 
 model Categoria {
-  id          String     @id @default(uuid())
-  nombre      String
-  descripcion String?
-  productos   Producto[]
-  createdAt   DateTime   @default(now())
-  updatedAt   DateTime   @updatedAt
+  id             String      @id @default(uuid())
+  nombre         String      @unique
+  descripcion    String?
+  parentId       String?
+  // Un solo nivel de subcategorías a propósito (parent no puede tener su
+  // propio parent) — se valida en el servicio, no en el schema.
+  parent         Categoria?  @relation("Subcategorias", fields: [parentId], references: [id])
+  subcategorias  Categoria[] @relation("Subcategorias")
+  productos      Producto[]
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
 
+  @@index([parentId])
   @@map("categorias")
 }
 

@@ -21,6 +21,7 @@ export function mapMesa(dto: MesaDto): MesaVM {
     numeroRaw: dto.numero,
     capacidad: dto.capacidad,
     ubicacion: dto.ubicacion,
+    ubicacionId: dto.ubicacionId,
     estado: dto.estado,
     cuentaAsociada: dto.cuentaAsociada ?? null,
     estadoClass: ESTADO_CSS[dto.estado] ?? '',

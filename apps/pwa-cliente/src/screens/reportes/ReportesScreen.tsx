@@ -1,10 +1,38 @@
 /* eslint-disable @typescript-eslint/no-misused-promises, @typescript-eslint/no-floating-promises */
 // screens/reportes/ReportesScreen.tsx - Resumen diario y métricas reales
 
+import { useState } from 'react';
 import { useReportesQuery } from '../../hooks/queries/useReportesQuery';
 
 export function ReportesScreen() {
-  const { resumen, loading, error, fetch } = useReportesQuery();
+  const [desde, setDesde] = useState('');
+  const [hasta, setHasta] = useState('');
+  const [exportando, setExportando] = useState(false);
+  const [exportError, setExportError] = useState<string | null>(null);
+  const { resumen, loading, error, fetch } = useReportesQuery({
+    desde: desde || undefined,
+    hasta: hasta || undefined,
+  });
+
+  const handleExportar = async () => {
+    if (!resumen) return;
+    setExportando(true);
+    setExportError(null);
+    try {
+      // jspdf/jspdf-autotable no resuelven tipos de forma consistente en el
+      // import() dinámico bajo este resolver de eslint (tsc sí los resuelve bien).
+      /* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call */
+      const { exportarResumenPdf } = await import('../../utils/reportePdf');
+      await exportarResumenPdf(resumen);
+      /* eslint-enable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call */
+    } catch (err) {
+      setExportError(err instanceof Error ? err.message : 'No se pudo generar el PDF');
+    } finally {
+      setExportando(false);
+    }
+  };
+
+  const limpiarFiltro = () => { setDesde(''); setHasta(''); };
 
   return (
     <div>
@@ -14,15 +42,33 @@ export function ReportesScreen() {
           <div className="sub">Métricas reales del turno y ventas del día</div>
         </div>
         <span className="spacer" />
+        <button className="btn btn-ghost btn-sm" disabled={!resumen || exportando} onClick={handleExportar} title="Exportar PDF">
+          {exportando ? <span className="spinner" /> : <DownloadIcon />}
+          Exportar PDF
+        </button>
         <button className="btn btn-ghost btn-sm" onClick={() => fetch()} title="Refrescar">
           <RefreshIcon />
         </button>
       </div>
 
-      {error && (
+      <div className="module-toolbar" style={{ marginBottom: 16 }}>
+        <div className="field" style={{ marginBottom: 0 }}>
+          <label htmlFor="rep-desde">Desde</label>
+          <div className="input"><input id="rep-desde" type="date" value={desde} onChange={(e) => setDesde(e.target.value)} /></div>
+        </div>
+        <div className="field" style={{ marginBottom: 0 }}>
+          <label htmlFor="rep-hasta">Hasta</label>
+          <div className="input"><input id="rep-hasta" type="date" value={hasta} onChange={(e) => setHasta(e.target.value)} /></div>
+        </div>
+        {(desde || hasta) && (
+          <button className="btn btn-ghost btn-sm" onClick={limpiarFiltro}>Limpiar filtro</button>
+        )}
+      </div>
+
+      {(error || exportError) && (
         <div className="banner err module-feedback">
           <AlertIcon />
-          <span>{error}</span>
+          <span>{error ?? exportError}</span>
         </div>
       )}
 
@@ -48,7 +94,7 @@ export function ReportesScreen() {
             <div className="stat">
               <div className="k">Ingresos del día</div>
               <div className="v">{resumen.ingresosLabel}</div>
-              <div className="d">{resumen.fechaLabel}</div>
+              <div className="d">{resumen.rangoLabel}</div>
             </div>
             <div className="stat">
               <div className="k">Ventas cerradas</div>
@@ -129,6 +175,10 @@ export function ReportesScreen() {
 
 function AlertIcon() {
   return <svg className="ic" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3" /><path d="M12 9v4" /><path d="M12 17h.01" /></svg>;
+}
+
+function DownloadIcon() {
+  return <svg className="ic" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" x2="12" y1="15" y2="3" /></svg>;
 }
 
 function ChartIcon() {

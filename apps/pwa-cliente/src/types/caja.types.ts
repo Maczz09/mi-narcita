@@ -87,3 +87,16 @@ export interface CrearMovimientoCajaPayload {
 export interface CerrarTurnoPayload {
   denominaciones: Record<string, number>;
 }
+
+export interface ListarTurnosQuery {
+  limit?: number;
+  cursor?: string;
+  estado?: TurnoCajaEstado;
+  desde?: string;
+  hasta?: string;
+}
+
+export interface TurnoListResponse {
+  data: TurnoCajaDto[];
+  nextCursor: string | null;
+}

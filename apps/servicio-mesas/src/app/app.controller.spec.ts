@@ -12,6 +12,7 @@ describe('AppController — Mesas', () => {
     id: 'm-001',
     numero: 5,
     capacidad: 4,
+    ubicacionId: 'u-001',
     ubicacion: 'Salon Principal',
     estado: MesaEstado.Libre,
     cuentaAsociada: null,
@@ -23,6 +24,10 @@ describe('AppController — Mesas', () => {
       obtenerMesa: jest.fn() as any,
       crearMesa: jest.fn() as any,
       actualizarEstado: jest.fn() as any,
+      listarUbicaciones: jest.fn() as any,
+      crearUbicacion: jest.fn() as any,
+      actualizarUbicacion: jest.fn() as any,
+      eliminarUbicacion: jest.fn() as any,
     } as unknown as jest.Mocked<AppService>;
 
     const module: TestingModule = await Test.createTestingModule({
@@ -79,7 +84,7 @@ describe('AppController — Mesas', () => {
     it('should create a mesa', async () => {
       const expected = { message: 'Mesa creada exitosamente', mesa: mesaDto };
       (appService.crearMesa as unknown as any).mockResolvedValue(expected);
-      const command = { numero: 5, capacidad: 4, ubicacion: 'Salon Principal' };
+      const command = { numero: 5, capacidad: 4, ubicacionId: 'u-001' };
 
       const result = await controller.crearMesa(command);
 
@@ -91,16 +96,58 @@ describe('AppController — Mesas', () => {
       const { ConflictException } = await import('@nestjs/common');
       (appService.crearMesa as unknown as any).mockRejectedValue(new ConflictException('La mesa número 5 ya existe.'));
 
-      await expect(controller.crearMesa({ numero: 5, capacidad: 4 })).rejects.toThrow('La mesa número 5 ya existe.');
+      await expect(controller.crearMesa({ numero: 5, capacidad: 4, ubicacionId: 'u-001' })).rejects.toThrow('La mesa número 5 ya existe.');
     });
 
-    it('should create mesa with minimum required fields', async () => {
-      const expected = { message: 'Mesa creada exitosamente', mesa: { ...mesaDto, numero: 10 } };
-      (appService.crearMesa as unknown as any).mockResolvedValue(expected);
+    it('should propagate NotFoundException if ubicacion does not exist', async () => {
+      const { NotFoundException } = await import('@nestjs/common');
+      (appService.crearMesa as unknown as any).mockRejectedValue(new NotFoundException('Ubicación inexistente no encontrada.'));
 
-      const result = await controller.crearMesa({ numero: 10, capacidad: 4 });
+      await expect(controller.crearMesa({ numero: 10, capacidad: 4, ubicacionId: 'inexistente' })).rejects.toThrow('no encontrada');
+    });
+  });
 
-      expect(result.message).toBe('Mesa creada exitosamente');
+  describe('ubicaciones', () => {
+    const ubicacionDto = { id: 'u-001', nombre: 'Salon Principal' };
+
+    it('lists ubicaciones', async () => {
+      (appService.listarUbicaciones as unknown as any).mockResolvedValue({ ubicaciones: [ubicacionDto] });
+      const result = await controller.listarUbicaciones();
+      expect(result).toEqual({ ubicaciones: [ubicacionDto] });
+    });
+
+    it('creates an ubicacion', async () => {
+      const expected = { message: 'Ubicación creada exitosamente', ubicacion: ubicacionDto };
+      (appService.crearUbicacion as unknown as any).mockResolvedValue(expected);
+      const result = await controller.crearUbicacion({ nombre: 'Salon Principal' });
+      expect(result).toEqual(expected);
+      expect(appService.crearUbicacion).toHaveBeenCalledWith({ nombre: 'Salon Principal' });
+    });
+
+    it('propagates ConflictException on duplicate name', async () => {
+      const { ConflictException } = await import('@nestjs/common');
+      (appService.crearUbicacion as unknown as any).mockRejectedValue(new ConflictException('Ya existe una ubicación llamada "Salon Principal"'));
+      await expect(controller.crearUbicacion({ nombre: 'salon principal' })).rejects.toThrow('Ya existe');
+    });
+
+    it('updates an ubicacion', async () => {
+      const expected = { message: 'Ubicación actualizada', ubicacion: { id: 'u-001', nombre: 'Terraza' } };
+      (appService.actualizarUbicacion as unknown as any).mockResolvedValue(expected);
+      const result = await controller.actualizarUbicacion('u-001', { nombre: 'Terraza' });
+      expect(result).toEqual(expected);
+      expect(appService.actualizarUbicacion).toHaveBeenCalledWith('u-001', { nombre: 'Terraza' });
+    });
+
+    it('deletes an ubicacion', async () => {
+      (appService.eliminarUbicacion as unknown as any).mockResolvedValue({ message: 'Ubicación eliminada' });
+      const result = await controller.eliminarUbicacion('u-001');
+      expect(result).toEqual({ message: 'Ubicación eliminada' });
+    });
+
+    it('propagates ConflictException when ubicacion has mesas', async () => {
+      const { ConflictException } = await import('@nestjs/common');
+      (appService.eliminarUbicacion as unknown as any).mockRejectedValue(new ConflictException('No se puede eliminar: tiene 3 mesa(s) asociada(s).'));
+      await expect(controller.eliminarUbicacion('u-001')).rejects.toThrow('No se puede eliminar');
     });
   });
 

@@ -1,5 +1,6 @@
 import { Body, Controller, Delete, Get, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
 import { Roles, RolesGuard } from '@org/shared-auth';
+import { UsuarioActual } from '@org/observabilidad';
 import { CrearReservaCommand, ListarReservasQuery } from '@org/contracts';
 import { ReservasService } from './reservas.service';
 
@@ -25,8 +26,16 @@ export class AppController {
   }
 
   @Post()
-  crear(@Body() body: CrearReservaCommand) {
-    return this.reservas.crear(body);
+  crear(
+    @Body() body: CrearReservaCommand,
+    @UsuarioActual() usuarioId: string | null,
+    @UsuarioActual('nombre') usuarioNombre: string | null,
+    @UsuarioActual('email') usuarioEmail: string | null,
+  ) {
+    return this.reservas.crear(
+      body,
+      usuarioId ? { id: usuarioId, nombre: usuarioNombre ?? usuarioEmail ?? usuarioId } : null,
+    );
   }
 
   @Patch(':id/confirmar')

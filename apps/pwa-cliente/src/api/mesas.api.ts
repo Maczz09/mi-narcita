@@ -2,7 +2,14 @@
 
 import { client } from './client';
 import { unwrapArray, unwrapEntity } from './response';
-import type { MesaDto, ActualizarEstadoMesaPayload, CrearMesaPayload } from '../types/mesa.types';
+import type {
+  MesaDto,
+  ActualizarEstadoMesaPayload,
+  CrearMesaPayload,
+  UbicacionDto,
+  CrearUbicacionPayload,
+  ActualizarUbicacionPayload,
+} from '../types/mesa.types';
 
 /** GET /mesas — Listar todas las mesas */
 export async function getAll(): Promise<MesaDto[]> {
@@ -29,4 +36,27 @@ export async function cambiarEstado(
 ): Promise<MesaDto> {
   const response = await client.patch<MesaDto | { mesa: MesaDto }>(`/mesas/${id}/estado`, payload);
   return unwrapEntity<MesaDto>(response, 'mesa');
+}
+
+/** GET /mesas/ubicaciones — Listar ubicaciones (zonas del salón) */
+export async function getUbicaciones(): Promise<UbicacionDto[]> {
+  const response = await client.get<UbicacionDto[] | { ubicaciones: UbicacionDto[] }>('/mesas/ubicaciones');
+  return unwrapArray<UbicacionDto>(response, 'ubicaciones');
+}
+
+/** POST /mesas/ubicaciones — Crear ubicación */
+export async function crearUbicacion(payload: CrearUbicacionPayload): Promise<UbicacionDto> {
+  const response = await client.post<UbicacionDto | { ubicacion: UbicacionDto }>('/mesas/ubicaciones', payload);
+  return unwrapEntity<UbicacionDto>(response, 'ubicacion');
+}
+
+/** PATCH /mesas/ubicaciones/:id — Renombrar ubicación */
+export async function actualizarUbicacion(id: string, payload: ActualizarUbicacionPayload): Promise<UbicacionDto> {
+  const response = await client.patch<UbicacionDto | { ubicacion: UbicacionDto }>(`/mesas/ubicaciones/${id}`, payload);
+  return unwrapEntity<UbicacionDto>(response, 'ubicacion');
+}
+
+/** DELETE /mesas/ubicaciones/:id — Eliminar ubicación (falla si tiene mesas asociadas) */
+export async function eliminarUbicacion(id: string): Promise<void> {
+  await client.delete(`/mesas/ubicaciones/${id}`);
 }

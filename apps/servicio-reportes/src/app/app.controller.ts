@@ -25,8 +25,8 @@ export class AppController {
   @UseGuards(RolesGuard)
   @Roles('ADMIN', 'SISTEMA', 'GERENCIA')
   @Get('resumen')
-  async getResumen() {
-    return this.appService.obtenerResumenDiario();
+  async getResumen(@Query() query: ReporteRangoQuery) {
+    return this.appService.obtenerResumenDiario(query);
   }
 
   // Reportes ricos (plan 6.3): por producto / turno / mesero, con rango opcional.

@@ -64,15 +64,35 @@ describe('AppController', () => {
   });
 
   describe('crear', () => {
-    it('should create a reserva', async () => {
+    it('should create a reserva sin usuario autenticado (null)', async () => {
       const command: CrearReservaCommand = { fecha: '2026-06-15', hora: '19:00', mesaPreferida: 'mesa-005', clienteNombre: 'Juan' };
       const expectedResult = { message: 'Reserva creada' };
       mockReservasService.crear.mockResolvedValue(expectedResult);
 
-      const result = await appController.crear(command);
+      const result = await appController.crear(command, null, null, null);
 
-      expect(reservasService.crear).toHaveBeenCalledWith(command);
+      expect(reservasService.crear).toHaveBeenCalledWith(command, null);
       expect(result).toEqual(expectedResult);
+    });
+
+    it('debe delegar el usuario que registró la reserva (id + nombre)', async () => {
+      const command: CrearReservaCommand = { fecha: '2026-06-15', hora: '19:00', mesaPreferida: 'mesa-005', clienteNombre: 'Juan' };
+      mockReservasService.crear.mockResolvedValue({ message: 'Reserva creada' });
+
+      await appController.crear(command, 'u-recepcion', 'Recepción Uno', null);
+
+      expect(reservasService.crear).toHaveBeenCalledWith(command, { id: 'u-recepcion', nombre: 'Recepción Uno' });
+    });
+
+    it('debe caer a email y luego a usuarioId si falta el nombre', async () => {
+      const command: CrearReservaCommand = { fecha: '2026-06-15', hora: '19:00', mesaPreferida: 'mesa-005', clienteNombre: 'Juan' };
+      mockReservasService.crear.mockResolvedValue({ message: 'Reserva creada' });
+
+      await appController.crear(command, 'u-1', null, 'recepcion@nachopps.pe');
+      expect(reservasService.crear).toHaveBeenCalledWith(command, { id: 'u-1', nombre: 'recepcion@nachopps.pe' });
+
+      await appController.crear(command, 'svc-reservas', null, null);
+      expect(reservasService.crear).toHaveBeenCalledWith(command, { id: 'svc-reservas', nombre: 'svc-reservas' });
     });
   });
 

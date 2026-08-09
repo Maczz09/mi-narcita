@@ -93,7 +93,7 @@ export function ComprasScreen() {
       </div>
 
       {tab === 'ordenes' && (
-        <div className="table-wrap" style={{ flex: 1, overflowY: 'auto' }}>
+        <div className="table-wrap table-wrap-scroll-fallback" style={{ flex: 1, overflowY: 'auto' }}>
           <table className="dt">
             <thead>
               <tr>
@@ -124,7 +124,7 @@ export function ComprasScreen() {
       )}
 
       {tab === 'insumos' && (
-        <div className="table-wrap" style={{ flex: 1, overflowY: 'auto' }}>
+        <div className="table-wrap table-wrap-scroll-fallback" style={{ flex: 1, overflowY: 'auto' }}>
           <table className="dt">
             <thead>
               <tr>

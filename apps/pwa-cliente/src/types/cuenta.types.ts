@@ -32,11 +32,19 @@ export interface CuentaDto {
   updatedAt: string;
 }
 
+export interface TicketItemDto {
+  productoId?: string;
+  nombre: string;
+  cantidad: number;
+  precioUnitario: number;
+  notas?: string;
+}
+
 export interface TicketDto {
   id: string;
   cuentaId: string;
   mesaId: string;
-  items: unknown[];
+  items: TicketItemDto[];
   subtotal: number;
   descuento: number;
   total: number;
@@ -98,6 +106,8 @@ export interface TransaccionDto {
   metodo: string;
   referencia?: string | null;
   notas?: string | null;
+  usuarioId?: string | null;
+  cajeroNombre?: string | null;
   createdAt: string;
 }
 

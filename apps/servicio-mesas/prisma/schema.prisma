@@ -18,14 +18,26 @@ model Mesa {
   id             String     @id @default(uuid())
   numero         Int        @unique
   capacidad      Int
-  ubicacion      String     @default("Salon Principal")
+  ubicacionId    String
+  ubicacion      Ubicacion  @relation(fields: [ubicacionId], references: [id])
   estado         MesaEstado @default(LIBRE)
   cuentaAsociada String?
   createdAt      DateTime   @default(now())
   updatedAt      DateTime   @updatedAt
 
   @@index([estado])
+  @@index([ubicacionId])
   @@map("mesas")
+}
+
+model Ubicacion {
+  id        String   @id @default(uuid())
+  nombre    String   @unique
+  mesas     Mesa[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("ubicaciones")
 }
 
 model OutboxEvent {

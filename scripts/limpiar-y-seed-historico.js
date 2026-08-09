@@ -101,6 +101,10 @@ const MESEROS = ['Ana Torres', 'Luis Ramírez', 'Carla Mendoza', 'Jorge Quispe']
 }));
 const CAJEROS = ['Rosa Fernández', 'Miguel Ángel Soto'].map((nombre) => ({ id: uuid(), nombre }));
 
+// Ubicaciones (CRUD propio en servicio-mesas): mesas.ubicacionId referencia esto.
+const UBICACIONES_DEF = ['Barra', 'Salon Principal', 'Terraza', 'VIP'].map((nombre) => ({ id: uuid(), nombre }));
+const ubicacionIdPorNombre = new Map(UBICACIONES_DEF.map((u) => [u.nombre, u.id]));
+
 const MESAS_DEF = [
   { numero: 1, capacidad: 2, ubicacion: 'Barra' },
   { numero: 2, capacidad: 2, ubicacion: 'Barra' },
@@ -116,7 +120,7 @@ const MESAS_DEF = [
   { numero: 12, capacidad: 8, ubicacion: 'Salon Principal' },
   { numero: 13, capacidad: 6, ubicacion: 'VIP' },
   { numero: 14, capacidad: 10, ubicacion: 'VIP' },
-].map((m) => ({ ...m, id: uuid() }));
+].map((m) => ({ ...m, id: uuid(), ubicacionId: ubicacionIdPorNombre.get(m.ubicacion) }));
 
 const CATEGORIAS_DEF = [
   { nombre: 'Entradas', descripcion: 'Para compartir antes del plato fuerte' },
@@ -169,6 +173,7 @@ const HORAS_RESERVA = ['12:00', '12:30', '13:00', '13:30', '14:00', '19:00', '19
 
 const rows = {
   mesas: [],
+  ubicaciones: UBICACIONES_DEF,
   categorias: CATEGORIAS_DEF,
   productos: PRODUCTOS_DEF,
   mesasLocal: [],
@@ -556,7 +561,7 @@ for (const mesa of MESAS_DEF) {
     id: mesa.id,
     numero: mesa.numero,
     capacidad: mesa.capacidad,
-    ubicacion: mesa.ubicacion,
+    ubicacionId: mesa.ubicacionId,
     estado: st.estado,
     cuentaAsociada: st.cuentaAsociada,
     createdAt: HOY,
@@ -613,9 +618,10 @@ async function bulkInsert(client, table, columns, dataRows) {
 
 const PLAN = {
   'servicio-mesas': {
-    truncate: ['mesas', 'outbox_events', 'idempotency_keys'],
+    truncate: ['mesas', 'ubicaciones', 'outbox_events', 'idempotency_keys'],
     inserts: [
-      { table: 'mesas', columns: ['id', 'numero', 'capacidad', 'ubicacion', 'estado', 'cuentaAsociada', 'createdAt', 'updatedAt'], data: () => rows.mesas },
+      { table: 'ubicaciones', columns: ['id', 'nombre', 'createdAt', 'updatedAt'], data: () => rows.ubicaciones.map((u) => ({ ...u, createdAt: HOY, updatedAt: ahora })) },
+      { table: 'mesas', columns: ['id', 'numero', 'capacidad', 'ubicacionId', 'estado', 'cuentaAsociada', 'createdAt', 'updatedAt'], data: () => rows.mesas },
     ],
   },
   'servicio-inventario': {

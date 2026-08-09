@@ -9,10 +9,12 @@ import { getOrCreateCounter, getOrCreateHistogram, OperableLog } from '@org/obse
 import { PrismaService } from '../prisma/prisma.service';
 import {
   ListarTransaccionesQuery,
+  ListarTurnosQuery,
   PagoRegistradoPayload,
   RoutingKeys,
   TransaccionDto,
   TransaccionListResponse,
+  TurnoListResponse,
 } from '@org/contracts';
 import { Prisma } from '../generated/prisma';
 import {
@@ -324,8 +326,8 @@ export class AppService {
 
   async registrarPago(
     command: PagarCuentaCajaCommand,
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     usuarioId?: string | null,
+    cajeroNombre?: string | null,
   ): Promise<{ message?: string; transaccion: TransaccionDto; ticket?: unknown; turno: unknown }> {
     const turno = await this.prisma.turnoCaja.findFirst({
       where: { estado: 'ABIERTA' },
@@ -402,6 +404,8 @@ export class AppService {
           metodo: command.metodo,
           referencia: command.referencia,
           notas: command.notas,
+          usuarioId: usuarioId ?? undefined,
+          cajeroNombre: cajeroNombre ?? undefined,
         },
       });
 
@@ -507,6 +511,37 @@ export class AppService {
     };
   }
 
+  /** Historial de turnos (p.ej. cierres de caja pasados). Sin filtro de estado, lista todos. */
+  async listarTurnos(query: ListarTurnosQuery = {}): Promise<TurnoListResponse> {
+    const limit = this.normalizeLimit(query.limit);
+    const where: Prisma.TurnoCajaWhereInput = {
+      ...(query.estado ? { estado: query.estado } : {}),
+      ...(query.desde || query.hasta
+        ? {
+            cerradoAt: {
+              ...(query.desde ? { gte: new Date(query.desde) } : {}),
+              ...(query.hasta ? { lte: new Date(query.hasta) } : {}),
+            },
+          }
+        : {}),
+    };
+
+    const turnos = await this.prisma.turnoCaja.findMany({
+      where,
+      take: limit + 1,
+      ...(query.cursor ? { cursor: { id: query.cursor }, skip: 1 } : {}),
+      orderBy: [{ abiertoAt: 'desc' }, { id: 'desc' }],
+    });
+
+    const hasMore = turnos.length > limit;
+    const data = turnos.slice(0, limit);
+
+    return {
+      data: data.map((t) => this.mapTurno(t)),
+      nextCursor: hasMore ? data.at(-1)?.id ?? null : null,
+    };
+  }
+
   private normalizeLimit(limit?: number): number {
     const parsed = Number(limit ?? 20);
     if (!Number.isFinite(parsed)) return 20;
@@ -586,6 +621,8 @@ export class AppService {
       metodo: t.metodo,
       referencia: t.referencia || undefined,
       notas: t.notas || undefined,
+      usuarioId: t.usuarioId || undefined,
+      cajeroNombre: t.cajeroNombre || undefined,
       createdAt: t.createdAt.toISOString(),
     };
   }

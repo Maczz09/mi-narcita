@@ -33,6 +33,7 @@ export interface ReservaVM {
   estadoLabel: string;
   estadoClass: string;
   fechaHoraLabel: string;
+  usuarioNombre?: string;
   createdAt: string;
 }
 

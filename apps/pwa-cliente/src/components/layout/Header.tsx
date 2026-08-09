@@ -14,10 +14,15 @@ import { useNavigate } from 'react-router-dom';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useOnlineStatus } from '../../hooks/useOnlineStatus';
 import { useFocusTrap } from '../../hooks/useFocusTrap';
-import { applyThemeColor } from '../../utils/theme';
+import { applyThemeColor, isTheme, nextTheme, type Theme } from '../../utils/theme';
 import { Icons } from '../ui/icons';
 
-type Theme    = 'light' | 'dark';
+const THEME_LABEL: Record<Theme, string> = {
+  light: 'Claro',
+  dark: 'Oscuro',
+  navy: 'Navy',
+};
+
 type Density  = 'comfy' | 'compact';
 type FontScale= 'md' | 'lg' | 'xl';
 type Contrast = 'normal' | 'high';
@@ -47,7 +52,10 @@ export function Header() {
   const settingsRef = useRef<HTMLDivElement>(null);
   useFocusTrap(settingsRef, { active: settingsOpen, onClose: () => setSettingsOpen(false) });
 
-  const [theme,    setTheme   ] = useState<Theme   >(() => readAttr('data-theme',    'light'));
+  const [theme,    setTheme   ] = useState<Theme   >(() => {
+    const attr = readAttr('data-theme', 'light');
+    return isTheme(attr) ? attr : 'light';
+  });
   const [density,  setDensity ] = useState<Density >(() => readAttr('data-density',  'comfy'));
   const [fontscale,setFontscale]= useState<FontScale>(() => readAttr('data-fontscale','md'));
   const [contrast, setContrast] = useState<Contrast >(() => readAttr('data-contrast', 'normal'));
@@ -61,13 +69,14 @@ export function Header() {
   const turnoLabel = getTurnoActual(now);
   const connLabel  = online ? 'En línea' : 'Sin conexión';
 
-  const toggleTheme = () => {
-    const next: Theme = theme === 'dark' ? 'light' : 'dark';
+  const setThemeTo = (next: Theme) => {
     document.documentElement.dataset['theme'] = next;
     localStorage.setItem('nachopps-theme', next);
     applyThemeColor(next);
     setTheme(next);
   };
+
+  const cycleTheme = () => setThemeTo(nextTheme(theme));
 
   const handleLogout = () => {
     logout();
@@ -139,6 +148,22 @@ export function Header() {
             />
             <dialog open className="settings-pop" aria-modal="true" aria-label="Vista y accesibilidad">
               <div className="sp-row">
+                <span className="sp-lbl">Tema</span>
+                <div className="seg sm" style={{ width: '100%' }}>
+                  {(['light', 'dark', 'navy'] as const).map((t) => (
+                    <button
+                      key={t}
+                      className={theme === t ? 'on' : ''}
+                      style={{ flex: 1 }}
+                      onClick={() => setThemeTo(t)}
+                      aria-pressed={theme === t}
+                    >
+                      {THEME_LABEL[t]}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div className="sp-row">
                 <span className="sp-lbl">Densidad</span>
                 <div className="seg sm" style={{ width: '100%' }}>
                   <button
@@ -181,15 +206,15 @@ export function Header() {
         )}
       </div>
 
-      {/* Theme toggle */}
+      {/* Theme toggle: cicla claro → oscuro → navy → claro. El control explícito
+          de 3 vías vive en "Vista y accesibilidad"; este botón es el atajo rápido. */}
       <button
         className="icon-btn"
-        onClick={toggleTheme}
-        title="Tema claro/oscuro"
-        aria-label={theme === 'dark' ? 'Cambiar a tema claro' : 'Cambiar a tema oscuro'}
-        aria-pressed={theme === 'dark'}
+        onClick={cycleTheme}
+        title={`Tema: ${THEME_LABEL[theme]} (clic para cambiar a ${THEME_LABEL[nextTheme(theme)]})`}
+        aria-label={`Tema actual: ${THEME_LABEL[theme]}. Cambiar a ${THEME_LABEL[nextTheme(theme)]}`}
       >
-        {theme === 'dark' ? <Icons.Sun s={18} /> : <Icons.Moon s={18} />}
+        {theme === 'light' ? <Icons.Moon s={18} /> : <Icons.Sun s={18} />}
       </button>
 
       {/* Notificaciones */}

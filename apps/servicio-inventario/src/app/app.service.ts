@@ -1,10 +1,11 @@
-import { Injectable, NotFoundException, Logger, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException, Logger, BadRequestException, ConflictException } from '@nestjs/common';
 import { OperableLog } from '@org/observabilidad';
 import { PrismaService } from '../prisma/prisma.service';
-import { 
-  CategoriaDto, 
-  ProductoDto, 
+import {
+  CategoriaDto,
+  ProductoDto,
   CrearCategoriaCommand,
+  ActualizarCategoriaCommand,
   CrearProductoCommand,
   ActualizarProductoCommand,
   ListarProductosQuery,
@@ -37,13 +38,125 @@ export class AppService {
   }
 
   async crearCategoria(command: CrearCategoriaCommand): Promise<{ message: string; categoria: CategoriaDto }> {
-    const categoria = await this.prisma.categoria.create({
-      data: {
-        nombre: command.nombre,
-        descripcion: command.descripcion,
-      }
-    });
+    const nombre = command.nombre.trim();
+    await this.assertNombreDisponible(nombre);
+    if (command.parentId) {
+      await this.assertParentValido(command.parentId);
+    }
+
+    const categoria = await this.crearCategoriaSegura(nombre, command.descripcion, command.parentId);
     return { message: 'Categoría creada exitosamente', categoria };
+  }
+
+  async actualizarCategoria(
+    id: string,
+    command: ActualizarCategoriaCommand,
+  ): Promise<{ message: string; categoria: CategoriaDto }> {
+    const existente = await this.prisma.categoria.findUnique({
+      where: { id },
+      include: { _count: { select: { subcategorias: true } } },
+    });
+    if (!existente) throw new NotFoundException('Categoría no encontrada');
+
+    const nombre = command.nombre?.trim();
+    if (nombre !== undefined && nombre !== '') {
+      await this.assertNombreDisponible(nombre, id);
+    }
+
+    if (command.parentId) {
+      if (command.parentId === id) {
+        throw new BadRequestException('Una categoría no puede ser su propia categoría padre.');
+      }
+      if (existente._count.subcategorias > 0) {
+        throw new BadRequestException(
+          'No se puede convertir en subcategoría: ya tiene sus propias subcategorías. Reasígnalas primero.',
+        );
+      }
+      await this.assertParentValido(command.parentId);
+    }
+
+    const categoria = await this.actualizarCategoriaSegura(id, {
+      ...(nombre ? { nombre } : {}),
+      ...(command.descripcion === undefined ? {} : { descripcion: command.descripcion }),
+      ...(command.parentId === undefined ? {} : { parentId: command.parentId }),
+    });
+    return { message: 'Categoría actualizada', categoria };
+  }
+
+  async eliminarCategoria(id: string): Promise<{ message: string }> {
+    const categoria = await this.prisma.categoria.findUnique({
+      where: { id },
+      include: { _count: { select: { productos: true, subcategorias: true } } },
+    });
+    if (!categoria) throw new NotFoundException('Categoría no encontrada');
+
+    if (categoria._count.productos > 0) {
+      throw new ConflictException(
+        `No se puede eliminar: tiene ${categoria._count.productos} producto(s) asociado(s). Reasígnalos a otra categoría primero.`,
+      );
+    }
+    if (categoria._count.subcategorias > 0) {
+      throw new ConflictException(
+        `No se puede eliminar: tiene ${categoria._count.subcategorias} subcategoría(s). Reasígnalas o elimínalas primero.`,
+      );
+    }
+
+    await this.prisma.categoria.delete({ where: { id } });
+    return { message: 'Categoría eliminada' };
+  }
+
+  /** Una subcategoría no puede a su vez tener padre (un solo nivel de anidación). */
+  private async assertParentValido(parentId: string): Promise<void> {
+    const parent = await this.prisma.categoria.findUnique({ where: { id: parentId } });
+    if (!parent) throw new NotFoundException(`Categoría padre ${parentId} no encontrada.`);
+    if (parent.parentId) {
+      throw new BadRequestException('No se permite anidar más de un nivel de subcategorías.');
+    }
+  }
+
+  /** Rechaza un nombre que ya existe (case-insensitive, sin espacios). `excludeId` permite renombrar una categoría a sí misma. */
+  private async assertNombreDisponible(nombre: string, excludeId?: string): Promise<void> {
+    const existente = await this.prisma.categoria.findFirst({
+      where: {
+        nombre: { equals: nombre, mode: 'insensitive' },
+        ...(excludeId ? { id: { not: excludeId } } : {}),
+      },
+    });
+    if (existente) {
+      throw new ConflictException(`Ya existe una categoría llamada "${existente.nombre}"`);
+    }
+  }
+
+  // El check de arriba no cierra una carrera entre dos requests simultáneos;
+  // la constraint UNIQUE de la BD es la garantía real. P2002 aquí es ese
+  // caso raro, traducido al mismo 409 que ya usa assertNombreDisponible.
+  private async crearCategoriaSegura(nombre: string, descripcion?: string, parentId?: string): Promise<CategoriaDto> {
+    try {
+      return await this.prisma.categoria.create({ data: { nombre, descripcion, parentId } });
+    } catch (error) {
+      if (this.isUniqueConstraintViolation(error)) {
+        throw new ConflictException(`Ya existe una categoría llamada "${nombre}"`);
+      }
+      throw error;
+    }
+  }
+
+  private async actualizarCategoriaSegura(
+    id: string,
+    data: { nombre?: string; descripcion?: string | null; parentId?: string | null },
+  ): Promise<CategoriaDto> {
+    try {
+      return await this.prisma.categoria.update({ where: { id }, data });
+    } catch (error) {
+      if (this.isUniqueConstraintViolation(error)) {
+        throw new ConflictException(`Ya existe una categoría llamada "${data.nombre}"`);
+      }
+      throw error;
+    }
+  }
+
+  private isUniqueConstraintViolation(error: unknown): boolean {
+    return typeof error === 'object' && error !== null && (error as { code?: string }).code === 'P2002';
   }
 
   // --- PRODUCTOS ---

@@ -12,6 +12,7 @@ SERVICES=(
   "servicio-notificaciones"
   "servicio-caja"
   "servicio-reportes"
+  "servicio-facturacion"
 )
 
 echo "=========================================="

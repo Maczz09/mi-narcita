@@ -9,7 +9,9 @@ export default defineConfig(() => ({
     port: 4200,
     host: 'localhost',
     proxy: {
-      '/v1/identidad': { target: 'http://localhost:3001', changeOrigin: true, rewrite: (path) => path.replace(/^\/v1\/identidad/, '/api') },
+      // host 3001 choca con otro stack Docker de este host (medicitas_grafana);
+      // infra/docker-compose.yml remapea servicio-identidad a 3021 del lado host.
+      '/v1/identidad': { target: 'http://localhost:3021', changeOrigin: true, rewrite: (path) => path.replace(/^\/v1\/identidad/, '/api') },
       '/v1/mesas': { target: 'http://localhost:3002', changeOrigin: true, rewrite: (path) => path.replace(/^\/v1\/mesas/, '/api') },
       '/v1/pedidos': { target: 'http://localhost:3004', changeOrigin: true, rewrite: (path) => path.replace(/^\/v1\/pedidos/, '/api') },
       '/v1/cuentas': { target: 'http://localhost:3005', changeOrigin: true, rewrite: (path) => path.replace(/^\/v1\/cuentas/, '/api') },

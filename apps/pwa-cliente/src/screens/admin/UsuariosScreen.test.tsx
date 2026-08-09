@@ -56,6 +56,7 @@ describe('UsuariosScreen', () => {
       fetchMore: vi.fn(),
       crear: vi.fn(),
       cambiarRol: vi.fn(),
+      cambiarEstado: vi.fn(),
       clearFeedback: vi.fn()
     } as any);
   });
@@ -96,6 +97,7 @@ describe('UsuariosScreen', () => {
       fetchMore: vi.fn(),
       crear,
       cambiarRol: vi.fn(),
+      cambiarEstado: vi.fn(),
       clearFeedback: vi.fn()
     } as any);
 
@@ -146,6 +148,7 @@ describe('UsuariosScreen', () => {
       fetchMore: vi.fn(),
       crear: vi.fn(),
       cambiarRol: vi.fn(),
+      cambiarEstado: vi.fn(),
       clearFeedback: vi.fn()
     } as any);
 
@@ -169,6 +172,7 @@ describe('UsuariosScreen', () => {
       fetchMore: vi.fn(),
       crear: vi.fn(),
       cambiarRol,
+      cambiarEstado: vi.fn(),
       clearFeedback: vi.fn()
     } as any);
 
@@ -182,6 +186,119 @@ describe('UsuariosScreen', () => {
   it('handles role change', () => {
     // Test simplificado - selector de rol requiere integración
     expect(document.body).toBeDefined();
+  });
+
+  it('desactiva un usuario tras confirmar', async () => {
+    const cambiarEstado = vi.fn();
+    vi.spyOn(window, 'confirm').mockReturnValue(true);
+    vi.mocked(useUsuariosQuery).mockReturnValue({
+      usuarios: mockUsuarios,
+      nextCursor: null,
+      loading: false,
+      loadingMore: false,
+      saving: false,
+      error: null,
+      success: null,
+      fetch: vi.fn(),
+      fetchMore: vi.fn(),
+      crear: vi.fn(),
+      cambiarRol: vi.fn(),
+      cambiarEstado,
+      clearFeedback: vi.fn()
+    } as any);
+
+    render(<UsuariosScreen />);
+
+    // mockUsuarios[0] (Admin User) está activo → el botón lo desactiva
+    fireEvent.click(screen.getByRole('button', { name: 'Desactivar a Admin User' }));
+
+    expect(window.confirm).toHaveBeenCalled();
+    await waitFor(() => {
+      expect(cambiarEstado).toHaveBeenCalledWith('1', false);
+    });
+    vi.mocked(window.confirm).mockRestore();
+  });
+
+  it('no desactiva si el usuario cancela la confirmación', () => {
+    const cambiarEstado = vi.fn();
+    vi.spyOn(window, 'confirm').mockReturnValue(false);
+    vi.mocked(useUsuariosQuery).mockReturnValue({
+      usuarios: mockUsuarios,
+      nextCursor: null,
+      loading: false,
+      loadingMore: false,
+      saving: false,
+      error: null,
+      success: null,
+      fetch: vi.fn(),
+      fetchMore: vi.fn(),
+      crear: vi.fn(),
+      cambiarRol: vi.fn(),
+      cambiarEstado,
+      clearFeedback: vi.fn()
+    } as any);
+
+    render(<UsuariosScreen />);
+    fireEvent.click(screen.getByRole('button', { name: 'Desactivar a Admin User' }));
+
+    expect(cambiarEstado).not.toHaveBeenCalled();
+    vi.mocked(window.confirm).mockRestore();
+  });
+
+  it('reactiva un usuario inactivo sin pedir confirmación', async () => {
+    const cambiarEstado = vi.fn();
+    const confirmSpy = vi.spyOn(window, 'confirm');
+    vi.mocked(useUsuariosQuery).mockReturnValue({
+      usuarios: mockUsuarios,
+      nextCursor: null,
+      loading: false,
+      loadingMore: false,
+      saving: false,
+      error: null,
+      success: null,
+      fetch: vi.fn(),
+      fetchMore: vi.fn(),
+      crear: vi.fn(),
+      cambiarRol: vi.fn(),
+      cambiarEstado,
+      clearFeedback: vi.fn()
+    } as any);
+
+    render(<UsuariosScreen />);
+
+    // mockUsuarios[1] (Mesero Uno) está inactivo → el botón lo reactiva
+    fireEvent.click(screen.getByRole('button', { name: 'Reactivar a Mesero Uno' }));
+
+    expect(confirmSpy).not.toHaveBeenCalled();
+    await waitFor(() => {
+      expect(cambiarEstado).toHaveBeenCalledWith('2', true);
+    });
+  });
+
+  it('deshabilita el botón de estado sobre la propia cuenta', () => {
+    vi.mocked(useAuthStore).mockImplementation((selector: any) =>
+      selector ? selector({ user: { rol: 'ADMIN', id: '1' } }) : { user: { rol: 'ADMIN', id: '1' } }
+    );
+    vi.mocked(useUsuariosQuery).mockReturnValue({
+      usuarios: mockUsuarios,
+      nextCursor: null,
+      loading: false,
+      loadingMore: false,
+      saving: false,
+      error: null,
+      success: null,
+      fetch: vi.fn(),
+      fetchMore: vi.fn(),
+      crear: vi.fn(),
+      cambiarRol: vi.fn(),
+      cambiarEstado: vi.fn(),
+      clearFeedback: vi.fn()
+    } as any);
+
+    render(<UsuariosScreen />);
+
+    expect(screen.getByRole('button', { name: 'Desactivar a Admin User' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Reactivar a Mesero Uno' })).not.toBeDisabled();
   });
 
   it('handles non-admin view', () => {

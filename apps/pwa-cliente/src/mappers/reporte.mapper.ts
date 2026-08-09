@@ -9,15 +9,33 @@ function formatMoney(value: number): string {
   }).format(value);
 }
 
+function formatFecha(value: Date): string {
+  return value.toLocaleDateString('es-PE', { day: '2-digit', month: 'short', year: 'numeric' });
+}
+
+function mismoDia(a: Date, b: Date): boolean {
+  return a.toDateString() === b.toDateString();
+}
+
 export function mapResumen(dto: ResumenDto): ResumenVM {
   const fecha = new Date(dto.fecha);
+  const hasta = dto.hasta ? new Date(dto.hasta) : null;
   const ticketPromedio = dto.totalVentas > 0 ? dto.ingresosTotales / dto.totalVentas : null;
+
+  const fechaLabel = Number.isNaN(fecha.getTime())
+    ? dto.fecha
+    : fecha.toLocaleDateString('es-PE', { day: '2-digit', month: 'long', year: 'numeric' });
+
+  const rangoLabel = (() => {
+    if (Number.isNaN(fecha.getTime())) return dto.fecha;
+    if (!hasta || Number.isNaN(hasta.getTime()) || mismoDia(fecha, hasta)) return fechaLabel;
+    return `${formatFecha(fecha)} – ${formatFecha(hasta)}`;
+  })();
 
   return {
     fecha: dto.fecha,
-    fechaLabel: Number.isNaN(fecha.getTime())
-      ? dto.fecha
-      : fecha.toLocaleDateString('es-PE', { day: '2-digit', month: 'long', year: 'numeric' }),
+    fechaLabel,
+    rangoLabel,
     totalVentas: dto.totalVentas,
     ingresosTotales: dto.ingresosTotales,
     ingresosLabel: formatMoney(dto.ingresosTotales),

@@ -30,6 +30,18 @@ export function CartaScreen() {
   const [edit, setEdit] = useState<ProductoVM | null>(null);
   const [nuevo, setNuevo] = useState(false);
 
+  // Subcategorías se muestran como "Padre › Hijo" para no confundirse con
+  // categorías principales del mismo nombre corto en la lista plana.
+  const nombrePorCategoria = useMemo(() => {
+    const porId = new Map(categorias.map((c) => [c.id, c]));
+    const mapa = new Map<string, string>();
+    for (const c of categorias) {
+      const padre = c.parentId ? porId.get(c.parentId) : undefined;
+      mapa.set(c.id, padre ? `${padre.nombre} › ${c.nombre}` : c.nombre);
+    }
+    return mapa;
+  }, [categorias]);
+
   const filtrados = useMemo(
     () => productos.filter((p) => {
       const okCat = cat === 'TODAS' || p.categoriaId === cat;
@@ -58,6 +70,7 @@ export function CartaScreen() {
       if (prod) {
         await actualizarProducto(prod.id, {
           nombre: datos.nombre,
+          descripcion: datos.descripcion.trim() === '' ? null : datos.descripcion,
           categoriaId: datos.categoriaId,
           precio: datos.precio,
           disponible: datos.disponible,
@@ -66,6 +79,7 @@ export function CartaScreen() {
       } else {
         await crearProducto({
           nombre: datos.nombre,
+          descripcion: datos.descripcion.trim() === '' ? undefined : datos.descripcion,
           categoriaId: datos.categoriaId,
           precio: datos.precio,
           disponible: datos.disponible,
@@ -104,7 +118,7 @@ export function CartaScreen() {
           <button className={`canal-tab ${cat === 'TODAS' ? 'on' : ''}`} onClick={() => setCat('TODAS')}>Todas <span className="ct-count">{productos.length}</span></button>
         {categorias.map((c) => (
           <button key={c.id} className={`canal-tab ${cat === c.id ? 'on' : ''}`} onClick={() => setCat(c.id)}>
-            {c.nombre} <span className="ct-count">{productos.filter((p) => p.categoriaId === c.id).length}</span>
+            {nombrePorCategoria.get(c.id)} <span className="ct-count">{productos.filter((p) => p.categoriaId === c.id).length}</span>
           </button>
         ))}
         </div>
@@ -134,7 +148,7 @@ export function CartaScreen() {
             {filtrados.map((p) => (
               <tr key={p.id} style={{ cursor: 'pointer', opacity: p.disponible ? 1 : 0.55 }} onClick={() => setEdit(p)}>
                 <td><strong>{p.nombre}</strong>{p.descripcion && <div className="muted" style={{ fontSize: 12 }}>{p.descripcion}</div>}</td>
-                <td className="col-mobile-hidden"><span className="pill-soft">{p.categoriaNombre ?? '—'}</span></td>
+                <td className="col-mobile-hidden"><span className="pill-soft">{nombrePorCategoria.get(p.categoriaId) ?? p.categoriaNombre ?? '—'}</span></td>
                 <td style={{ textAlign: 'right' }}><strong className="mono">{p.precioLabel}</strong></td>
                 <td onClick={(e) => e.stopPropagation()}>
                   <button className={`toggle ${p.disponible ? 'on' : ''}`} disabled={saving || !online} onClick={() => toggleDisp(p)} title={p.disponible ? 'Disponible' : 'Agotado (86)'}><span className="knob" /></button>
@@ -161,6 +175,7 @@ export function CartaScreen() {
 
 interface CartaFormData {
   nombre: string;
+  descripcion: string;
   categoriaId: string;
   precio: number;
   disponible: boolean;
@@ -177,6 +192,7 @@ interface CartaDrawerProps {
 function CartaDrawer({ prod, categorias, saving, onClose, onSave }: Readonly<CartaDrawerProps>) {
   const isNew = !prod;
   const [n, setN] = useState(prod ? prod.nombre : '');
+  const [desc, setDesc] = useState(prod?.descripcion ?? '');
   const [catId, setCatId] = useState<string>(prod ? prod.categoriaId : (categorias[0]?.id ?? ''));
   const [precio, setPrecio] = useState<string>(prod ? String(prod.precio) : '');
   const [disp, setDisp] = useState(prod ? prod.disponible : true);
@@ -184,7 +200,7 @@ function CartaDrawer({ prod, categorias, saving, onClose, onSave }: Readonly<Car
   const p = Number(precio || 0);
   const valido = n.trim() !== '' && p > 0 && catId !== '';
 
-  const guardar = () => onSave({ nombre: n.trim(), categoriaId: catId, precio: p, disponible: disp }, prod);
+  const guardar = () => onSave({ nombre: n.trim(), descripcion: desc.trim(), categoriaId: catId, precio: p, disponible: disp }, prod);
 
   return (
     <div className="drawer-wrap">
@@ -201,10 +217,19 @@ function CartaDrawer({ prod, categorias, saving, onClose, onSave }: Readonly<Car
             <div className="input"><input id="carta-nombre" value={n} onChange={(e) => setN(e.target.value)} placeholder="Ej. Lomo Saltado" autoFocus={isNew} /></div>
           </div>
           <div className="field" style={{ marginBottom: 12 }}>
+            <label htmlFor="carta-descripcion">Descripción</label>
+            <div className="input">
+              <textarea id="carta-descripcion" rows={3} value={desc} onChange={(e) => setDesc(e.target.value)} placeholder="Opcional · qué trae el plato" />
+            </div>
+          </div>
+          <div className="field" style={{ marginBottom: 12 }}>
             <label htmlFor="carta-categoria">Categoría</label>
             <div className="input">
               <select id="carta-categoria" value={catId} onChange={(e) => setCatId(e.target.value)} style={{ border: 0, background: 'transparent', width: '100%' }}>
-                {categorias.map((c) => <option key={c.id} value={c.id}>{c.nombre}</option>)}
+                {categorias.map((c) => {
+                  const padre = c.parentId ? categorias.find((p) => p.id === c.parentId) : undefined;
+                  return <option key={c.id} value={c.id}>{padre ? `${padre.nombre} › ${c.nombre}` : c.nombre}</option>;
+                })}
               </select>
             </div>
           </div>

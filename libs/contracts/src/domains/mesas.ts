@@ -16,12 +16,31 @@ export class MesaDto {
   @IsNumber()
   capacidad: number;
   @IsString()
+  ubicacionId: string;
+  @IsString()
   ubicacion: string;
   @IsEnum(MesaEstado)
   estado: MesaEstado;
   @IsOptional()
   @IsString()
   cuentaAsociada?: string | null;
+}
+
+export class UbicacionDto {
+  @IsString()
+  id: string;
+  @IsString()
+  nombre: string;
+}
+
+export class CrearUbicacionCommand {
+  @IsString()
+  nombre: string;
+}
+
+export class ActualizarUbicacionCommand {
+  @IsString()
+  nombre: string;
 }
 
 export class MesaAsignadaPayload {
@@ -49,9 +68,8 @@ export class CrearMesaCommand {
   numero: number;
   @IsNumber()
   capacidad: number;
-  @IsOptional()
   @IsString()
-  ubicacion?: string;
+  ubicacionId: string;
 }
 
 export class ActualizarEstadoMesaCommand {

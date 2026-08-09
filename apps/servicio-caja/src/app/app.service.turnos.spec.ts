@@ -65,7 +65,7 @@ function createMockPrisma(overrides: Record<string, any> = {}): any {
     $connect: async () => {},
     $disconnect: async () => {},
     checkAndRecordIdempotencyKey: async () => true,
-    turnoCaja: { findFirst: jest.fn(), findUnique: jest.fn(), create: jest.fn(), update: jest.fn() },
+    turnoCaja: { findFirst: jest.fn(), findUnique: jest.fn(), findMany: jest.fn(), create: jest.fn(), update: jest.fn() },
     movimientoCaja: { create: jest.fn(), findMany: jest.fn() },
     arqueoCaja: { create: jest.fn() },
     cierreCaja: { create: jest.fn() },
@@ -104,6 +104,52 @@ describe('AppService — Caja (turnos, movimientos, arqueo, cierre)', () => {
       const turno = await service.obtenerTurnoActivo();
       expect(turno?.id).toBe('turno-001');
       expect(turno?.estado).toBe('ABIERTA');
+    });
+  });
+
+  describe('listarTurnos', () => {
+    it('lista turnos sin filtro (todos los estados)', async () => {
+      prisma.turnoCaja.findMany.mockResolvedValue([{ ...baseTurno, estado: 'CERRADA' }]);
+
+      const result = await service.listarTurnos();
+
+      expect(prisma.turnoCaja.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ where: {}, orderBy: [{ abiertoAt: 'desc' }, { id: 'desc' }] }),
+      );
+      expect(result.data).toHaveLength(1);
+      expect(result.data[0].estado).toBe('CERRADA');
+      expect(result.nextCursor).toBeNull();
+    });
+
+    it('filtra por estado', async () => {
+      prisma.turnoCaja.findMany.mockResolvedValue([]);
+      await service.listarTurnos({ estado: 'CERRADA' });
+      expect(prisma.turnoCaja.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { estado: 'CERRADA' } }),
+      );
+    });
+
+    it('filtra por rango de cerradoAt (desde/hasta)', async () => {
+      prisma.turnoCaja.findMany.mockResolvedValue([]);
+      await service.listarTurnos({ desde: '2026-06-01', hasta: '2026-06-30' });
+      expect(prisma.turnoCaja.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { cerradoAt: { gte: new Date('2026-06-01'), lte: new Date('2026-06-30') } },
+        }),
+      );
+    });
+
+    it('pagina con cursor y respeta el límite', async () => {
+      const turnos = Array.from({ length: 3 }, (_, i) => ({ ...baseTurno, id: `t-${i}` }));
+      prisma.turnoCaja.findMany.mockResolvedValue(turnos);
+
+      const result = await service.listarTurnos({ limit: 2, cursor: 't-0' });
+
+      expect(prisma.turnoCaja.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ take: 3, cursor: { id: 't-0' }, skip: 1 }),
+      );
+      expect(result.data).toHaveLength(2);
+      expect(result.nextCursor).toBe('t-1');
     });
   });
 

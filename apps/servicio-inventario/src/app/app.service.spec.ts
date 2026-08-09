@@ -18,8 +18,11 @@ function createMockPrismaService(overrides: Record<string, unknown> = {}): any {
     },
     categoria: {
       findMany: jest.fn(),
+      findFirst: jest.fn(),
       findUnique: jest.fn(),
       create: jest.fn(),
+      update: jest.fn(),
+      delete: jest.fn(),
     },
     outboxEvent: {
       create: jest.fn().mockResolvedValue({}),
@@ -108,6 +111,7 @@ describe('AppService — Inventario (comprehensive)', () => {
 
   describe('crearCategoria', () => {
     it('crea y devuelve la categoría', async () => {
+      mockPrisma.categoria.findFirst.mockResolvedValue(null);
       mockPrisma.categoria.create.mockResolvedValue({ id: 'cat-1', nombre: 'Bebidas', descripcion: 'desc' });
       const result = await service.crearCategoria({ nombre: 'Bebidas', descripcion: 'desc' });
       expect(result.message).toBe('Categoría creada exitosamente');
@@ -115,9 +119,158 @@ describe('AppService — Inventario (comprehensive)', () => {
     });
 
     it('crea categoría sin descripción', async () => {
+      mockPrisma.categoria.findFirst.mockResolvedValue(null);
       mockPrisma.categoria.create.mockResolvedValue({ id: 'cat-2', nombre: 'Postres', descripcion: null });
       const result = await service.crearCategoria({ nombre: 'Postres' });
       expect(result.categoria.nombre).toBe('Postres');
+    });
+
+    it('recorta espacios del nombre antes de guardar y validar', async () => {
+      mockPrisma.categoria.findFirst.mockResolvedValue(null);
+      mockPrisma.categoria.create.mockResolvedValue({ id: 'cat-3', nombre: 'Entradas', descripcion: null });
+      await service.crearCategoria({ nombre: '  Entradas  ' });
+      expect(mockPrisma.categoria.findFirst).toHaveBeenCalledWith(
+        expect.objectContaining({ where: expect.objectContaining({ nombre: { equals: 'Entradas', mode: 'insensitive' } }) }),
+      );
+      expect(mockPrisma.categoria.create).toHaveBeenCalledWith({ data: { nombre: 'Entradas', descripcion: undefined } });
+    });
+
+    it('rechaza con 409 si ya existe una categoría con el mismo nombre (case-insensitive)', async () => {
+      mockPrisma.categoria.findFirst.mockResolvedValue({ id: 'cat-1', nombre: 'Bebidas' });
+      await expect(service.crearCategoria({ nombre: 'bebidas' })).rejects.toThrow('Ya existe una categoría llamada "Bebidas"');
+      expect(mockPrisma.categoria.create).not.toHaveBeenCalled();
+    });
+
+    it('traduce P2002 (carrera entre requests concurrentes) al mismo 409', async () => {
+      mockPrisma.categoria.findFirst.mockResolvedValue(null);
+      mockPrisma.categoria.create.mockRejectedValue({ code: 'P2002' });
+      await expect(service.crearCategoria({ nombre: 'Bebidas' })).rejects.toThrow('Ya existe una categoría llamada "Bebidas"');
+    });
+
+    it('crea una subcategoría cuando el parentId es una categoría principal', async () => {
+      mockPrisma.categoria.findFirst.mockResolvedValue(null);
+      mockPrisma.categoria.findUnique.mockResolvedValue({ id: 'cat-bebidas', nombre: 'Bebidas', parentId: null });
+      mockPrisma.categoria.create.mockResolvedValue({ id: 'cat-calientes', nombre: 'Calientes', parentId: 'cat-bebidas' });
+
+      const result = await service.crearCategoria({ nombre: 'Calientes', parentId: 'cat-bebidas' });
+
+      expect(result.categoria.parentId).toBe('cat-bebidas');
+      expect(mockPrisma.categoria.create).toHaveBeenCalledWith({ data: { nombre: 'Calientes', descripcion: undefined, parentId: 'cat-bebidas' } });
+    });
+
+    it('rechaza si el parentId no corresponde a ninguna categoría', async () => {
+      mockPrisma.categoria.findFirst.mockResolvedValue(null);
+      mockPrisma.categoria.findUnique.mockResolvedValue(null);
+      await expect(service.crearCategoria({ nombre: 'Calientes', parentId: 'inexistente' })).rejects.toThrow(NotFoundException);
+      expect(mockPrisma.categoria.create).not.toHaveBeenCalled();
+    });
+
+    it('rechaza anidar una subcategoría bajo otra subcategoría (un solo nivel)', async () => {
+      mockPrisma.categoria.findFirst.mockResolvedValue(null);
+      mockPrisma.categoria.findUnique.mockResolvedValue({ id: 'cat-calientes', nombre: 'Calientes', parentId: 'cat-bebidas' });
+      await expect(service.crearCategoria({ nombre: 'Muy calientes', parentId: 'cat-calientes' })).rejects.toThrow(
+        'No se permite anidar más de un nivel de subcategorías.',
+      );
+      expect(mockPrisma.categoria.create).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('actualizarCategoria', () => {
+    it('actualiza nombre y descripción', async () => {
+      mockPrisma.categoria.findUnique.mockResolvedValue({ id: 'cat-1', nombre: 'Bebidas', descripcion: null });
+      mockPrisma.categoria.findFirst.mockResolvedValue(null);
+      mockPrisma.categoria.update.mockResolvedValue({ id: 'cat-1', nombre: 'Bebidas Calientes', descripcion: 'Café, té' });
+
+      const result = await service.actualizarCategoria('cat-1', { nombre: 'Bebidas Calientes', descripcion: 'Café, té' });
+
+      expect(result.categoria.nombre).toBe('Bebidas Calientes');
+      expect(mockPrisma.categoria.findFirst).toHaveBeenCalledWith(
+        expect.objectContaining({ where: expect.objectContaining({ id: { not: 'cat-1' } }) }),
+      );
+    });
+
+    it('permite guardar sin cambiar el nombre (no dispara el check de unicidad)', async () => {
+      mockPrisma.categoria.findUnique.mockResolvedValue({ id: 'cat-1', nombre: 'Bebidas', descripcion: null });
+      mockPrisma.categoria.update.mockResolvedValue({ id: 'cat-1', nombre: 'Bebidas', descripcion: 'Nueva desc' });
+
+      await service.actualizarCategoria('cat-1', { descripcion: 'Nueva desc' });
+
+      expect(mockPrisma.categoria.findFirst).not.toHaveBeenCalled();
+    });
+
+    it('lanza NotFoundException si la categoría no existe', async () => {
+      mockPrisma.categoria.findUnique.mockResolvedValue(null);
+      await expect(service.actualizarCategoria('inexistente', { nombre: 'X' })).rejects.toThrow(NotFoundException);
+    });
+
+    it('rechaza con 409 al renombrar a un nombre ya usado por otra categoría', async () => {
+      mockPrisma.categoria.findUnique.mockResolvedValue({ id: 'cat-1', nombre: 'Bebidas', descripcion: null });
+      mockPrisma.categoria.findFirst.mockResolvedValue({ id: 'cat-2', nombre: 'Postres' });
+      await expect(service.actualizarCategoria('cat-1', { nombre: 'Postres' })).rejects.toThrow('Ya existe una categoría llamada "Postres"');
+    });
+
+    it('asigna parentId a una categoría sin subcategorías propias', async () => {
+      mockPrisma.categoria.findUnique
+        .mockResolvedValueOnce({ id: 'cat-calientes', nombre: 'Calientes', _count: { subcategorias: 0 } })
+        .mockResolvedValueOnce({ id: 'cat-bebidas', nombre: 'Bebidas', parentId: null });
+      mockPrisma.categoria.update.mockResolvedValue({ id: 'cat-calientes', nombre: 'Calientes', parentId: 'cat-bebidas' });
+
+      const result = await service.actualizarCategoria('cat-calientes', { parentId: 'cat-bebidas' });
+
+      expect(result.categoria.parentId).toBe('cat-bebidas');
+    });
+
+    it('rechaza convertir en subcategoría si ya tiene subcategorías propias', async () => {
+      mockPrisma.categoria.findUnique.mockResolvedValue({ id: 'cat-bebidas', nombre: 'Bebidas', _count: { subcategorias: 2 } });
+      await expect(service.actualizarCategoria('cat-bebidas', { parentId: 'cat-cocina' })).rejects.toThrow(
+        'ya tiene sus propias subcategorías',
+      );
+      expect(mockPrisma.categoria.update).not.toHaveBeenCalled();
+    });
+
+    it('rechaza que una categoría sea su propia categoría padre', async () => {
+      mockPrisma.categoria.findUnique.mockResolvedValue({ id: 'cat-1', nombre: 'Bebidas', _count: { subcategorias: 0 } });
+      await expect(service.actualizarCategoria('cat-1', { parentId: 'cat-1' })).rejects.toThrow(
+        'Una categoría no puede ser su propia categoría padre.',
+      );
+    });
+
+    it('rechaza parentId que apunta a una subcategoría (un solo nivel)', async () => {
+      mockPrisma.categoria.findUnique
+        .mockResolvedValueOnce({ id: 'cat-postres', nombre: 'Postres', _count: { subcategorias: 0 } })
+        .mockResolvedValueOnce({ id: 'cat-calientes', nombre: 'Calientes', parentId: 'cat-bebidas' });
+      await expect(service.actualizarCategoria('cat-postres', { parentId: 'cat-calientes' })).rejects.toThrow(
+        'No se permite anidar más de un nivel de subcategorías.',
+      );
+    });
+  });
+
+  describe('eliminarCategoria', () => {
+    it('elimina una categoría sin productos asociados', async () => {
+      mockPrisma.categoria.findUnique.mockResolvedValue({ id: 'cat-1', nombre: 'Bebidas', _count: { productos: 0 } });
+      mockPrisma.categoria.delete.mockResolvedValue({});
+
+      const result = await service.eliminarCategoria('cat-1');
+
+      expect(result.message).toBe('Categoría eliminada');
+      expect(mockPrisma.categoria.delete).toHaveBeenCalledWith({ where: { id: 'cat-1' } });
+    });
+
+    it('rechaza con 409 si la categoría tiene productos asociados', async () => {
+      mockPrisma.categoria.findUnique.mockResolvedValue({ id: 'cat-1', nombre: 'Bebidas', _count: { productos: 3, subcategorias: 0 } });
+      await expect(service.eliminarCategoria('cat-1')).rejects.toThrow('3 producto(s)');
+      expect(mockPrisma.categoria.delete).not.toHaveBeenCalled();
+    });
+
+    it('rechaza con 409 si la categoría tiene subcategorías asociadas', async () => {
+      mockPrisma.categoria.findUnique.mockResolvedValue({ id: 'cat-bebidas', nombre: 'Bebidas', _count: { productos: 0, subcategorias: 2 } });
+      await expect(service.eliminarCategoria('cat-bebidas')).rejects.toThrow('2 subcategoría(s)');
+      expect(mockPrisma.categoria.delete).not.toHaveBeenCalled();
+    });
+
+    it('lanza NotFoundException si la categoría no existe', async () => {
+      mockPrisma.categoria.findUnique.mockResolvedValue(null);
+      await expect(service.eliminarCategoria('inexistente')).rejects.toThrow(NotFoundException);
     });
   });
 

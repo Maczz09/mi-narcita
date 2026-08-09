@@ -199,17 +199,32 @@ async function ensurePedidos(request: APIRequestContext, headers: Record<string,
   }
 }
 
+async function ensureUbicacion(request: APIRequestContext, headers: Record<string, string>, nombre: string) {
+  const ubicaciones = await getArray<{ id: string; nombre: string }>(request, '/mesas/ubicaciones', headers, 'ubicaciones');
+  const existing = ubicaciones.find((u) => u.nombre === nombre);
+  if (existing) return existing;
+
+  const response = await request.post(`${API_BASE_URL}/mesas/ubicaciones`, {
+    headers,
+    data: { nombre },
+  });
+  expect(response.ok(), await response.text()).toBeTruthy();
+  const body = await response.json();
+  return body.ubicacion as { id: string; nombre: string };
+}
+
 async function ensureMesaSalon(request: APIRequestContext, headers: Record<string, string>) {
   const mesas = await getArray<Mesa>(request, '/mesas', headers, 'mesas');
   const existing = mesas.find((mesa) => Number(mesa.numero) < 90);
   if (existing) return existing;
 
+  const ubicacion = await ensureUbicacion(request, headers, 'Salon Principal');
   const response = await request.post(`${API_BASE_URL}/mesas`, {
     headers,
     data: {
       numero: 1,
       capacidad: 4,
-      ubicacion: 'Salon Principal',
+      ubicacionId: ubicacion.id,
     },
   });
 

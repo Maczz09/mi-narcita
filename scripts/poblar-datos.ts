@@ -43,6 +43,11 @@ interface Mesa {
   estado: string;
 }
 
+interface Ubicacion {
+  id: string;
+  nombre: string;
+}
+
 async function login(): Promise<string> {
   console.log('🔐 Iniciando sesión como admin@nachopps.pe...');
   const res = await axios.post(`${BASE}/identidad/auth/login`, {
@@ -90,15 +95,41 @@ async function crearProducto(
   return res.data.producto;
 }
 
+/** Ubicaciones son un CRUD propio (find-or-create): busca por nombre y si no existe la crea. */
+async function asegurarUbicacion(token: string, nombre: string): Promise<Ubicacion> {
+  const res = await axios.get<ApiResponse>(`${BASE}/mesas/ubicaciones`, { headers: authHeaders(token) });
+  const existentes: Ubicacion[] = res.data.ubicaciones || res.data || [];
+  const encontrada = existentes.find((u) => u.nombre === nombre);
+  if (encontrada) return encontrada;
+
+  try {
+    const creada = await axios.post<ApiResponse>(
+      `${BASE}/mesas/ubicaciones`,
+      { nombre },
+      { headers: authHeaders(token) },
+    );
+    return creada.data.ubicacion;
+  } catch (err: any) {
+    if (err.response?.status === 409) {
+      const retry = await axios.get<ApiResponse>(`${BASE}/mesas/ubicaciones`, { headers: authHeaders(token) });
+      const lista: Ubicacion[] = retry.data.ubicaciones || retry.data || [];
+      const found = lista.find((u) => u.nombre === nombre);
+      if (found) return found;
+    }
+    throw err;
+  }
+}
+
 async function crearMesa(
   token: string,
   numero: number,
   capacidad: number,
-  ubicacion: string = 'Salón Principal',
+  ubicacionNombre: string = 'Salón Principal',
 ): Promise<Mesa> {
+  const ubicacion = await asegurarUbicacion(token, ubicacionNombre);
   const res = await axios.post<ApiResponse>(
     `${BASE}/mesas`,
-    { numero, capacidad, ubicacion },
+    { numero, capacidad, ubicacionId: ubicacion.id },
     { headers: authHeaders(token) },
   );
   return res.data.mesa;

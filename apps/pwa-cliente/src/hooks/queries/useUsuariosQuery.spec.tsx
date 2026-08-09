@@ -12,6 +12,7 @@ vi.mock('../../api/usuarios.api', () => ({
   getPage: vi.fn(),
   crear: vi.fn(),
   cambiarRol: vi.fn(),
+  cambiarEstado: vi.fn(),
 }));
 
 vi.mock('../../mappers/usuario.mapper', () => ({
@@ -145,6 +146,19 @@ describe('useUsuariosQuery', () => {
     await result.current.cambiarRol('u1', 'ADMIN');
 
     expect(usuariosApi.cambiarRol).toHaveBeenCalledWith('u1', { rol: 'ADMIN' });
+    expect(queryClient.invalidateQueries).toHaveBeenCalledWith(expect.objectContaining({ queryKey: USUARIOS_QUERY_KEY }));
+  });
+
+  it('should cambiarEstado usuario', async () => {
+    vi.mocked(usuariosApi.getPage).mockResolvedValue({ data: [], nextCursor: null });
+    vi.mocked(usuariosApi.cambiarEstado).mockResolvedValue({ id: 'u1', activo: false } as any);
+
+    const { result } = renderHook(() => useUsuariosQuery(), { wrapper: createWrapper() });
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    await result.current.cambiarEstado('u1', false);
+
+    expect(usuariosApi.cambiarEstado).toHaveBeenCalledWith('u1', { activo: false });
     expect(queryClient.invalidateQueries).toHaveBeenCalledWith(expect.objectContaining({ queryKey: USUARIOS_QUERY_KEY }));
   });
 

@@ -1,14 +1,20 @@
 // @vitest-environment jsdom
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { ReportesScreen } from './ReportesScreen';
 import * as reportesQueryHook from '../../hooks/queries/useReportesQuery';
+
+const mockExportarResumenPdf = vi.fn();
+vi.mock('../../utils/reportePdf', () => ({
+  exportarResumenPdf: (...args: unknown[]) => mockExportarResumenPdf(...args),
+}));
 
 describe('ReportesScreen', () => {
   const mockFetch = vi.fn();
 
   beforeEach(() => {
     vi.clearAllMocks();
+    mockExportarResumenPdf.mockReset();
     vi.spyOn(reportesQueryHook, 'useReportesQuery').mockReturnValue({
       resumen: null,
       loading: true,
@@ -104,6 +110,69 @@ describe('ReportesScreen', () => {
     expect(screen.getByText('S/ 50.00')).toBeInTheDocument();
     expect(screen.getByText('Fries')).toBeInTheDocument();
     expect(screen.getByText('Sin dato')).toBeInTheDocument();
+  });
+
+  it('el botón de exportar PDF está deshabilitado sin resumen', () => {
+    render(<ReportesScreen />);
+    expect(screen.getByTitle('Exportar PDF')).toBeDisabled();
+  });
+
+  it('aplica el filtro de fecha y lo pasa al hook', () => {
+    render(<ReportesScreen />);
+    fireEvent.change(screen.getByLabelText('Desde'), { target: { value: '2026-06-01' } });
+    fireEvent.change(screen.getByLabelText('Hasta'), { target: { value: '2026-06-30' } });
+
+    expect(reportesQueryHook.useReportesQuery).toHaveBeenLastCalledWith({
+      desde: '2026-06-01',
+      hasta: '2026-06-30',
+    });
+  });
+
+  it('limpia el filtro de fecha', () => {
+    render(<ReportesScreen />);
+    fireEvent.change(screen.getByLabelText('Desde'), { target: { value: '2026-06-01' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Limpiar filtro' }));
+
+    expect(reportesQueryHook.useReportesQuery).toHaveBeenLastCalledWith({
+      desde: undefined,
+      hasta: undefined,
+    });
+  });
+
+  it('exporta el PDF al hacer click, con resumen disponible', async () => {
+    vi.spyOn(reportesQueryHook, 'useReportesQuery').mockReturnValue({
+      resumen: {
+        ingresosLabel: 'S/ 100', fechaLabel: 'Hoy', rangoLabel: 'Hoy',
+        totalVentas: 5, ticketPromedioLabel: 'S/ 20', ventasPorHora: [], topProductos: [],
+      },
+      loading: false,
+      error: null,
+      fetch: mockFetch,
+    } as any);
+    mockExportarResumenPdf.mockResolvedValue(undefined);
+
+    render(<ReportesScreen />);
+    fireEvent.click(screen.getByTitle('Exportar PDF'));
+
+    await waitFor(() => expect(mockExportarResumenPdf).toHaveBeenCalledTimes(1));
+  });
+
+  it('muestra un banner de error si la exportación del PDF falla', async () => {
+    vi.spyOn(reportesQueryHook, 'useReportesQuery').mockReturnValue({
+      resumen: {
+        ingresosLabel: 'S/ 100', fechaLabel: 'Hoy', rangoLabel: 'Hoy',
+        totalVentas: 5, ticketPromedioLabel: 'S/ 20', ventasPorHora: [], topProductos: [],
+      },
+      loading: false,
+      error: null,
+      fetch: mockFetch,
+    } as any);
+    mockExportarResumenPdf.mockRejectedValue(new Error('jsPDF no disponible'));
+
+    render(<ReportesScreen />);
+    fireEvent.click(screen.getByTitle('Exportar PDF'));
+
+    await waitFor(() => expect(screen.getByText('jsPDF no disponible')).toBeInTheDocument());
   });
 });
 

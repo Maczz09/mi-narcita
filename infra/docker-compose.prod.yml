@@ -113,6 +113,22 @@ services:
       timeout: 3s
       retries: 5
 
+  db-facturacion:
+    image: postgres:16-alpine
+    container_name: nachopps-db-facturacion
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${DB_USER:-nachopps}
+      POSTGRES_PASSWORD: ${DB_PASS:?DB_PASS es obligatorio en produccion}
+      POSTGRES_DB: facturacion_db
+    volumes:
+      - nachopps-db-facturacion:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ${DB_USER:-nachopps} -d facturacion_db']
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
   db-caja:
     image: postgres:16-alpine
     container_name: nachopps-db-caja
@@ -423,11 +439,52 @@ services:
       rabbitmq:
         condition: service_healthy
 
+  servicio-facturacion:
+    image: ${REGISTRY:-nachopps}/servicio-facturacion:latest
+    container_name: nachopps-servicio-facturacion
+    restart: unless-stopped
+    stop_grace_period: 30s
+    environment:
+      PORT: '3000'
+      DATABASE_URL: 'postgresql://${DB_USER:-nachopps}:${DB_PASS:?DB_PASS es obligatorio en produccion}@db-facturacion:5432/facturacion_db?schema=public'
+      SERVICE_NAME: 'servicio-facturacion'
+      SERVICE_AUD_ENFORCE: 'true'
+      RABBITMQ_URI: 'amqp://${RABBITMQ_USER:-nachopps}:${RABBITMQ_PASS:?RABBITMQ_PASS es obligatorio en produccion}@rabbitmq:5672'
+      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-http://otel-collector:4318}
+      JWT_PUBLIC_KEY: ${JWT_PUBLIC_KEY:?JWT_PUBLIC_KEY es obligatorio (PEM RS256, \n literales)}
+      SERVICE_JWT_SECRET: ${SERVICE_JWT_SECRET:?SERVICE_JWT_SECRET es obligatorio (tokens S2S internos)}
+      NODE_ENV: 'production'
+      CORS_ORIGIN: ${CORS_ORIGIN:?CORS_ORIGIN es obligatorio, p.ej. https://app.tudominio.com}
+      # SUNAT: opcionales a propósito (${VAR:-}, no ${VAR:?}) — el deploy no
+      # debe fallar si aún no tienes certificado/SOL de una o ambas empresas.
+      # Mientras falten, CertificadoService/EnvioProcessor lo detectan y ese
+      # comprobante queda FIRMADO sin enviar (nunca se pierde, no gasta intentos).
+      SUNAT_WSDL_URL: ${SUNAT_WSDL_URL:-https://e-beta.sunat.gob.pe/ol-ti-itcpfegem-beta/billService?wsdl}
+      SUNAT_PFX_EMPRESA_1_FILE: ${SUNAT_PFX_EMPRESA_1_FILE:-}
+      SUNAT_PFX_EMPRESA_1_PASS: ${SUNAT_PFX_EMPRESA_1_PASS:-}
+      SUNAT_SOL_USER_EMPRESA_1: ${SUNAT_SOL_USER_EMPRESA_1:-}
+      SUNAT_SOL_PASS_EMPRESA_1: ${SUNAT_SOL_PASS_EMPRESA_1:-}
+      SUNAT_PFX_EMPRESA_2_FILE: ${SUNAT_PFX_EMPRESA_2_FILE:-}
+      SUNAT_PFX_EMPRESA_2_PASS: ${SUNAT_PFX_EMPRESA_2_PASS:-}
+      SUNAT_SOL_USER_EMPRESA_2: ${SUNAT_SOL_USER_EMPRESA_2:-}
+      SUNAT_SOL_PASS_EMPRESA_2: ${SUNAT_SOL_PASS_EMPRESA_2:-}
+    healthcheck:
+      test: ['CMD', 'wget', '-qO-', 'http://localhost:3000/api/health/live']
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    depends_on:
+      db-facturacion:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+
   # ═══════════════════════════════════════════════════
   # FRONTEND (PWA)
   # ═══════════════════════════════════════════════════
   pwa-cliente:
-    image: ${REGISTRY:-ghcr.io/marcos7py/nachoppssoa}/pwa-cliente:latest
+    image: ${REGISTRY:-ghcr.io/Maczz09/nachoppssoa}/pwa-cliente:latest
     container_name: nachopps-pwa-cliente
     restart: unless-stopped
     ports:
@@ -524,6 +581,12 @@ services:
   alertmanager:
     image: prom/alertmanager:latest
     container_name: nachopps-alertmanager
+    # Instancia única, sin peers de cluster configurados: sin esto el gossip
+    # mesh puede fallar a arrancar ("no private IP found") en algunos hosts.
+    command:
+      - '--config.file=/etc/alertmanager/alertmanager.yml'
+      - '--storage.path=/alertmanager'
+      - '--cluster.listen-address='
     restart: unless-stopped
     volumes:
       - ./alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
@@ -582,5 +645,6 @@ volumes:
   nachopps-db-inventario:
   nachopps-db-caja:
   nachopps-db-reportes:
+  nachopps-db-facturacion:
   nachopps-db-identidad:
   nachopps-db-notificaciones:

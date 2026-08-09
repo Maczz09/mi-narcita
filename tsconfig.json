@@ -46,6 +46,9 @@
       "path": "./apps/servicio-reportes"
     },
     {
+      "path": "./apps/servicio-facturacion"
+    },
+    {
       "path": "./apps/servicio-notificaciones-e2e"
     },
     {

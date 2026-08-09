@@ -6,6 +6,7 @@ import { MesasScreen } from './MesasScreen';
 import { useOnlineStatus } from '../../hooks/useOnlineStatus';
 import { useAuthStore } from '../../store/auth.store';
 import { useMesasQuery } from '../../hooks/queries/useMesasQuery';
+import { useUbicacionesQuery } from '../../hooks/queries/useUbicacionesQuery';
 import { useCuentasQuery } from '../../hooks/queries/useCuentasQuery';
 import { useToast } from '../../components/ui/ToastProvider';
 import { BrowserRouter } from 'react-router-dom';
@@ -14,6 +15,7 @@ vi.mock('../../hooks/useOnlineStatus');
 vi.mock('../../hooks/useNow', () => ({ useNow: () => Date.now() }));
 vi.mock('../../store/auth.store');
 vi.mock('../../hooks/queries/useMesasQuery');
+vi.mock('../../hooks/queries/useUbicacionesQuery');
 vi.mock('../../hooks/queries/useCuentasQuery');
 vi.mock('../../components/ui/ToastProvider', () => ({ useToast: vi.fn() }));
 vi.mock('../../components/comandero/Comandero', () => ({
@@ -33,6 +35,11 @@ describe('MesasScreen', () => {
     (useMesasQuery as any).mockReturnValue({
       mesas: [], loading: false, saving: false, loadError: null, error: null, success: null,
       fetch: vi.fn(), crearMesa: vi.fn().mockResolvedValue(true), clearFeedback: vi.fn()
+    });
+    (useUbicacionesQuery as any).mockReturnValue({
+      ubicaciones: [{ id: 'u-terraza', nombre: 'Terraza' }, { id: 'u-vip', nombre: 'VIP' }],
+      loading: false, saving: false, error: null, success: null,
+      crearUbicacion: vi.fn(), actualizarUbicacion: vi.fn(), eliminarUbicacion: vi.fn(), clearFeedback: vi.fn(),
     });
     (useCuentasQuery as any).mockReturnValue({ cuentaActiva: null, loading: false });
     (useToast as any).mockReturnValue({ toast: vi.fn() });
@@ -78,10 +85,30 @@ describe('MesasScreen', () => {
     // Create mesa
     fireEvent.change(screen.getByLabelText('Número'), { target: { value: '3' } });
     fireEvent.change(screen.getByLabelText('Capacidad'), { target: { value: '6' } });
-    fireEvent.change(screen.getByLabelText('Ubicación'), { target: { value: 'VIP' } });
+    fireEvent.change(screen.getByLabelText('Ubicación'), { target: { value: 'u-vip' } });
     fireEvent.click(screen.getByRole('button', { name: 'Crear mesa' }));
-    
-    await waitFor(() => expect(crearMesa).toHaveBeenCalledWith({ numero: 3, capacidad: 6, ubicacion: 'VIP' }));
+
+    await waitFor(() => expect(crearMesa).toHaveBeenCalledWith({ numero: 3, capacidad: 6, ubicacionId: 'u-vip' }));
+  });
+
+  it('el selector de ubicación ofrece las ubicaciones del CRUD (no las de mesas)', () => {
+    (useUbicacionesQuery as any).mockReturnValue({
+      ubicaciones: [{ id: 'u1', nombre: 'Salón Principal' }, { id: 'u2', nombre: 'Terraza' }],
+      loading: false, saving: false, error: null, success: null,
+      crearUbicacion: vi.fn(), actualizarUbicacion: vi.fn(), eliminarUbicacion: vi.fn(), clearFeedback: vi.fn(),
+    });
+    (useCuentasQuery as any).mockReturnValue({ cuentaActiva: null, loading: false });
+
+    renderScreen();
+
+    const select = screen.getByLabelText('Ubicación') as HTMLSelectElement;
+    const options = Array.from(select.options).map((o) => ({ value: o.value, text: o.text }));
+    expect(options).toEqual([
+      { value: 'u1', text: 'Salón Principal' },
+      { value: 'u2', text: 'Terraza' },
+    ]);
+    // Preselecciona la primera ubicación disponible.
+    expect(select.value).toBe('u1');
   });
 
   it('handles offline gracefully', () => {

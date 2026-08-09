@@ -35,6 +35,14 @@ export class TransaccionDto {
   @IsString()
   notas?: string;
 
+  @IsOptional()
+  @IsString()
+  usuarioId?: string;
+
+  @IsOptional()
+  @IsString()
+  cajeroNombre?: string;
+
   @IsString()
   createdAt: string;
 }
@@ -95,6 +103,33 @@ export class ListarTransaccionesQuery {
   updatedSince?: string;
 }
 
+export class ListarTurnosQuery {
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Max(100)
+  @Type(() => Number)
+  limit?: number;
+
+  @IsOptional()
+  @IsString()
+  cursor?: string;
+
+  @IsOptional()
+  @IsString()
+  estado?: string;
+
+  /** Filtra por cerradoAt >= desde (ISO-8601). */
+  @IsOptional()
+  @IsDateString()
+  desde?: string;
+
+  /** Filtra por cerradoAt <= hasta (ISO-8601). */
+  @IsOptional()
+  @IsDateString()
+  hasta?: string;
+}
+
 /* ── Responses ───────────────────────────────────────── */
 
 export class TransaccionListResponse {
@@ -102,6 +137,44 @@ export class TransaccionListResponse {
   @ValidateNested({ each: true })
   @Type(() => TransaccionDto)
   data: TransaccionDto[];
+
+  @IsOptional()
+  @IsString()
+  nextCursor: string | null;
+}
+
+export class TurnoDto {
+  @IsString()
+  id: string;
+  @IsString()
+  cajaId: string;
+  @IsString()
+  cajaNombre: string;
+  @IsString()
+  usuarioId: string;
+  @IsOptional()
+  @IsString()
+  cajeroNombre?: string | null;
+  @IsNumber()
+  fondoInicial: number;
+  @IsString()
+  estado: string;
+  @IsString()
+  abiertoAt: string;
+  @IsOptional()
+  @IsString()
+  cerradoAt?: string | null;
+  @IsString()
+  createdAt: string;
+  @IsString()
+  updatedAt: string;
+}
+
+export class TurnoListResponse {
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => TurnoDto)
+  data: TurnoDto[];
 
   @IsOptional()
   @IsString()

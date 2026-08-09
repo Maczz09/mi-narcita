@@ -64,7 +64,7 @@ const cases = [
     consumer: 'servicio-pedidos',
     routingKey: RoutingKeys.MesaCreada,
     Payload: MesaDto,
-    sample: { id: 'm1', numero: 1, capacidad: 4, ubicacion: 'SALON', estado: 'LIBRE' },
+    sample: { id: 'm1', numero: 1, capacidad: 4, ubicacionId: 'u1', ubicacion: 'SALON', estado: 'LIBRE' },
     breakPath: (s: { numero?: number }) => { delete s.numero; },
   },
 ] as const;

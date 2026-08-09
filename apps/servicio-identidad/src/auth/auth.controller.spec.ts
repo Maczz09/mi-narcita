@@ -108,6 +108,7 @@ describe('AuthController', () => {
       crearUsuario: jest.fn().mockResolvedValue({ id: 'new-user' }),
       listarUsuarios: jest.fn().mockResolvedValue({ items: [], total: 0 }),
       cambiarRol: jest.fn().mockResolvedValue({ id: 'user-1', rol: 'ADMIN' }),
+      cambiarEstado: jest.fn().mockResolvedValue({ id: 'user-1', activo: false }),
     };
     const controller = new AuthController(authService as never);
 
@@ -125,5 +126,9 @@ describe('AuthController', () => {
       id: 'user-1',
       rol: 'ADMIN',
     });
+    expect(
+      await controller.cambiarEstado('user-1', { activo: false } as never, { user: { sub: 'admin-1' } } as any),
+    ).toEqual({ id: 'user-1', activo: false });
+    expect(authService.cambiarEstado).toHaveBeenCalledWith('user-1', { activo: false }, 'admin-1');
   });
 });

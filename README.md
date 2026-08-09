@@ -24,7 +24,7 @@ Monorepo **Nx** con una arquitectura de **microservicios event-driven** (NestJS)
 
 | Carpeta | Contenido |
 |---------|-----------|
-| `apps/servicio-*` | 9 microservicios NestJS + sus suites e2e (`*-e2e`) |
+| `apps/servicio-*` | 10 microservicios NestJS + sus suites e2e (`*-e2e`) |
 | `apps/pwa-cliente` | Frontend PWA (React 19, Vite, React Query, React Router v7) |
 | `libs/contracts` | Contratos compartidos: comandos/queries por dominio, routing keys, envelope de eventos |
 | `libs/shared-auth` | Guard JWT + estrategia Passport + validación CSRF (double-submit) |
@@ -47,6 +47,7 @@ Monorepo **Nx** con una arquitectura de **microservicios event-driven** (NestJS)
 | notificaciones | 3008 | WebSocket en vivo (socket.io) | la mayoría de eventos de dominio |
 | caja | 3009 | Turnos, pagos, arqueo, cierre Z | CuentaAbierta, CuentaCerrada |
 | reportes | 3010 | Reportes de ventas | CuentaCerrada |
+| facturacion | 3011 | Boletas/facturas electrónicas SUNAT (firma XMLDSig, multi-RUC) | CuentaCerrada |
 
 > **Frontend ↔ backend:** todos los módulos de la PWA consumen el backend real a través de Kong (`:8000`). **Excepción:** el módulo **Compras** es actualmente **mock** (`apps/pwa-cliente/src/data/compras.mock.ts`), sin microservicio asociado — alcance pendiente.
 

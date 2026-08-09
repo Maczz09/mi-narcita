@@ -12,6 +12,8 @@ export function toReservaDto(reserva: Reserva): ReservaDto {
     mesaPreferida: reserva.mesaPreferida,
     numComensales: reserva.numComensales,
     estado: reserva.estado as ReservaEstado,
+    usuarioId: reserva.usuarioId ?? undefined,
+    usuarioNombre: reserva.usuarioNombre ?? undefined,
     createdAt: reserva.createdAt.toISOString(),
   };
 }

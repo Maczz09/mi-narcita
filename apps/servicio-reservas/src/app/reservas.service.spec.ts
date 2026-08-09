@@ -146,6 +146,61 @@ describe('ReservasService — Reservas', () => {
       });
     });
 
+    it('debe guardar el usuario que registró la reserva', async () => {
+      mockPrisma.reserva.findMany.mockResolvedValue([] as any);
+      mockPrisma.reserva.create.mockResolvedValue({
+        ...reservaBase,
+        usuarioId: 'u-recepcion',
+        usuarioNombre: 'Recepción Uno',
+      });
+
+      await service.crear(
+        {
+          clienteId: 'c-001',
+          clienteNombre: 'Juan Perez',
+          clienteTelefono: '999888777',
+          fecha: fechaFutura,
+          hora: '19:00',
+          mesaPreferida: 'mesa-005',
+          numComensales: 4,
+        },
+        { id: 'u-recepcion', nombre: 'Recepción Uno' },
+      );
+
+      expect(mockPrisma.reserva.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            usuarioId: 'u-recepcion',
+            usuarioNombre: 'Recepción Uno',
+          }),
+        }),
+      );
+    });
+
+    it('guarda usuarioId/usuarioNombre como null cuando no hay usuario autenticado', async () => {
+      mockPrisma.reserva.findMany.mockResolvedValue([] as any);
+      mockPrisma.reserva.create.mockResolvedValue(reservaBase);
+
+      await service.crear({
+        clienteId: 'c-001',
+        clienteNombre: 'Juan Perez',
+        clienteTelefono: '999888777',
+        fecha: fechaFutura,
+        hora: '19:00',
+        mesaPreferida: 'mesa-005',
+        numComensales: 4,
+      });
+
+      expect(mockPrisma.reserva.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            usuarioId: null,
+            usuarioNombre: null,
+          }),
+        }),
+      );
+    });
+
     it('debe permitir crear en la misma franja si la mesa es distinta', async () => {
       mockPrisma.reserva.findMany.mockResolvedValue([{ ...reservaBase, mesaPreferida: 'mesa-004' }]);
       mockPrisma.reserva.create.mockResolvedValue(reservaBase);

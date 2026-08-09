@@ -21,7 +21,8 @@ $services = @(
   "servicio-inventario",
   "servicio-notificaciones",
   "servicio-caja",
-  "servicio-reportes"
+  "servicio-reportes",
+  "servicio-facturacion"
 )
 
 Write-Host ""
@@ -92,7 +93,8 @@ $endpoints = @(
   @{ Name = "inventario"; Url = "http://localhost:3007/api" },
   @{ Name = "notificaciones"; Url = "http://localhost:3008/api" },
   @{ Name = "caja";       Url = "http://localhost:3009/api/health" },
-  @{ Name = "reportes";   Url = "http://localhost:3010/api" }
+  @{ Name = "reportes";   Url = "http://localhost:3010/api" },
+  @{ Name = "facturacion"; Url = "http://localhost:3011/api" }
 )
 
 $healthy = 0

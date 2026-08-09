@@ -1,7 +1,7 @@
-import { Controller, Get, Post, Body, Param, Patch, ParseUUIDPipe, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, Patch, Delete, ParseUUIDPipe, UseGuards } from '@nestjs/common';
 import { Roles, RolesGuard } from '@org/shared-auth';
 import { AppService } from './app.service';
-import { CrearMesaCommand, ActualizarEstadoMesaCommand } from '@org/contracts';
+import { CrearMesaCommand, ActualizarEstadoMesaCommand, CrearUbicacionCommand, ActualizarUbicacionCommand } from '@org/contracts';
 
 // Salón: lo consultan/operan mesero, cajero y recepción (mapa de roles del PWA).
 @UseGuards(RolesGuard)
@@ -13,6 +13,32 @@ export class AppController {
   @Get()
   listarMesas() {
     return this.appService.listarMesas();
+  }
+
+  // --- UBICACIONES --- (antes de ':id' para que no lo capture esa ruta)
+
+  @Get('ubicaciones')
+  listarUbicaciones() {
+    return this.appService.listarUbicaciones();
+  }
+
+  // Gestión de zonas = configuración del salón, reservada a administración.
+  @Roles('ADMIN', 'SISTEMA')
+  @Post('ubicaciones')
+  crearUbicacion(@Body() body: CrearUbicacionCommand) {
+    return this.appService.crearUbicacion(body);
+  }
+
+  @Roles('ADMIN', 'SISTEMA')
+  @Patch('ubicaciones/:id')
+  actualizarUbicacion(@Param('id', ParseUUIDPipe) id: string, @Body() body: ActualizarUbicacionCommand) {
+    return this.appService.actualizarUbicacion(id, body);
+  }
+
+  @Roles('ADMIN', 'SISTEMA')
+  @Delete('ubicaciones/:id')
+  eliminarUbicacion(@Param('id', ParseUUIDPipe) id: string) {
+    return this.appService.eliminarUbicacion(id);
   }
 
   @Get(':id')

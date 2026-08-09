@@ -42,13 +42,30 @@ describe('Header', () => {
     localStorage.clear();
   });
 
-  it('toggles theme correctly', () => {
+  it('cicla el tema claro → oscuro → navy → claro', () => {
     renderHeader();
-    const btn = screen.getByTitle('Tema claro/oscuro');
+    const btn = screen.getByLabelText(/Tema actual: Claro/);
     fireEvent.click(btn);
     expect(document.documentElement.dataset['theme']).toBe('dark');
     expect(localStorage.getItem('nachopps-theme')).toBe('dark');
-    fireEvent.click(btn);
+
+    fireEvent.click(screen.getByLabelText(/Tema actual: Oscuro/));
+    expect(document.documentElement.dataset['theme']).toBe('navy');
+    expect(localStorage.getItem('nachopps-theme')).toBe('navy');
+
+    fireEvent.click(screen.getByLabelText(/Tema actual: Navy/));
+    expect(document.documentElement.dataset['theme']).toBe('light');
+  });
+
+  it('permite elegir el tema navy desde el popover de ajustes', () => {
+    renderHeader();
+    fireEvent.click(screen.getByTitle('Vista y accesibilidad'));
+
+    fireEvent.click(screen.getByRole('button', { name: 'Navy' }));
+    expect(document.documentElement.dataset['theme']).toBe('navy');
+    expect(localStorage.getItem('nachopps-theme')).toBe('navy');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Claro' }));
     expect(document.documentElement.dataset['theme']).toBe('light');
   });
 

@@ -38,6 +38,7 @@ export function mapReserva(dto: ReservaDto): ReservaVM {
           hour: '2-digit',
           minute: '2-digit',
         }),
+    usuarioNombre: dto.usuarioNombre ?? undefined,
     createdAt: dto.createdAt,
   };
 }

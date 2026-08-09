@@ -42,6 +42,12 @@ export class ReservaDto {
   numComensales: number;
   @IsEnum(ReservaEstado)
   estado: ReservaEstado;
+  @IsOptional()
+  @IsString()
+  usuarioId?: string;
+  @IsOptional()
+  @IsString()
+  usuarioNombre?: string;
   @IsString()
   createdAt: string;
 }

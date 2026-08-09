@@ -47,6 +47,7 @@ jobs:
             servicio-notificaciones
             servicio-caja
             servicio-reportes
+            servicio-facturacion
           )
 
           for svc in "${services[@]}"; do

@@ -2,6 +2,7 @@ import { client } from './client';
 import { unwrapEntity } from './response';
 import type {
   CambiarRolPayload,
+  CambiarEstadoPayload,
   CrearUsuarioPayload,
   UsuarioDto,
   ListarUsuariosQuery,
@@ -33,6 +34,14 @@ export async function crear(payload: CrearUsuarioPayload): Promise<UsuarioDto> {
 export async function cambiarRol(id: string, payload: CambiarRolPayload): Promise<UsuarioDto> {
   const response = await client.patch<UsuarioDto | { usuario: UsuarioDto }>(
     `/identidad/usuarios/${id}/rol`,
+    payload,
+  );
+  return unwrapEntity<UsuarioDto>(response, 'usuario');
+}
+
+export async function cambiarEstado(id: string, payload: CambiarEstadoPayload): Promise<UsuarioDto> {
+  const response = await client.patch<UsuarioDto | { usuario: UsuarioDto }>(
+    `/identidad/usuarios/${id}/estado`,
     payload,
   );
   return unwrapEntity<UsuarioDto>(response, 'usuario');

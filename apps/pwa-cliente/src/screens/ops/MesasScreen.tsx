@@ -9,8 +9,10 @@ import { useNavigate } from 'react-router-dom';
 import { Icons } from '../../components/ui/icons';
 import { fmt, elapsedLabel } from '../../utils/format';
 import { useMesasQuery } from '../../hooks/queries/useMesasQuery';
+import { useUbicacionesQuery } from '../../hooks/queries/useUbicacionesQuery';
 import { useCuentasQuery } from '../../hooks/queries/useCuentasQuery';
 import { Comandero } from '../../components/comandero/Comandero';
+import { UbicacionesModal } from './UbicacionesModal';
 import { useFocusTrap } from '../../hooks/useFocusTrap';
 import { useNow } from '../../hooks/useNow';
 import { useOnlineStatus } from '../../hooks/useOnlineStatus';
@@ -31,7 +33,7 @@ const SKEL_KEYS = Array.from({ length: 12 }, (_, i) => `skel-${i}`);
 const INITIAL_MESA_FORM: CrearMesaPayload = {
   numero: 1,
   capacidad: 4,
-  ubicacion: 'Salon Principal',
+  ubicacionId: '',
 };
 
 type ComanderoState =
@@ -45,17 +47,19 @@ export function MesasScreen() {
   const rol = useAuthStore((s) => s.user?.rol);
   const puedeCrearMesa = rol === 'ADMIN' || rol === 'SISTEMA';
   const { mesas, loading, saving, loadError, error, success, fetch, crearMesa, clearFeedback } = useMesasQuery();
+  const { ubicaciones: ubicacionesCrud } = useUbicacionesQuery();
   const [ubicacion, setUbicacion] = useState('TODAS');
   const [sel, setSel] = useState<MesaVM | null>(null);
   const [mesaForm, setMesaForm] = useState<CrearMesaPayload>(INITIAL_MESA_FORM);
   const [comandero, setComandero] = useState<ComanderoState>({ open: false });
+  const [gestionUbicaciones, setGestionUbicaciones] = useState(false);
 
   // Sólo mesas físicas (excluir virtuales 98/99 de delivery/llevar)
   const fisicas = useMemo(() => mesas.filter((m) => m.numeroRaw < 90), [mesas]);
 
-  const ubicaciones = useMemo(
-    () => ['TODAS', ...Array.from(new Set(fisicas.map((m) => m.ubicacion)))],
-    [fisicas],
+  const ubicacionesFiltro = useMemo(
+    () => ['TODAS', ...ubicacionesCrud.map((u) => u.nombre)],
+    [ubicacionesCrud],
   );
   const visibles = fisicas.filter((m) => ubicacion === 'TODAS' || m.ubicacion === ubicacion);
 
@@ -80,6 +84,13 @@ export function MesasScreen() {
     ));
   }, [siguienteNumero]);
 
+  // Preselecciona la primera ubicación disponible en cuanto carga el CRUD.
+  useEffect(() => {
+    if (!mesaForm.ubicacionId && ubicacionesCrud.length > 0) {
+      setMesaForm((current) => ({ ...current, ubicacionId: ubicacionesCrud[0].id }));
+    }
+  }, [ubicacionesCrud, mesaForm.ubicacionId]);
+
   useEffect(() => {
     const el = document.querySelector('.content');
     if (el) {
@@ -93,15 +104,15 @@ export function MesasScreen() {
 
   const handleCrearMesa = async (event: SubmitEvent) => {
     event.preventDefault();
-    if (!online || !puedeCrearMesa) return;
+    if (!online || !puedeCrearMesa || !mesaForm.ubicacionId) return;
 
     try {
       await crearMesa({
         numero: Number(mesaForm.numero),
         capacidad: Number(mesaForm.capacidad),
-        ubicacion: mesaForm.ubicacion?.trim() || 'Salon Principal',
+        ubicacionId: mesaForm.ubicacionId,
       });
-      setMesaForm({ ...INITIAL_MESA_FORM, numero: siguienteNumero + 1 });
+      setMesaForm((current) => ({ ...INITIAL_MESA_FORM, numero: siguienteNumero + 1, ubicacionId: current.ubicacionId }));
     } catch (e) {
       toast({ title: 'No se pudo crear la mesa', msg: e instanceof Error ? e.message : 'Inténtalo de nuevo', icon: 'Alert', kind: 'err' });
     }
@@ -182,10 +193,15 @@ export function MesasScreen() {
             ))}
             <span className="spacer" />
             <div className="seg sm mesa-zone-filter" role="radiogroup" aria-label="Filtrar mesas por zona">
-              {ubicaciones.map((z) => (
+              {ubicacionesFiltro.map((z) => (
                 <button key={z} className={ubicacion === z ? 'on' : ''} onClick={() => setUbicacion(z)}>{z === 'TODAS' ? 'Todas' : z}</button>
               ))}
             </div>
+            {puedeCrearMesa && (
+              <button className="btn btn-ghost btn-sm" onClick={() => setGestionUbicaciones(true)}>
+                <Icons.Layers s={14} /> Ubicaciones
+              </button>
+            )}
           </div>
 
           <div className="mesa-floor">
@@ -244,16 +260,23 @@ export function MesasScreen() {
                 <div className="field">
                   <label htmlFor="mesa-ubicacion">Ubicación</label>
                   <div className="input">
-                    <input
+                    <select
                       id="mesa-ubicacion"
                       required
-                      value={mesaForm.ubicacion ?? ''}
-                      onChange={(event) => updateMesaForm('ubicacion', event.target.value)}
-                      placeholder="Salon Principal"
-                    />
+                      value={mesaForm.ubicacionId}
+                      onChange={(event) => updateMesaForm('ubicacionId', event.target.value)}
+                    >
+                      {ubicacionesCrud.length === 0 && <option value="">Sin ubicaciones</option>}
+                      {ubicacionesCrud.map((u) => <option key={u.id} value={u.id}>{u.nombre}</option>)}
+                    </select>
                   </div>
+                  <span className="hint">
+                    {ubicacionesCrud.length === 0
+                      ? 'Crea una ubicación primero con "Ubicaciones" arriba.'
+                      : '¿Falta una zona? Usa "Ubicaciones" arriba para gestionarlas.'}
+                  </span>
                 </div>
-                <button className="btn btn-primary btn-block" disabled={saving || !online} type="submit">
+                <button className="btn btn-primary btn-block" disabled={saving || !online || !mesaForm.ubicacionId} type="submit">
                   {saving ? <span className="spinner" /> : <Icons.Plus s={16} />}
                   Crear mesa
                 </button>
@@ -262,6 +285,8 @@ export function MesasScreen() {
           </aside>
         )}
       </div>
+
+      {gestionUbicaciones && <UbicacionesModal onClose={() => setGestionUbicaciones(false)} />}
 
       {sel && (
         <MesaDrawer

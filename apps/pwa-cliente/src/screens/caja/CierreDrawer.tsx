@@ -150,7 +150,7 @@ export function CierreDrawer({ k, cajeroNombre, onClose, onDone }: Readonly<Prop
                 </div>
               </div>
 
-              <div className="zwrap">
+              <div className="zwrap print-area">
                 <ZTicket k={k} esperado={esperado} contado={contado} descuadre={descuadre} estado={estado} cajeroNombre={cajeroNombre} />
               </div>
             </div>

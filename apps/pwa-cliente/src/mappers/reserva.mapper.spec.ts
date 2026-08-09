@@ -68,6 +68,16 @@ describe('mapReserva', () => {
     const vm = mapReserva(dto({ fecha: 'NO_VALIDO', hora: '20:00' }));
     expect(vm.fechaHoraLabel).toBe('NO_VALIDO 20:00');
   });
+
+  it('propaga usuarioNombre cuando el backend lo envía', () => {
+    const vm = mapReserva(dto({ usuarioNombre: 'Recepción Uno' }));
+    expect(vm.usuarioNombre).toBe('Recepción Uno');
+  });
+
+  it('usuarioNombre queda undefined cuando el backend no lo envía', () => {
+    const vm = mapReserva(dto());
+    expect(vm.usuarioNombre).toBeUndefined();
+  });
 });
 
 describe('mapReservas', () => {

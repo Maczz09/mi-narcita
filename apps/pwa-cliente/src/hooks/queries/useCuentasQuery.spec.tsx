@@ -127,8 +127,11 @@ describe('useCuentasQuery', () => {
 
     const { result } = renderHook(() => useCuentasQuery('m1'), { wrapper: createWrapper() });
     
-    await result.current.registrarPago({ monto: 100 } as any);
-    
+    const respuesta = await result.current.registrarPago({ monto: 100 } as any);
+
+    // La respuesta se devuelve (no se descarta): CobroMesaDrawer la usa para
+    // mostrar la boleta interna imprimible sin esperar al re-render del hook.
+    expect(respuesta).toEqual({ ticket: 't1' });
     expect(cuentasApi.registrarPago).toHaveBeenCalledWith({ monto: 100 });
     expect(queryClient.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['cuentas'] });
     expect(queryClient.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['mesas'] });

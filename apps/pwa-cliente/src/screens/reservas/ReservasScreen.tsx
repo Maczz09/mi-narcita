@@ -126,6 +126,7 @@ export function ReservasScreen() {
                     <th>Cliente</th>
                     <th className="col-mobile-hidden">Mesa</th>
                     <th className="col-mobile-hidden">Personas</th>
+                    <th className="col-mobile-hidden">Registrado por</th>
                     <th>Estado</th>
                     <th>Acciones</th>
                   </tr>
@@ -140,6 +141,7 @@ export function ReservasScreen() {
                       </td>
                       <td className="col-mobile-hidden">{reserva.mesaPreferida ? mesaLabelById.get(reserva.mesaPreferida) ?? reserva.mesaPreferida : 'Sin mesa'}</td>
                       <td className="col-mobile-hidden">{reserva.numComensales}</td>
+                      <td className="col-mobile-hidden muted">{reserva.usuarioNombre ?? '—'}</td>
                       <td><span className={`badge dot ${reserva.estadoClass}`}>{reserva.estadoLabel}</span></td>
                       <td>
                         <div className="row wrap">

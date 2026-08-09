@@ -3,9 +3,12 @@
 import { client } from './client';
 import { unwrapArray, unwrapEntity } from './response';
 import type {
+  ActualizarCategoriaPayload,
   ActualizarProductoPayload,
   CategoriaDto,
+  CategoriaResponse,
   CategoriasResponse,
+  CrearCategoriaPayload,
   CrearProductoPayload,
   ProductoDto,
   ProductoListQuery,
@@ -17,6 +20,20 @@ import type {
 export async function getCategorias(): Promise<CategoriaDto[]> {
   const response = await client.get<CategoriasResponse | CategoriaDto[]>('/inventario/categorias');
   return unwrapArray<CategoriaDto>(response, 'categorias');
+}
+
+export async function crearCategoria(payload: CrearCategoriaPayload): Promise<CategoriaDto> {
+  const response = await client.post<CategoriaResponse | CategoriaDto>('/inventario/categorias', payload);
+  return unwrapEntity<CategoriaDto>(response, 'categoria');
+}
+
+export async function actualizarCategoria(id: string, payload: ActualizarCategoriaPayload): Promise<CategoriaDto> {
+  const response = await client.patch<CategoriaResponse | CategoriaDto>(`/inventario/categorias/${id}`, payload);
+  return unwrapEntity<CategoriaDto>(response, 'categoria');
+}
+
+export async function eliminarCategoria(id: string): Promise<void> {
+  await client.delete(`/inventario/categorias/${id}`);
 }
 
 function buildProductosQuery(query: ProductoListQuery = {}): string {

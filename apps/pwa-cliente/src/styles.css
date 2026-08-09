@@ -87,6 +87,42 @@
   --scrim: rgba(0,0,0,.6);
 }
 
+/* ---------- NAVY ("Marejada" · semi-oscuro azul marino) ----------
+   Tercer tema, entre light y dark: fondo azul marino pero más claro
+   que --bg de dark (#1b2844 vs #0d0f13), para mejor legibilidad en
+   turnos nocturnos sin llegar al negro. --accent se mantiene neutro
+   (slate claro), nunca un azul saturado, igual que light/dark.
+   ------------------------------------------------------------ */
+[data-theme="navy"] {
+  --bg: #1b2844;
+  --surface: #223154;
+  --surface-2: #283a60;
+  --surface-3: #33477a;
+  --border: #3f5488;
+  --border-strong: #4f66a0;
+  --text: #eef2fb;
+  --text-2: #c7d2ea;
+  --muted: #9fb0d4; /* ~5.9:1 sobre --surface — cumple AA */
+  --faint: #7a8cb8; /* ~3.9:1 sobre --surface — cumple UI 3:1 */
+  /* ★ DESIGN SYSTEM: --accent = slate claro, jamás un azul saturado */
+  --accent: #cbd5e1;
+  --accent-hover: #e2e8f0;
+  --accent-soft: #2c3c66;
+  --accent-text: #e2e8f0;
+  --on-accent: #1b2844;
+  --primary: #18181b;
+  --primary-hover: #000000;
+  --on-primary: #ffffff;
+  --cmd-ink: #ffffff;
+  --ok: #34d399; --ok-soft: #123a2c; --ok-text: #6ee7b7;
+  --warn: #fbbf24; --warn-soft: #3a2f14; --warn-text: #fde68a;
+  --danger: #f87171; --danger-soft: #3a2030; --danger-text: #fca5a5;
+  --info: #7dd3fc; --info-soft: #1c3a5e; --info-text: #bae6fd;
+  --purple: #c4b5fd; --purple-soft: #2e2555;
+  --skel: linear-gradient(90deg,#283a60 25%,#33477a 37%,#283a60 63%);
+  --scrim: rgba(8,12,26,.6);
+}
+
 * { box-sizing: border-box; }
 html, body { margin: 0; padding: 0; height: 100%; }
 body {
@@ -924,6 +960,17 @@ fieldset { border: 0; padding: 0; margin: 0; min-width: 0; }
 .zticket .zrow.bold { font-weight: 800; font-size: 13.5px; }
 .zticket .zlbl { font-size: 10px; letter-spacing: .12em; text-transform: uppercase; color: #8a8a93; font-weight: 700; }
 
+/* Impresión de boletas/tickets (caja): imprime solo el ticket, a ancho de
+   rollo térmico 80mm. .print-area envuelve el .zticket a imprimir — tanto la
+   boleta interna (BoletaInterna.tsx) como el cierre Z (CierreDrawer.tsx). */
+@media print {
+  @page { size: 80mm auto; margin: 4mm; }
+  body * { visibility: hidden; }
+  .print-area, .print-area * { visibility: visible; }
+  .print-area { position: absolute; top: 0; left: 0; width: 100%; }
+  .print-area .zticket { width: 100%; box-shadow: none; border: 0; border-radius: 0; padding: 0; }
+}
+
 /* ============================================================
    KDS mejorado
    ============================================================ */
@@ -954,6 +1001,7 @@ fieldset { border: 0; padding: 0; margin: 0; min-width: 0; }
 .kds-card .kds-head { display: flex; align-items: center; gap: 9px; }
 .kds-card .tk-num { font-size: 12px; font-weight: 800; font-family: var(--mono); color: var(--muted); }
 .kds-card .tk-where { font-size: 17px; font-weight: 800; }
+.kds-card .tk-mesero { display: flex; align-items: center; gap: 4px; font-size: 11px; font-weight: 600; color: var(--muted); margin-top: 2px; }
 .kds-card.bumped { opacity: .5; }
 .kds-card.sel { box-shadow: 0 0 0 2px var(--accent); border-color: var(--accent); }
 .kds-card .seat { font-size: 11px; font-weight: 700; color: var(--muted); }
@@ -1018,7 +1066,12 @@ fieldset { border: 0; padding: 0; margin: 0; min-width: 0; }
 /* wide modal */
 .modal.wide { width: 720px; }
 .modal.xwide { width: 860px; }
-.modal-scroll { max-height: 74vh; overflow-y: auto; overscroll-behavior: contain; }
+/* Sin -webkit-overflow-scrolling el arrastre táctil dentro de este
+   overflow:auto anidado en un modal fixed se sentía trabado/estático en
+   iOS Safari, aunque el scroll programático sí funcionaba — activa el
+   scroll con inercia nativo de WebKit. Las media queries de abajo solo
+   redeclaran max-height, así que heredan esta propiedad en cascada. */
+.modal-scroll { max-height: 74vh; overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
 
 /* generic two-up */
 .two-up { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
@@ -1172,7 +1225,11 @@ fieldset { border: 0; padding: 0; margin: 0; min-width: 0; }
 .cmd-filters { display: flex; align-items: center; gap: 10px; }
 .cmd-cats { display: flex; gap: 6px; flex-wrap: wrap; flex: 1; }
 .cmd-search { width: 220px; flex: none; }
-.cmd-grid { flex: 1; overflow-y: auto; display: grid; grid-template-columns: repeat(auto-fill, minmax(168px, 1fr)); gap: 11px; align-content: start; padding-bottom: 8px; }
+/* Sin -webkit-overflow-scrolling el arrastre táctil dentro de este
+   overflow:auto anidado en un modal fixed se sentía trabado/estático en
+   iOS Safari (no bajaba la lista de platos), aunque el scroll programático
+   sí funcionaba — activa el scroll con inercia nativo de WebKit. */
+.cmd-grid { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; display: grid; grid-template-columns: repeat(auto-fill, minmax(168px, 1fr)); gap: 11px; align-content: start; padding-bottom: 8px; }
 .dish-card { position: relative; text-align: left; background: var(--surface); border: 1px solid var(--border); border-radius: var(--r); padding: 13px; display: flex; flex-direction: column; gap: 8px; min-height: 96px; transition: border-color .1s, transform .1s, box-shadow .1s; color: var(--cmd-ink); }
 .dish-card:hover { border-color: var(--accent); transform: translateY(-1px); box-shadow: var(--shadow-sm); }
 .dish-card.has { border-color: var(--accent); background: var(--accent-soft); }
@@ -1185,7 +1242,7 @@ fieldset { border: 0; padding: 0; margin: 0; min-width: 0; }
 
 .cmd-cart { background: var(--surface); border-left: 1px solid var(--border); display: flex; flex-direction: column; min-height: 0; overflow: hidden; }
 .cmd-cart-h { display: flex; align-items: center; gap: 9px; padding: 14px 16px; border-bottom: 1px solid var(--border); font-size: 15px; }
-.cmd-lines { flex: 1; overflow-y: auto; padding: 12px 14px; display: flex; flex-direction: column; gap: 9px; }
+.cmd-lines { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 12px 14px; display: flex; flex-direction: column; gap: 9px; }
 .cmd-empty { text-align: center; color: var(--cmd-ink); padding: 40px 20px; display: grid; gap: 8px; place-items: center; }
 .cmd-empty b { color: var(--cmd-ink); font-size: 14px; }
 .cmd-empty p { font-size: 12.5px; margin: 0; }
@@ -1922,6 +1979,14 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
   /* Sin scroll horizontal en ninguna tabla ≤920px.
      Si la tabla aún desborda, usar representación de tarjetas. */
   .table-wrap { overflow: hidden; }
+  /* Tablas de Compras (Órdenes, Insumos): aun ocultando sus columnas
+     prescindibles, las que quedan (con botones de acción táctiles
+     ≥44px) no entran en ~360px — overflow:hidden de arriba las
+     recortaba en silencio, sin forma de verlas. Pendiente la vista
+     de tarjetas (nota original de este bloque); mientras tanto,
+     mejor swipe horizontal que datos invisibles. Reusar esta clase
+     en cualquier otra tabla que llegue al mismo punto. */
+  .table-wrap-scroll-fallback { overflow-x: auto; }
 }
 
 /* ── A11Y: Windows High Contrast Mode ──────────────────────────
@@ -2244,4 +2309,47 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
   .modal .cobro-keypad-layout {
     grid-template-columns: 1fr;
   }
+}
+
+/* ── KDS y tablero de Pedidos: nunca mostraban 3 columnas en tablet ──
+   Ambos tableros comparten las 3 etapas de ETAPAS_PRODUCCION (pedido.flow.ts)
+   y el mismo patrón de reglas acumuladas (.kds: L719/1323/1710/1735/2021;
+   .ped-board: L720/1324/1711/1736) que se pisan entre sí por orden de
+   aparición: la de max-width:1080px (2 cols) siempre gana sobre la de
+   max-width:920px (1 col), y la de min-width:1100px (3 cols, solo .kds)
+   nunca llega a aplicar en ningún tablet (768-1024px) — justo el
+   dispositivo que dice usar la pantalla de cocina ("tablet de cocina").
+   Resultado: la 1ra y 2da columna quedan lado a lado y la 3ra cae abajo,
+   rompiendo el flujo de lectura izquierda-a-derecha.
+   Fix: reglas finales (ganan por ser las últimas del cascade) —
+   1 columna solo en teléfono real, 3 columnas desde tablet en adelante. */
+@media (max-width: 680px) {
+  .kds, .ped-board { grid-template-columns: 1fr; }
+}
+@media (min-width: 681px) {
+  .kds, .ped-board { grid-template-columns: repeat(3, 1fr); }
+}
+
+/* ── "Ventas por hora": recortaba contenido en móvil (clásico
+   "grid blowout") ─────────────────────────────────────────────
+   .bar-col es flex:1 sin min-width:0, así que flexbox no lo encoge
+   más allá del ancho de su contenido (etiqueta "12h", barra) — con
+   ~11 horas de datos el row de barras (.bars) pide ~430px dentro
+   de un panel de 355px. body tiene overflow-x:hidden (no se ve
+   scroll de página), PERO .panel es un grid item de .module-grid
+   /.report-stack y los grid items tienen min-width:auto por
+   defecto: heredan el ancho mínimo del contenido de sus hijos
+   (aquí, el de .bars) aunque .bars ya tenga overflow-x:auto —
+   así que el panel entero se estira y el resto queda recortado
+   por el overflow-x:hidden del body, invisible sin aviso.
+   Fix: overflow-x:auto en .bars para volverlo swipeable +
+   min-width:0 en .panel para que el grid no herede su ancho. */
+@media (max-width: 680px) {
+  .bars { overflow-x: auto; padding-bottom: 4px; }
+  .bar-col { flex: 0 0 30px; }
+  .module-grid .panel, .report-stack .panel { min-width: 0; }
+  /* Mismo blowout: .inventory-group es grid item de .inventory-list
+     (display:grid) y envuelve una .table-wrap ya scrolleable — sin
+     min-width:0 el track hereda el ancho de la tabla igual que antes. */
+  .inventory-list, .inventory-group { min-width: 0; }
 }

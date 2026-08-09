@@ -13,6 +13,7 @@ describe('AppController — Caja', () => {
     service = {
       registrarPago: jest.fn().mockResolvedValue({ ok: true }),
       listarTransacciones: jest.fn().mockResolvedValue({ data: [] }),
+      listarTurnos: jest.fn().mockResolvedValue({ data: [], nextCursor: null }),
       abrirTurno: jest.fn().mockResolvedValue({ id: 'turno-1' }),
       obtenerTurnoActivo: jest.fn().mockResolvedValue(null),
       obtenerResumenTurnoActivo: jest.fn().mockResolvedValue({ turno: null }),
@@ -25,16 +26,27 @@ describe('AppController — Caja', () => {
     controller = new AppController(service as any);
   });
 
-  it('registrarPago delega con el usuario actual', async () => {
+  it('registrarPago delega con el usuario actual (id y nombre)', async () => {
     const body = { cuentaId: 'c-1', montoRecibido: 50, metodo: 'EFECTIVO' } as any;
-    await controller.registrarPago(body, 'u-1');
-    expect(service.registrarPago).toHaveBeenCalledWith(body, 'u-1');
+    await controller.registrarPago(body, 'u-1', 'Cajero Uno', null);
+    expect(service.registrarPago).toHaveBeenCalledWith(body, 'u-1', 'Cajero Uno');
+  });
+
+  it('registrarPago cae a email si no hay nombre, y a usuarioId si no hay ninguno', async () => {
+    const body = { cuentaId: 'c-1', montoRecibido: 50, metodo: 'EFECTIVO' } as any;
+    await controller.registrarPago(body, 'u-1', null, 'cajero@nachopps.pe');
+    expect(service.registrarPago).toHaveBeenCalledWith(body, 'u-1', 'cajero@nachopps.pe');
   });
 
   it('P-62: registrarPago acepta token S2S sin email/nombre', async () => {
     const body = { cuentaId: 'c-1', montoRecibido: 50, metodo: 'EFECTIVO' } as any;
-    await expect(controller.registrarPago(body, 'svc-caja')).resolves.toEqual({ ok: true });
-    expect(service.registrarPago).toHaveBeenCalledWith(body, 'svc-caja');
+    await expect(controller.registrarPago(body, 'svc-caja', null, null)).resolves.toEqual({ ok: true });
+    expect(service.registrarPago).toHaveBeenCalledWith(body, 'svc-caja', 'svc-caja');
+  });
+
+  it('listarTurnos delega el query (historial de cierres)', async () => {
+    await controller.listarTurnos({ estado: 'CERRADA', limit: 10 } as any);
+    expect(service.listarTurnos).toHaveBeenCalledWith({ estado: 'CERRADA', limit: 10 });
   });
 
   it('listarTransacciones delega el query', async () => {

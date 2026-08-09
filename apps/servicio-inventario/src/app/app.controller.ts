@@ -1,7 +1,7 @@
-import { Controller, Get, Post, Body, Param, Patch, Query, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, Patch, Delete, Query, UseGuards } from '@nestjs/common';
 import { Roles, RolesGuard } from '@org/shared-auth';
 import { AppService } from './app.service';
-import { CrearCategoriaCommand, CrearProductoCommand, ActualizarProductoCommand, ListarProductosQuery, ObtenerProductosLoteCommand } from '@org/contracts';
+import { CrearCategoriaCommand, ActualizarCategoriaCommand, CrearProductoCommand, ActualizarProductoCommand, ListarProductosQuery, ObtenerProductosLoteCommand } from '@org/contracts';
 
 // Lectura del catálogo: la usan inventario/carta (admin, sistema, gerencia) y
 // también el comandero del PWA (cajero, mesero) al armar pedidos. La gestión
@@ -28,6 +28,18 @@ export class AppController {
   @Post('categorias')
   crearCategoria(@Body() body: CrearCategoriaCommand) {
     return this.appService.crearCategoria(body);
+  }
+
+  @Roles('ADMIN', 'SISTEMA', 'GERENCIA')
+  @Patch('categorias/:id')
+  actualizarCategoria(@Param('id') id: string, @Body() body: ActualizarCategoriaCommand) {
+    return this.appService.actualizarCategoria(id, body);
+  }
+
+  @Roles('ADMIN', 'SISTEMA', 'GERENCIA')
+  @Delete('categorias/:id')
+  eliminarCategoria(@Param('id') id: string) {
+    return this.appService.eliminarCategoria(id);
   }
 
   // --- PRODUCTOS ---

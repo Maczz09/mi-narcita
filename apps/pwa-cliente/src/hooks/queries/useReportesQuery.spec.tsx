@@ -54,6 +54,16 @@ describe('useReportesQuery', () => {
     expect(result.current.error).toBe('Report Error');
   });
 
+  it('should pass the desde/hasta filter through to the API', async () => {
+    vi.mocked(reportesApi.getResumen).mockResolvedValue({ total: 50 } as any);
+
+    const { result } = renderHook(() => useReportesQuery({ desde: '2026-06-01', hasta: '2026-06-30' }), { wrapper: createWrapper() });
+
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    expect(reportesApi.getResumen).toHaveBeenCalledWith({ desde: '2026-06-01', hasta: '2026-06-30' });
+  });
+
   it('should return fetch function', async () => {
     vi.mocked(reportesApi.getResumen).mockResolvedValue({} as any);
 

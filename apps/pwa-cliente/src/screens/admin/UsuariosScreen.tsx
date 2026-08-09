@@ -44,6 +44,7 @@ function iniciales(nombre: string): string {
 export function UsuariosScreen() {
   const online = useOnlineStatus();
   const puedeGestionar = useAuthStore((s) => s.user?.rol) === 'ADMIN';
+  const usuarioActualId = useAuthStore((s) => s.user?.id);
   const [form, setForm] = useState<CrearUsuarioPayload>(INITIAL_FORM);
   const [search, setSearch] = useState('');
   const [rolFiltro, setRolFiltro] = useState<string>('');
@@ -68,8 +69,16 @@ export function UsuariosScreen() {
     fetchMore,
     crear,
     cambiarRol,
+    cambiarEstado,
     clearFeedback,
   } = useUsuariosQuery(filters);
+
+  const handleCambiarEstado = async (id: string, nombre: string, activo: boolean) => {
+    if (!activo && !window.confirm(`¿Desactivar a ${nombre}? No podrá iniciar sesión hasta que lo reactives.`)) {
+      return;
+    }
+    await cambiarEstado(id, activo);
+  };
 
   // KPIs derivados de la página cargada
   const kpis = useMemo(() => {
@@ -202,6 +211,7 @@ export function UsuariosScreen() {
                       <th>Estado</th>
                       <th className="col-mobile-hidden">Creado</th>
                       {puedeGestionar && <th className="cell-action">Cambiar rol</th>}
+                      {puedeGestionar && <th className="cell-action">Acceso</th>}
                     </tr>
                   </thead>
                   <tbody>
@@ -237,6 +247,23 @@ export function UsuariosScreen() {
                                 ))}
                               </select>
                             </div>
+                          </td>
+                        )}
+                        {puedeGestionar && (
+                          <td className="cell-action">
+                            <button
+                              className={`toggle ${usuario.activo ? 'on' : ''}`}
+                              disabled={saving || !online || usuario.id === usuarioActualId}
+                              title={
+                                usuario.id === usuarioActualId
+                                  ? 'No puedes desactivar tu propia cuenta'
+                                  : usuario.activo ? 'Desactivar acceso' : 'Reactivar acceso'
+                              }
+                              aria-label={`${usuario.activo ? 'Desactivar' : 'Reactivar'} a ${usuario.nombre}`}
+                              onClick={() => void handleCambiarEstado(usuario.id, usuario.nombre, !usuario.activo)}
+                            >
+                              <span className="knob" />
+                            </button>
                           </td>
                         )}
                       </tr>

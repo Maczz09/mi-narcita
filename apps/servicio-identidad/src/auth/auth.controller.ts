@@ -24,6 +24,7 @@ import {
   LoginCommand,
   CrearUsuarioCommand,
   CambiarRolCommand,
+  CambiarEstadoUsuarioCommand,
   ListarUsuariosQuery,
   UsuarioListResponse,
 } from '@org/contracts';
@@ -171,5 +172,16 @@ export class AuthController {
     @Request() req: AuthenticatedRequest,
   ) {
     return this.authService.cambiarRol(id, command, req.user.sub);
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMIN')
+  @Patch('usuarios/:id/estado')
+  async cambiarEstado(
+    @Param('id') id: string,
+    @Body() command: CambiarEstadoUsuarioCommand,
+    @Request() req: AuthenticatedRequest,
+  ) {
+    return this.authService.cambiarEstado(id, command, req.user.sub);
   }
 }

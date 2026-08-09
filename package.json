@@ -151,6 +151,8 @@
     "cookie-parser": "^1.4.7",
     "dotenv": "^16.4.0",
     "helmet": "^8.2.0",
+    "jspdf": "^4.2.1",
+    "jspdf-autotable": "^5.0.8",
     "lucide-react": "^1.16.0",
     "nest-winston": "^1.10.2",
     "opossum": "^9.0.0",

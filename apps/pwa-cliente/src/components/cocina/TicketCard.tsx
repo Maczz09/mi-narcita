@@ -60,6 +60,11 @@ export function TicketCard({ p, items, col, now, online, onAdvance, onRegress, o
             <span className="tk-num">{p.id.slice(0, 6)}</span>
           </div>
           <div className="tk-where">{donde}</div>
+          {p.meseroNombre && (
+            <div className="tk-mesero" title={`Enviado por ${p.meseroNombre}`}>
+              <Icons.Chef s={12} /> {p.meseroNombre}
+            </div>
+          )}
         </div>
       </div>
 

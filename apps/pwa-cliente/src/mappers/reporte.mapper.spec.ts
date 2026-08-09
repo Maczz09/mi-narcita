@@ -83,5 +83,24 @@ describe('mapResumen', () => {
     const vm = mapResumen(dto({ topProductos: undefined }));
     expect(vm.topProductos).toEqual([]);
   });
+
+  it('rangoLabel coincide con fechaLabel cuando hasta es el mismo día (o no viene)', () => {
+    const sinHasta = mapResumen(dto({ fecha: '2026-06-07' }));
+    expect(sinHasta.rangoLabel).toBe(sinHasta.fechaLabel);
+
+    const mismoDia = mapResumen(dto({ fecha: '2026-06-07T08:00:00', hasta: '2026-06-07T20:00:00' }));
+    expect(mismoDia.rangoLabel).toBe(mismoDia.fechaLabel);
+  });
+
+  it('rangoLabel muestra un rango cuando hasta cae en otro día', () => {
+    const vm = mapResumen(dto({ fecha: '2026-06-01', hasta: '2026-06-30' }));
+    expect(vm.rangoLabel).toContain('–');
+    expect(vm.rangoLabel).not.toBe(vm.fechaLabel);
+  });
+
+  it('rangoLabel cae a fechaLabel si hasta es inválida', () => {
+    const vm = mapResumen(dto({ fecha: '2026-06-07', hasta: 'NO_VALIDA' }));
+    expect(vm.rangoLabel).toBe(vm.fechaLabel);
+  });
 });
 

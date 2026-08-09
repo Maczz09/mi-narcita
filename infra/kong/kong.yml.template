@@ -369,6 +369,26 @@ services:
         paths: [/reportes, /v1/reportes]
         strip_path: true
 
+  # ── Facturación electrónica ──
+  - name: servicio-facturacion
+    url: http://servicio-facturacion:3000/api
+    connect_timeout: 2000
+    read_timeout: 10000
+    write_timeout: 10000
+    retries: 1
+    plugins:
+      - name: jwt
+        config:
+          key_claim_name: iss
+          claims_to_verify:
+            - exp
+          cookie_names:
+            - access_token
+    routes:
+      - name: facturacion
+        paths: [/facturacion, /v1/facturacion]
+        strip_path: true
+
   # ── Frontend PWA ──
   - name: pwa-cliente
     url: http://pwa-cliente:8080

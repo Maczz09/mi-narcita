@@ -2,7 +2,7 @@ import { Controller, Get, Post, Body, Query, Param, UseGuards, UseInterceptors }
 import { Roles, RolesGuard } from '@org/shared-auth';
 import { IdempotencyInterceptor } from '@org/resiliencia';
 import { AppService } from './app.service';
-import { ListarTransaccionesQuery, TransaccionListResponse } from '@org/contracts';
+import { ListarTransaccionesQuery, ListarTurnosQuery, TransaccionListResponse, TurnoListResponse } from '@org/contracts';
 import { UsuarioActual } from '@org/observabilidad';
 import {
   AbrirTurnoCajaCommand,
@@ -24,8 +24,17 @@ export class AppController {
   // Idempotencia HTTP (plan 1.3): evita pagos duplicados por doble-click/retry.
   @UseInterceptors(IdempotencyInterceptor)
   @Post('pagos')
-  registrarPago(@Body() body: PagarCuentaCajaCommand, @UsuarioActual() usuarioId: string | null) {
-    return this.appService.registrarPago(body, usuarioId);
+  registrarPago(
+    @Body() body: PagarCuentaCajaCommand,
+    @UsuarioActual() usuarioId: string | null,
+    @UsuarioActual('nombre') usuarioNombre: string | null,
+    @UsuarioActual('email') usuarioEmail: string | null,
+  ) {
+    return this.appService.registrarPago(
+      body,
+      usuarioId,
+      usuarioNombre ?? usuarioEmail ?? usuarioId,
+    );
   }
 
   @Get()
@@ -36,6 +45,13 @@ export class AppController {
   @Post('turnos/abrir')
   abrirTurno(@Body() body: AbrirTurnoCajaCommand, @UsuarioActual() usuarioId: string | null) {
     return this.appService.abrirTurno(body, usuarioId);
+  }
+
+  // Historial de turnos (p.ej. cierres de caja pasados) — solo admin/sistema.
+  @Roles('ADMIN', 'SISTEMA')
+  @Get('turnos')
+  listarTurnos(@Query() query: ListarTurnosQuery): Promise<TurnoListResponse> {
+    return this.appService.listarTurnos(query);
   }
 
   @Get('turnos/activo')

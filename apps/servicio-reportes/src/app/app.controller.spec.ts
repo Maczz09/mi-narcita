@@ -48,6 +48,17 @@ describe('AppController - Reportes', () => {
       const result = await controller.getResumen();
       expect(result.totalVentas).toBe(0);
     });
+
+    it('delega el rango desde/hasta al service (filtros de reportes)', async () => {
+      const mockResumen = { fecha: new Date('2026-01-01'), hasta: new Date('2026-01-31'), totalVentas: 3, ingresosTotales: 300, ventasPorHora: [], topProductos: [] };
+      appService.obtenerResumenDiario.mockResolvedValue(mockResumen);
+
+      const query = { desde: '2026-01-01', hasta: '2026-01-31' };
+      const result = await controller.getResumen(query);
+
+      expect(appService.obtenerResumenDiario).toHaveBeenCalledWith(query);
+      expect(result).toEqual(mockResumen);
+    });
   });
 
   describe('porProducto', () => {

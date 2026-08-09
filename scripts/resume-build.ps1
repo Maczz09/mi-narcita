@@ -34,7 +34,8 @@ $services = @(
     "servicio-inventario",
     "servicio-notificaciones",
     "servicio-caja",
-    "servicio-reportes"
+    "servicio-reportes",
+    "servicio-facturacion"
 )
 $dbPorts = @{
     "servicio-identidad" = "5439"
@@ -46,12 +47,12 @@ $dbPorts = @{
     "servicio-notificaciones" = "5440"
     "servicio-caja" = "5437"
     "servicio-reportes" = "5438"
+    "servicio-facturacion" = "5442"
 }
 
 foreach ($svc in $services) {
     $port = $dbPorts[$svc]
-    $dbName = "$svc-db"
-    $dbName = $dbName -replace "servicio-", ""
+    $dbName = $svc -replace "servicio-", ""
     Write-Host "    $svc..." -NoNewline
     $env:DATABASE_URL = "postgresql://nachopps:secret@localhost:$port/$($dbName)_db?schema=public"
     Push-Location apps/$svc

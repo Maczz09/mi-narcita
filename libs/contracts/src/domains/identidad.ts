@@ -94,6 +94,11 @@ export class CambiarRolCommand {
   rol: RolUsuario;
 }
 
+export class CambiarEstadoUsuarioCommand {
+  @IsBoolean()
+  activo: boolean;
+}
+
 /* ── Responses ───────────────────────────────────────── */
 
 export class LoginResponseDto {

@@ -3,7 +3,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { RolesGuard } from '@org/shared-auth';
-import { CrearCategoriaCommand, CrearProductoCommand, ActualizarProductoCommand, ListarProductosQuery, ObtenerProductosLoteCommand } from '@org/contracts';
+import { CrearCategoriaCommand, ActualizarCategoriaCommand, CrearProductoCommand, ActualizarProductoCommand, ListarProductosQuery, ObtenerProductosLoteCommand } from '@org/contracts';
 
 describe('AppController (Inventario)', () => {
   let appController: AppController;
@@ -14,6 +14,8 @@ describe('AppController (Inventario)', () => {
       getHello: jest.fn(),
       listarCategorias: jest.fn(),
       crearCategoria: jest.fn(),
+      actualizarCategoria: jest.fn(),
+      eliminarCategoria: jest.fn(),
       listarProductos: jest.fn(),
       obtenerProducto: jest.fn(),
       obtenerProductosLote: jest.fn(),
@@ -61,6 +63,21 @@ describe('AppController (Inventario)', () => {
     jest.spyOn(appService, 'crearCategoria').mockResolvedValue(expected as any);
     expect(await appController.crearCategoria(command)).toEqual(expected);
     expect(appService.crearCategoria).toHaveBeenCalledWith(command);
+  });
+
+  it('actualizarCategoria debe llamar a appService.actualizarCategoria', async () => {
+    const command: ActualizarCategoriaCommand = { nombre: 'cat1-renombrada' };
+    const expected = { id: '1', nombre: 'cat1-renombrada' };
+    jest.spyOn(appService, 'actualizarCategoria').mockResolvedValue(expected as any);
+    expect(await appController.actualizarCategoria('1', command)).toEqual(expected);
+    expect(appService.actualizarCategoria).toHaveBeenCalledWith('1', command);
+  });
+
+  it('eliminarCategoria debe llamar a appService.eliminarCategoria', async () => {
+    const expected = { message: 'Categoría eliminada' };
+    jest.spyOn(appService, 'eliminarCategoria').mockResolvedValue(expected as any);
+    expect(await appController.eliminarCategoria('1')).toEqual(expected);
+    expect(appService.eliminarCategoria).toHaveBeenCalledWith('1');
   });
 
   it('listarProductos debe llamar a appService.listarProductos', async () => {

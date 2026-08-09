@@ -6,6 +6,9 @@ import type {
   CrearMesaCommand,
   MesaDto as ContractMesaDto,
   MesaEstado as ContractEstadoMesa,
+  UbicacionDto as ContractUbicacionDto,
+  CrearUbicacionCommand,
+  ActualizarUbicacionCommand,
 } from '@org/contracts';
 
 // ─── Enums ──────────────────────────────────────────────────────
@@ -27,6 +30,7 @@ export interface MesaVM {
   numeroRaw: number;    // número original para ordenamiento
   capacidad: number;
   ubicacion: string;    // homologado con el backend (antes "zona" en la PWA)
+  ubicacionId: string;
   estado: EstadoMesa;
   cuentaAsociada: string | null;
   /** Clase CSS para el color del estado */
@@ -40,3 +44,13 @@ export type ActualizarEstadoMesaPayload = ActualizarEstadoMesaCommand;
 
 // ─── Comando para crear mesa ────────────────────────────────────
 export type CrearMesaPayload = CrearMesaCommand;
+
+// ─── Ubicaciones (CRUD) ──────────────────────────────────────────
+export type UbicacionDto = ContractUbicacionDto;
+export type CrearUbicacionPayload = CrearUbicacionCommand;
+export type ActualizarUbicacionPayload = ActualizarUbicacionCommand;
+
+export interface UbicacionVM {
+  id: string;
+  nombre: string;
+}

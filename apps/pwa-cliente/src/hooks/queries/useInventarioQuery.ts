@@ -2,7 +2,12 @@ import { useInfiniteQuery, useMutation, useQuery } from '@tanstack/react-query';
 import * as inventarioApi from '../../api/inventario.api';
 import { mapProductos } from '../../mappers/inventario.mapper';
 import { queryClient, retrySalvo404, refetchSiError } from '../../api/queryClient';
-import type { ActualizarProductoPayload, CrearProductoPayload } from '../../types/inventario.types';
+import type {
+  ActualizarCategoriaPayload,
+  ActualizarProductoPayload,
+  CrearCategoriaPayload,
+  CrearProductoPayload,
+} from '../../types/inventario.types';
 import { primerMensaje } from '../../utils/feedback';
 
 export const INVENTARIO_CATEGORIAS_KEY = ['inventario-categorias'];
@@ -88,9 +93,34 @@ export function useInventarioQuery(categoriaId?: string, options: UseInventarioO
     },
   });
 
+  const mutationCrearCategoria = useMutation({
+    mutationFn: async (payload: CrearCategoriaPayload) => inventarioApi.crearCategoria(payload),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: INVENTARIO_CATEGORIAS_KEY, exact: false, refetchType: 'active' });
+    },
+  });
+
+  const mutationActualizarCategoria = useMutation({
+    mutationFn: async ({ id, payload }: { id: string; payload: ActualizarCategoriaPayload }) =>
+      inventarioApi.actualizarCategoria(id, payload),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: INVENTARIO_CATEGORIAS_KEY, exact: false, refetchType: 'active' });
+      void queryClient.invalidateQueries({ queryKey: INVENTARIO_PRODUCTOS_KEY, exact: false, refetchType: 'active' });
+    },
+  });
+
+  const mutationEliminarCategoria = useMutation({
+    mutationFn: async (id: string) => inventarioApi.eliminarCategoria(id),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: INVENTARIO_CATEGORIAS_KEY, exact: false, refetchType: 'active' });
+    },
+  });
+
   const loading = categoriasQuery.isLoading || productosQuery.isLoading;
-  const saving = mutationCrear.isPending || mutationReponer.isPending || mutationActualizar.isPending;
-  const error = categoriasQuery.error || productosQuery.error || mutationCrear.error || mutationReponer.error || mutationActualizar.error;
+  const saving = mutationCrear.isPending || mutationReponer.isPending || mutationActualizar.isPending
+    || mutationCrearCategoria.isPending || mutationActualizarCategoria.isPending || mutationEliminarCategoria.isPending;
+  const error = categoriasQuery.error || productosQuery.error || mutationCrear.error || mutationReponer.error || mutationActualizar.error
+    || mutationCrearCategoria.error || mutationActualizarCategoria.error || mutationEliminarCategoria.error;
 
   return {
     categorias: categoriasQuery.data ?? [],
@@ -111,8 +141,11 @@ export function useInventarioQuery(categoriaId?: string, options: UseInventarioO
       [mutationCrear.isSuccess, 'Producto creado.'],
       [mutationActualizar.isSuccess, 'Producto actualizado.'],
       [mutationReponer.isSuccess, 'Stock actualizado.'],
+      [mutationCrearCategoria.isSuccess, 'Categoría creada.'],
+      [mutationActualizarCategoria.isSuccess, 'Categoría actualizada.'],
+      [mutationEliminarCategoria.isSuccess, 'Categoría eliminada.'],
     ),
-    
+
     fetch: async () => {
       await categoriasQuery.refetch();
       await productosQuery.refetch();
@@ -129,10 +162,22 @@ export function useInventarioQuery(categoriaId?: string, options: UseInventarioO
     reponerStock: async (id: string, cantidad: number) => {
       return mutationReponer.mutateAsync({ id, cantidad });
     },
+    crearCategoria: async (payload: CrearCategoriaPayload) => {
+      return mutationCrearCategoria.mutateAsync(payload);
+    },
+    actualizarCategoria: async (id: string, payload: ActualizarCategoriaPayload) => {
+      return mutationActualizarCategoria.mutateAsync({ id, payload });
+    },
+    eliminarCategoria: async (id: string) => {
+      return mutationEliminarCategoria.mutateAsync(id);
+    },
     clearFeedback: () => {
       mutationCrear.reset();
       mutationActualizar.reset();
       mutationReponer.reset();
+      mutationCrearCategoria.reset();
+      mutationActualizarCategoria.reset();
+      mutationEliminarCategoria.reset();
     },
   };
 }

@@ -15,8 +15,12 @@ services:
     mem_limit: 1g
     restart: unless-stopped # la VM de Docker Desktop murió bajo carga: el broker debe autolevantar
     ports:
-      - '5672:5672'
-      - '15672:15672'
+      # A-4/host: 5672/15672 chocan con otro stack Docker de este host
+      # (medicitas_rabbitmq); remapeados solo del lado host. La comunicación
+      # interna entre servicios sigue usando `rabbitmq:5672` (red de Docker),
+      # no se ve afectada.
+      - '5674:5672'
+      - '15674:15672'
       - '15692:15692' # A-2: métricas Prometheus del broker
     environment:
       RABBITMQ_DEFAULT_USER: nachopps
@@ -108,6 +112,25 @@ services:
       - nachopps-db-cuentas:/var/lib/postgresql/data
     healthcheck:
       test: ['CMD-SHELL', 'pg_isready -U nachopps -d cuentas_db']
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  db-facturacion:
+    image: postgres:16-alpine
+    container_name: nachopps-db-facturacion
+    environment:
+      POSTGRES_USER: nachopps
+      POSTGRES_PASSWORD: secret
+      POSTGRES_DB: facturacion_db
+    ports: ['5442:5432']
+    profiles: ['infra', 'all', 'dev']
+    restart: unless-stopped
+    mem_limit: 512m
+    volumes:
+      - nachopps-db-facturacion:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U nachopps -d facturacion_db']
       interval: 5s
       timeout: 3s
       retries: 5
@@ -213,7 +236,9 @@ services:
   servicio-identidad:
     image: infra-servicio-identidad
     container_name: nachopps-servicio-identidad
-    ports: ['3001:3000']
+    # host 3001 choca con otro stack Docker de este host (medicitas_grafana);
+    # Kong sigue enrutando internamente a servicio-identidad:3000, sin cambios.
+    ports: ['3021:3000']
     env_file: *jwt_dev_env
     environment:
       PORT: '3000'
@@ -800,6 +825,45 @@ services:
       rabbitmq:
         condition: service_healthy
 
+  servicio-facturacion:
+    image: infra-servicio-facturacion
+    container_name: nachopps-servicio-facturacion
+    ports: ['3011:3000']
+    env_file: *jwt_dev_env
+    environment:
+      PORT: '3000'
+      NODE_OPTIONS: '--max-old-space-size=400'
+      RMQ_PREFETCH: '5'
+      PG_POOL_MAX: '40'
+      PG_TX_MAXWAIT_MS: '30000'
+      PG_POOL_CONN_TIMEOUT_MS: '30000'
+      OUTBOX_BATCH_SIZE: '200'
+      DATABASE_URL: 'postgresql://nachopps:secret@db-facturacion:5432/facturacion_db?schema=public'
+      SERVICE_NAME: 'servicio-facturacion'
+      SERVICE_AUD_ENFORCE: 'true'
+      RABBITMQ_URI: 'amqp://nachopps:nachopps_secret@rabbitmq:5672'
+      OTEL_EXPORTER_OTLP_ENDPOINT: 'http://otel-collector:4318'
+      SERVICE_JWT_SECRET: 'nachopps_service_secret_dev'
+      CORS_ORIGIN: 'http://localhost:4200'
+      # SUNAT: sin credenciales en dev por defecto — el servicio arranca igual
+      # (CertificadoService/EnvioProcessor detectan "no configurado" y no
+      # tumban nada); rellena por empresa cuando tengas certificado + SOL.
+      SUNAT_WSDL_URL: 'https://e-beta.sunat.gob.pe/ol-ti-itcpfegem-beta/billService?wsdl'
+    profiles: ['all']
+    restart: unless-stopped
+    mem_limit: 512m
+    healthcheck:
+      test: ['CMD', 'wget', '-qO-', 'http://localhost:3000/api/health/live']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
+    depends_on:
+      db-facturacion:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+
   # ═══════════════════════════════════════════════════
   # KONG API GATEWAY (con jwt-cache)
   # ═══════════════════════════════════════════════════
@@ -859,9 +923,12 @@ services:
     command: ['--config=/etc/otel-collector/otel-collector-config.yml']
     volumes:
       - ./otel-collector/otel-collector-config.yml:/etc/otel-collector/otel-collector-config.yml:ro
+    # host 4317/4318 chocan con otro stack Docker de este host (medicitas_jaeger);
+    # remapeados solo del lado host. Los servicios apuntan a
+    # http://otel-collector:4318 (nombre de red interno), sin cambios.
     ports:
-      - '4318:4318'
-      - '4317:4317'
+      - '4328:4318'
+      - '4327:4317'
     depends_on:
       - jaeger
     profiles: ['infra', 'all', 'dev']
@@ -883,8 +950,9 @@ services:
       BADGER_EPHEMERAL: 'false'
       BADGER_DIRECTORY_VALUE: /badger/data
       BADGER_DIRECTORY_KEY: /badger/key
+    # host 16686 choca con otro stack Docker de este host (medicitas_jaeger).
     ports:
-      - '16686:16686'
+      - '16687:16686'
     volumes:
       - jaeger_data:/badger
     profiles: ['infra', 'all', 'dev']
@@ -905,8 +973,9 @@ services:
       # OpenMetrics de los servicios); sin este flag Prometheus los descarta y
       # el salto métrica→traza en Grafana queda vacío.
       - '--enable-feature=exemplar-storage'
+    # host 9090 choca con otro stack Docker de este host (medicitas_prometheus).
     ports:
-      - '9090:9090'
+      - '9091:9090'
     volumes:
       - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - ./prometheus/alert.rules.yml:/etc/prometheus/alert.rules.yml:ro
@@ -918,8 +987,17 @@ services:
   alertmanager:
     image: prom/alertmanager:latest
     container_name: nachopps-alertmanager
+    # Instancia única, sin peers de cluster configurados: en algunos hosts
+    # Docker Desktop no puede deducir una IP privada para el gossip mesh
+    # ("no private IP found") y el proceso muere en loop de restart.
+    # --cluster.listen-address='' apaga el clustering (innecesario aquí).
+    command:
+      - '--config.file=/etc/alertmanager/alertmanager.yml'
+      - '--storage.path=/alertmanager'
+      - '--cluster.listen-address='
+    # host 9093 choca con otro stack Docker de este host (medicitas_alertmanager).
     ports:
-      - '9093:9093'
+      - '9095:9093'
     volumes:
       - ./alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
     profiles: ['infra', 'all', 'dev']
@@ -986,6 +1064,7 @@ volumes:
   nachopps-db-mesas:
   nachopps-db-pedidos:
   nachopps-db-cuentas:
+  nachopps-db-facturacion:
   nachopps-db-inventario:
   nachopps-db-caja:
   nachopps-db-reportes:

@@ -144,6 +144,70 @@ describe('AuthService — Identidad', () => {
     });
   });
 
+  describe('cambiarEstado', () => {
+    it('desactiva un usuario y revoca sus refresh tokens cuando hay 2 admins activos', async () => {
+      mockPrisma.usuario.findUnique.mockResolvedValue(usuarioBase);
+      mockPrisma.$queryRaw.mockResolvedValue([{ id: 'u-001' }, { id: 'u-002' }]);
+      mockPrisma.usuario.update.mockResolvedValue({ ...usuarioBase, activo: false });
+      mockPrisma.refreshToken.updateMany.mockResolvedValue({ count: 1 });
+      mockPrisma.auditoriaLog.create.mockResolvedValue({});
+
+      const result = await service.cambiarEstado('u-001', { activo: false }, 'u-002');
+      expect(result.activo).toBe(false);
+      expect(mockPrisma.$transaction).toHaveBeenCalledTimes(1);
+      expect(mockPrisma.refreshToken.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { userId: 'u-001', revokedAt: null } }),
+      );
+      expect(mockPrisma.auditoriaLog.create).toHaveBeenCalledTimes(1);
+    });
+
+    it('reactiva un usuario sin exigir el lock de admins ni revocar sesiones', async () => {
+      const inactivo = { ...usuarioBase, rol: 'MESERO', activo: false };
+      mockPrisma.usuario.findUnique.mockResolvedValue(inactivo);
+      mockPrisma.usuario.update.mockResolvedValue({ ...inactivo, activo: true });
+
+      const result = await service.cambiarEstado('u-001', { activo: true }, 'u-002');
+      expect(result.activo).toBe(true);
+      expect(mockPrisma.refreshToken.updateMany).not.toHaveBeenCalled();
+    });
+
+    it('lanza NotFoundException si el usuario no existe', async () => {
+      mockPrisma.usuario.findUnique.mockResolvedValue(null);
+      await expect(
+        service.cambiarEstado('inexistente', { activo: false }, 'u-002'),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it('rechaza la auto-desactivación', async () => {
+      mockPrisma.usuario.findUnique.mockResolvedValue(usuarioBase);
+      await expect(
+        service.cambiarEstado('u-001', { activo: false }, 'u-001'),
+      ).rejects.toThrow(ConflictException);
+    });
+
+    it('rechaza desactivar al único ADMIN activo', async () => {
+      mockPrisma.usuario.findUnique.mockResolvedValue(usuarioBase);
+      mockPrisma.$queryRaw.mockResolvedValue([{ id: 'u-001' }]);
+
+      await expect(
+        service.cambiarEstado('u-001', { activo: false }, 'u-002'),
+      ).rejects.toThrow(ConflictException);
+    });
+
+    it('desactiva a un no-admin sin pasar por el lock de admins', async () => {
+      const mesero = { ...usuarioBase, id: 'u-003', rol: 'MESERO' };
+      mockPrisma.usuario.findUnique.mockResolvedValue(mesero);
+      mockPrisma.usuario.update.mockResolvedValue({ ...mesero, activo: false });
+      mockPrisma.refreshToken.updateMany.mockResolvedValue({ count: 1 });
+
+      const result = await service.cambiarEstado('u-003', { activo: false }, 'u-002');
+      expect(result.activo).toBe(false);
+      expect(mockPrisma.refreshToken.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { userId: 'u-003', revokedAt: null } }),
+      );
+    });
+  });
+
   describe('login — T-03 lockout', () => {
     it('rechaza usuario con lockedUntil en el futuro', async () => {
       mockPrisma.usuario.findUnique.mockResolvedValue({

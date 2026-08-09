@@ -78,6 +78,24 @@ describe('CartaScreen', () => {
     fireEvent.change(screen.getByPlaceholderText('Buscar plato…'), { target: { value: 'Lomo' } });
   });
 
+  it('muestra "Padre › Hijo" para platos en una subcategoría', () => {
+    const conSub = [...mockCategorias, { id: 'cat3', nombre: 'Calientes', parentId: 'cat2' }];
+    const conProdSub = [...mockProductos, { id: 'p3', nombre: 'Café', descripcion: '', categoriaId: 'cat3', categoriaNombre: 'Calientes', precio: 6, precioLabel: 'S/ 6.00', disponible: true }];
+    vi.mocked(useInventarioQuery).mockReturnValue({
+      categorias: conSub,
+      productos: conProdSub,
+      loading: false,
+      saving: false,
+      crearProducto: vi.fn(),
+      actualizarProducto: vi.fn(),
+    } as any);
+
+    render(<CartaScreen />);
+
+    // Aparece tanto en el tab de categoría como en la celda del plato.
+    expect(screen.getAllByText(/Bebidas › Calientes/).length).toBeGreaterThanOrEqual(1);
+  });
+
   it('handles toggle disp', async () => {
     const actualizarProducto = vi.fn();
     vi.mocked(useInventarioQuery).mockReturnValue({
@@ -150,9 +168,9 @@ describe('CartaScreen', () => {
     fireEvent.change(screen.getByLabelText('Nombre'), { target: { value: 'Lomo Saltado Editado' } });
     
     fireEvent.click(screen.getByRole('button', { name: /Guardar cambios/i }));
-    
+
     await waitFor(() => {
-      expect(actualizarProducto).toHaveBeenCalledWith('p1', { nombre: 'Lomo Saltado Editado', categoriaId: 'cat1', precio: 25.5, disponible: true });
+      expect(actualizarProducto).toHaveBeenCalledWith('p1', { nombre: 'Lomo Saltado Editado', descripcion: 'Rico', categoriaId: 'cat1', precio: 25.5, disponible: true });
     });
     
     await waitFor(() => {
@@ -191,7 +209,35 @@ describe('CartaScreen', () => {
     fireEvent.click(screen.getByRole('button', { name: /Crear plato/i }));
 
     await waitFor(() => {
-      expect(crearProducto).toHaveBeenCalledWith({ nombre: 'Ceviche', categoriaId: 'cat2', precio: 35, disponible: false });
+      expect(crearProducto).toHaveBeenCalledWith({ nombre: 'Ceviche', descripcion: undefined, categoriaId: 'cat2', precio: 35, disponible: false });
+    });
+  });
+
+  it('saves a description entered in the drawer', async () => {
+    const crearProducto = vi.fn();
+    vi.mocked(useInventarioQuery).mockReturnValue({
+      categorias: mockCategorias,
+      productos: mockProductos,
+      loading: false,
+      saving: false,
+      crearProducto,
+      actualizarProducto: vi.fn()
+    } as any);
+
+    render(<CartaScreen />);
+
+    fireEvent.click(screen.getByRole('button', { name: /Nuevo plato/i }));
+
+    fireEvent.change(screen.getByLabelText('Nombre'), { target: { value: 'Ceviche' } });
+    fireEvent.change(screen.getByLabelText('Descripción'), { target: { value: 'Pescado fresco, limón, cebolla' } });
+    fireEvent.change(screen.getByLabelText('Precio de venta'), { target: { value: '35' } });
+
+    fireEvent.click(screen.getByRole('button', { name: /Crear plato/i }));
+
+    await waitFor(() => {
+      expect(crearProducto).toHaveBeenCalledWith(
+        expect.objectContaining({ descripcion: 'Pescado fresco, limón, cebolla' }),
+      );
     });
   });
 

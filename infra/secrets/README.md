@@ -15,6 +15,10 @@ Archivos esperados:
 | `service_jwt_secret` | secreto HS256 para tokens de servicio |
 | `rabbitmq_uri` | `amqp://user:pass@rabbitmq:5672` |
 | `database_url_<servicio>` | URL completa de la BD de ese servicio |
+| `sunat_pfx_empresa_<1\|2>` | Certificado digital SUNAT (.pfx binario), uno por RUC |
+| `sunat_pfx_empresa_<1\|2>_pass` | Contraseña del .pfx |
+| `sunat_sol_user_empresa_<1\|2>` | Usuario SOL (SUNAT Operaciones en Línea) de esa empresa |
+| `sunat_sol_pass_empresa_<1\|2>` | Clave SOL de esa empresa |
 
 Generación rápida (ejemplo):
 

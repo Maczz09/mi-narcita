@@ -17,11 +17,14 @@ model Reserva {
   mesaPreferida   String
   numComensales   Int      @default(2)
   estado          String   @default("PENDIENTE")
+  usuarioId       String?
+  usuarioNombre   String?
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
   @@index([fecha, hora])
   @@index([estado])
+  @@index([usuarioId])
 }
 
 model OutboxEvent {

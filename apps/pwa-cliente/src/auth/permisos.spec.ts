@@ -27,6 +27,20 @@ describe('ACCESO_POR_ROL', () => {
     expect(ACCESO_POR_ROL.GERENCIA.home).toBe('reportes');
   });
 
+  it('GERENCIA tiene acceso a categorías (comparte taxonomía con inventario)', () => {
+    expect(ACCESO_POR_ROL.GERENCIA.rutas).toContain('categorias');
+  });
+
+  it('CAJERO NO tiene acceso a categorías', () => {
+    expect(ACCESO_POR_ROL.CAJERO.rutas).not.toContain('categorias');
+  });
+
+  it('el historial de caja es solo para ADMIN/SISTEMA (ni GERENCIA ni CAJERO)', () => {
+    expect(ACCESO_POR_ROL.GERENCIA.rutas).not.toContain('historial-caja');
+    expect(ACCESO_POR_ROL.CAJERO.rutas).not.toContain('historial-caja');
+    expect(ACCESO_POR_ROL.SISTEMA.rutas).toContain('historial-caja');
+  });
+
   it('MESERO tiene acceso a mesas, pedidos y reservas', () => {
     expect(ACCESO_POR_ROL.MESERO.rutas).toContain('mesas');
     expect(ACCESO_POR_ROL.MESERO.rutas).toContain('pedidos');

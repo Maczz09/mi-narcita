@@ -1,6 +1,6 @@
 # Informe de Pruebas de Integración — NachoPps Restobar
 
-**Fecha:** 20/7/2026, 1:06:21 a. m.
+**Fecha:** 8/8/2026, 6:12:05 p. m.
 **Base URL:** http://localhost:8000
 **Entorno:** Docker Compose (9 microservicios + Kong + RabbitMQ + PostgreSQL)
 
@@ -14,7 +14,7 @@
 | Pasaron | 50 ✅ |
 | Fallaron | 0 ❌ |
 | Tasa de éxito | 100% |
-| Duración total | 21.8s |
+| Duración total | 24.3s |
 | Estrategia de sincronización | Polling dinámico adaptativo (expectWithRetry) |
 
 ---
@@ -25,13 +25,13 @@
 
 | # | Prueba | Resultado | Duración |
 |---|--------|-----------|----------|
-| 1 | 1.1 Crear pedido para Mesa 1 con 2 productos | ✅ PASS | 327ms |
-| 2 | 1.2 Verificar cuenta ABIERTA automática para Mesa 1 | ✅ PASS | 1178ms |
-| 3 | 1.3 Verificar Mesa 1 OCUPADA | ✅ PASS | 11ms |
-| 4 | 1.4 Registrar pago de la cuenta (EFECTIVO) | ✅ PASS | 338ms |
-| 5 | 1.5 Verificar cuenta CERRADA tras pago | ✅ PASS | 8ms |
-| 6 | 1.6 Verificar Mesa 1 LIBRE tras pago | ✅ PASS | 662ms |
-| 7 | 1.7 Verificar transacción registrada en caja | ✅ PASS | 14ms |
+| 1 | 1.1 Crear pedido para Mesa 1 con 2 productos | ✅ PASS | 2625ms |
+| 2 | 1.2 Verificar cuenta ABIERTA automática para Mesa 1 | ✅ PASS | 2514ms |
+| 3 | 1.3 Verificar Mesa 1 OCUPADA | ✅ PASS | 13ms |
+| 4 | 1.4 Registrar pago de la cuenta (EFECTIVO) | ✅ PASS | 222ms |
+| 5 | 1.5 Verificar cuenta CERRADA tras pago | ✅ PASS | 14ms |
+| 6 | 1.6 Verificar Mesa 1 LIBRE tras pago | ✅ PASS | 17ms |
+| 7 | 1.7 Verificar transacción registrada en caja | ✅ PASS | 18ms |
 
 **Resultado del flujo:** ✅ (7/7 pasaron)
 
@@ -39,12 +39,12 @@
 
 | # | Prueba | Resultado | Duración |
 |---|--------|-----------|----------|
-| 1 | 2.1 Primer pedido a Mesa 2 | ✅ PASS | 72ms |
-| 2 | 2.2 Segundo pedido a Mesa 2 (misma cuenta) | ✅ PASS | 66ms |
-| 3 | 2.3 Verificar una sola cuenta ABIERTA para Mesa 2 | ✅ PASS | 666ms |
-| 4 | 2.4 Verificar que el total incluye ambos pedidos | ✅ PASS | 13ms |
-| 5 | 2.5 Pagar cuenta de Mesa 2 | ✅ PASS | 163ms |
-| 6 | 2.6 Verificar cuenta CERRADA + Mesa 2 LIBRE | ✅ PASS | 29ms |
+| 1 | 2.1 Primer pedido a Mesa 2 | ✅ PASS | 37ms |
+| 2 | 2.2 Segundo pedido a Mesa 2 (misma cuenta) | ✅ PASS | 36ms |
+| 3 | 2.3 Verificar una sola cuenta ABIERTA para Mesa 2 | ✅ PASS | 1081ms |
+| 4 | 2.4 Verificar que el total incluye ambos pedidos | ✅ PASS | 15ms |
+| 5 | 2.5 Pagar cuenta de Mesa 2 | ✅ PASS | 139ms |
+| 6 | 2.6 Verificar cuenta CERRADA + Mesa 2 LIBRE | ✅ PASS | 28ms |
 
 **Resultado del flujo:** ✅ (6/6 pasaron)
 
@@ -52,12 +52,12 @@
 
 | # | Prueba | Resultado | Duración |
 |---|--------|-----------|----------|
-| 1 | 3.1 Crear y pagar primer pedido Mesa 3 | ✅ PASS | 811ms |
-| 2 | 3.2 Verificar Mesa 3 LIBRE tras primer ciclo | ✅ PASS | 941ms |
-| 3 | 3.3 Nuevo pedido para Mesa 3 → debe generar nueva cuenta | ✅ PASS | 1099ms |
+| 1 | 3.1 Crear y pagar primer pedido Mesa 3 | ✅ PASS | 943ms |
+| 2 | 3.2 Verificar Mesa 3 LIBRE tras primer ciclo | ✅ PASS | 22ms |
+| 3 | 3.3 Nuevo pedido para Mesa 3 → debe generar nueva cuenta | ✅ PASS | 930ms |
 | 4 | 3.4 Verificar que es una cuenta DISTINTA a la anterior | ✅ PASS | 0ms |
-| 5 | 3.5 Verificar Mesa 3 OCUPADA nuevamente | ✅ PASS | 865ms |
-| 6 | 3.6 Pagar nueva cuenta y verificar cierre | ✅ PASS | 173ms |
+| 5 | 3.5 Verificar Mesa 3 OCUPADA nuevamente | ✅ PASS | 849ms |
+| 6 | 3.6 Pagar nueva cuenta y verificar cierre | ✅ PASS | 137ms |
 
 **Resultado del flujo:** ✅ (6/6 pasaron)
 
@@ -65,10 +65,10 @@
 
 | # | Prueba | Resultado | Duración |
 |---|--------|-----------|----------|
-| 1 | 4.1 Crear pedidos para Mesas 4, 5, 6 en paralelo | ✅ PASS | 66ms |
-| 2 | 4.2 Verificar 3 cuentas ABIERTA distintas | ✅ PASS | 29ms |
-| 3 | 4.3 Pagar las 3 cuentas en secuencia | ✅ PASS | 335ms |
-| 4 | 4.4 Verificar 3 cuentas CERRADA + 3 mesas LIBRE | ✅ PASS | 511ms |
+| 1 | 4.1 Crear pedidos para Mesas 4, 5, 6 en paralelo | ✅ PASS | 97ms |
+| 2 | 4.2 Verificar 3 cuentas ABIERTA distintas | ✅ PASS | 30ms |
+| 3 | 4.3 Pagar las 3 cuentas en secuencia | ✅ PASS | 271ms |
+| 4 | 4.4 Verificar 3 cuentas CERRADA + 3 mesas LIBRE | ✅ PASS | 496ms |
 
 **Resultado del flujo:** ✅ (4/4 pasaron)
 
@@ -76,11 +76,11 @@
 
 | # | Prueba | Resultado | Duración |
 |---|--------|-----------|----------|
-| 1 | 5.EFECTIVO Pedido + pago con EFECTIVO (Mesa 7) | ✅ PASS | 1064ms |
-| 2 | 5.TARJETA Pedido + pago con TARJETA (Mesa 8) | ✅ PASS | 1029ms |
-| 3 | 5.YAPE Pedido + pago con YAPE (Mesa 9) | ✅ PASS | 1006ms |
-| 4 | 5.TRANSFERENCIA Pedido + pago con TRANSFERENCIA (Mesa 10) | ✅ PASS | 841ms |
-| 5 | 5.PLIN Pedido + pago con PLIN (Mesa 11) | ✅ PASS | 1031ms |
+| 1 | 5.EFECTIVO Pedido + pago con EFECTIVO (Mesa 7) | ✅ PASS | 991ms |
+| 2 | 5.TARJETA Pedido + pago con TARJETA (Mesa 8) | ✅ PASS | 1234ms |
+| 3 | 5.YAPE Pedido + pago con YAPE (Mesa 9) | ✅ PASS | 790ms |
+| 4 | 5.TRANSFERENCIA Pedido + pago con TRANSFERENCIA (Mesa 10) | ✅ PASS | 1209ms |
+| 5 | 5.PLIN Pedido + pago con PLIN (Mesa 11) | ✅ PASS | 821ms |
 
 **Resultado del flujo:** ✅ (5/5 pasaron)
 
@@ -88,11 +88,11 @@
 
 | # | Prueba | Resultado | Duración |
 |---|--------|-----------|----------|
-| 1 | 6.1 Pago con monto insuficiente → debe rechazar | ✅ PASS | 2197ms |
-| 2 | 6.2 Pago a cuenta ya cerrada → debe rechazar | ✅ PASS | 49ms |
-| 3 | 6.3 Producto inexistente → debe rechazar (404) | ✅ PASS | 52ms |
-| 4 | 6.4 Cantidad > stock → debe rechazar (400) | ✅ PASS | 10ms |
-| 5 | 6.5 Mesa sin apertura manual de cuenta → cuenta se crea automáticamente | ✅ PASS | 1792ms |
+| 1 | 6.1 Pago con monto insuficiente → debe rechazar | ✅ PASS | 2011ms |
+| 2 | 6.2 Pago a cuenta ya cerrada → debe rechazar | ✅ PASS | 52ms |
+| 3 | 6.3 Producto inexistente → debe rechazar (404) | ✅ PASS | 75ms |
+| 4 | 6.4 Cantidad > stock → debe rechazar (400) | ✅ PASS | 15ms |
+| 5 | 6.5 Mesa sin apertura manual de cuenta → cuenta se crea automáticamente | ✅ PASS | 1773ms |
 
 **Resultado del flujo:** ✅ (5/5 pasaron)
 
@@ -101,8 +101,8 @@
 | # | Prueba | Resultado | Duración |
 |---|--------|-----------|----------|
 | 1 | 7.1 Obtener stock inicial de un producto | ✅ PASS | 9ms |
-| 2 | 7.2 Crear pedido consumiendo stock | ✅ PASS | 26ms |
-| 3 | 7.3 Verificar stock reducido correctamente | ✅ PASS | 2008ms |
+| 2 | 7.2 Crear pedido consumiendo stock | ✅ PASS | 25ms |
+| 3 | 7.3 Verificar stock reducido correctamente | ✅ PASS | 2142ms |
 
 **Resultado del flujo:** ✅ (3/3 pasaron)
 
@@ -110,15 +110,15 @@
 
 | # | Prueba | Resultado | Duración |
 |---|--------|-----------|----------|
-| 1 | 8.Identidad Servicio Identidad responde | ✅ PASS | 7ms |
+| 1 | 8.Identidad Servicio Identidad responde | ✅ PASS | 15ms |
 | 2 | 8.Mesas Servicio Mesas responde | ✅ PASS | 9ms |
 | 3 | 8.Pedidos Servicio Pedidos responde | ✅ PASS | 9ms |
 | 4 | 8.Cuentas Servicio Cuentas responde | ✅ PASS | 5ms |
-| 5 | 8.Reservas Servicio Reservas responde | ✅ PASS | 9ms |
-| 6 | 8.Inventario Servicio Inventario responde | ✅ PASS | 9ms |
+| 5 | 8.Reservas Servicio Reservas responde | ✅ PASS | 12ms |
+| 6 | 8.Inventario Servicio Inventario responde | ✅ PASS | 10ms |
 | 7 | 8.Caja Servicio Caja responde | ✅ PASS | 7ms |
-| 8 | 8.Reportes Servicio Reportes responde | ✅ PASS | 11ms |
-| 9 | 8.Notificaciones Servicio Notificaciones responde | ✅ PASS | 2201ms |
+| 8 | 8.Reportes Servicio Reportes responde | ✅ PASS | 2481ms |
+| 9 | 8.Notificaciones Servicio Notificaciones responde | ✅ PASS | 14ms |
 
 **Resultado del flujo:** ✅ (9/9 pasaron)
 
@@ -127,10 +127,10 @@
 | # | Prueba | Resultado | Duración |
 |---|--------|-----------|----------|
 | 1 | A4.1 GET /inventario/productos SIN token → 401 | ✅ PASS | 2ms |
-| 2 | A4.2 GET /cuentas SIN token → 401 | ✅ PASS | 2ms |
+| 2 | A4.2 GET /cuentas SIN token → 401 | ✅ PASS | 3ms |
 | 3 | C1.1 Token con firma manipulada → 401 | ✅ PASS | 2ms |
-| 4 | A1.1 Login con email inválido → 400 | ✅ PASS | 6ms |
-| 5 | A1.2 Login con campo no permitido → 400 | ✅ PASS | 14ms |
+| 4 | A1.1 Login con email inválido → 400 | ✅ PASS | 7ms |
+| 5 | A1.2 Login con campo no permitido → 400 | ✅ PASS | 7ms |
 
 **Resultado del flujo:** ✅ (5/5 pasaron)
 

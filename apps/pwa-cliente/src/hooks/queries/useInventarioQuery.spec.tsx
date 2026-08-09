@@ -14,6 +14,9 @@ vi.mock('../../api/inventario.api', () => ({
   crearProducto: vi.fn(),
   reponerStock: vi.fn(),
   actualizarProducto: vi.fn(),
+  crearCategoria: vi.fn(),
+  actualizarCategoria: vi.fn(),
+  eliminarCategoria: vi.fn(),
 }));
 
 vi.mock('../../mappers/inventario.mapper', () => ({
@@ -182,6 +185,49 @@ describe('useInventarioQuery', () => {
 
     expect(inventarioApi.reponerStock).toHaveBeenCalledWith('p1', 5);
     await waitFor(() => expect(result.current.success).toBe('Stock actualizado.'));
+  });
+
+  it('should crearCategoria', async () => {
+    vi.mocked(inventarioApi.getCategorias).mockResolvedValue([] as any);
+    vi.mocked(inventarioApi.getProductosPage).mockResolvedValue({ data: [], nextCursor: null });
+    vi.mocked(inventarioApi.crearCategoria).mockResolvedValue({ id: 'cat-new' } as any);
+
+    const { result } = renderHook(() => useInventarioQuery(), { wrapper: createWrapper() });
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    await result.current.crearCategoria({ nombre: 'Bebidas' });
+
+    expect(inventarioApi.crearCategoria).toHaveBeenCalledWith({ nombre: 'Bebidas' });
+    expect(queryClient.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['inventario-categorias'], exact: false, refetchType: 'active' });
+    await waitFor(() => expect(result.current.success).toBe('Categoría creada.'));
+  });
+
+  it('should actualizarCategoria', async () => {
+    vi.mocked(inventarioApi.getCategorias).mockResolvedValue([] as any);
+    vi.mocked(inventarioApi.getProductosPage).mockResolvedValue({ data: [], nextCursor: null });
+    vi.mocked(inventarioApi.actualizarCategoria).mockResolvedValue({ id: 'cat-1', nombre: 'Bebidas Frías' } as any);
+
+    const { result } = renderHook(() => useInventarioQuery(), { wrapper: createWrapper() });
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    await result.current.actualizarCategoria('cat-1', { nombre: 'Bebidas Frías' });
+
+    expect(inventarioApi.actualizarCategoria).toHaveBeenCalledWith('cat-1', { nombre: 'Bebidas Frías' });
+    await waitFor(() => expect(result.current.success).toBe('Categoría actualizada.'));
+  });
+
+  it('should eliminarCategoria', async () => {
+    vi.mocked(inventarioApi.getCategorias).mockResolvedValue([] as any);
+    vi.mocked(inventarioApi.getProductosPage).mockResolvedValue({ data: [], nextCursor: null });
+    vi.mocked(inventarioApi.eliminarCategoria).mockResolvedValue(undefined);
+
+    const { result } = renderHook(() => useInventarioQuery(), { wrapper: createWrapper() });
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    await result.current.eliminarCategoria('cat-1');
+
+    expect(inventarioApi.eliminarCategoria).toHaveBeenCalledWith('cat-1');
+    await waitFor(() => expect(result.current.success).toBe('Categoría eliminada.'));
   });
 
   it('should handle clearFeedback', async () => {

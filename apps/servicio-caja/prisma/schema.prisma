@@ -9,21 +9,24 @@ datasource db {
 }
 
 model Transaccion {
-  id          String   @id @default(uuid())
-  cuentaId    String
-  turnoId     String?
-  mesaId      String?
-  monto       Decimal  @db.Decimal(10, 2)
-  descuento   Decimal  @default(0) @db.Decimal(10, 2)
-  metodo      String   // EFECTIVO, TARJETA, etc.
-  referencia  String?
-  notas       String?
-  createdAt   DateTime @default(now())
+  id            String   @id @default(uuid())
+  cuentaId      String
+  turnoId       String?
+  mesaId        String?
+  monto         Decimal  @db.Decimal(10, 2)
+  descuento     Decimal  @default(0) @db.Decimal(10, 2)
+  metodo        String   // EFECTIVO, TARJETA, etc.
+  referencia    String?
+  notas         String?
+  usuarioId     String?
+  cajeroNombre  String?
+  createdAt     DateTime @default(now())
 
   turno       TurnoCaja? @relation(fields: [turnoId], references: [id])
 
   @@index([cuentaId])
   @@index([turnoId])
+  @@index([usuarioId])
   @@map("transacciones")
 }
 

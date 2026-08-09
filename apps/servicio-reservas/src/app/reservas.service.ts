@@ -57,7 +57,7 @@ export class ReservasService {
     return Math.min(Math.max(Math.trunc(parsed), 1), 100);
   }
 
-  async crear(command: CrearReservaCommand) {
+  async crear(command: CrearReservaCommand, usuario?: { id: string; nombre: string } | null) {
     const clienteNombre = command.clienteNombre ?? 'Sin nombre';
     const numComensales = command.numComensales ?? 2;
     const mesaPreferida = command.mesaPreferida?.trim();
@@ -84,6 +84,8 @@ export class ReservasService {
             mesaPreferida,
             numComensales,
             estado: ReservaEstado.Pendiente,
+            usuarioId: usuario?.id ?? null,
+            usuarioNombre: usuario?.nombre ?? null,
           },
         });
 

@@ -7,6 +7,7 @@ import type {
   UsuarioListResponse as ContractUsuarioListResponse,
   CrearUsuarioCommand as ContractCrearUsuarioCommand,
   CambiarRolCommand as ContractCambiarRolCommand,
+  CambiarEstadoUsuarioCommand as ContractCambiarEstadoUsuarioCommand,
 } from '@org/contracts';
 
 export type RolUsuario = ContractRolUsuario;
@@ -15,6 +16,7 @@ export type ListarUsuariosQuery = ContractListarUsuariosQuery;
 export type UsuarioListResponse = ContractUsuarioListResponse;
 export type CrearUsuarioPayload = ContractCrearUsuarioCommand;
 export type CambiarRolPayload = ContractCambiarRolCommand;
+export type CambiarEstadoPayload = ContractCambiarEstadoUsuarioCommand;
 
 export interface UsuarioVM {
   id: string;

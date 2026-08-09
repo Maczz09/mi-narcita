@@ -10,7 +10,8 @@ import { useCuentasQuery } from '../../hooks/queries/useCuentasQuery';
 import { useOnlineStatus } from '../../hooks/useOnlineStatus';
 import { useToast } from '../../components/ui/ToastProvider';
 import { useFocusTrap } from '../../hooks/useFocusTrap';
-import type { MetodoPago, CuentaVM } from '../../types/cuenta.types';
+import { BoletaInterna } from './BoletaInterna';
+import type { MetodoPago, CuentaVM, TicketDto, TransaccionDto } from '../../types/cuenta.types';
 import type { PedidoItemVM } from '../../types/pedido.types';
 
 const METODOS: { value: MetodoPago; label: string; ic: IconName; color: string }[] = [
@@ -42,6 +43,7 @@ export function CobroMesaDrawer({ mesaId, mesaNumero, onClose, onPaid }: Readonl
   const [recibido, setRecibido] = useState('');
   const [descuento, setDescuento] = useState('0');
   const [propina, setPropina] = useState('0');
+  const [recibo, setRecibo] = useState<{ ticket: TicketDto; transaccion: TransaccionDto } | null>(null);
 
   const subtotal = cuentaActiva?.total ?? 0;
   const desc = Number(descuento) || 0;
@@ -69,9 +71,15 @@ export function CobroMesaDrawer({ mesaId, mesaNumero, onClose, onPaid }: Readonl
   const handlePagar = async () => {
     if (!cuentaActiva || !online) return;
     try {
-      await registrarPago({ cuentaId: cuentaActiva.id, montoRecibido: totalBase, metodo, descuento: desc, propina: tip, mesaNumero });
+      const respuesta = await registrarPago({ cuentaId: cuentaActiva.id, montoRecibido: totalBase, metodo, descuento: desc, propina: tip, mesaNumero });
       onPaid?.();
-      onClose();
+      // Si el backend devolvió el ticket interno (cierre remoto ya confirmado),
+      // se muestra la boleta imprimible en vez de cerrar el drawer de una.
+      if (respuesta?.ticket) {
+        setRecibo({ ticket: respuesta.ticket, transaccion: respuesta.transaccion });
+      } else {
+        onClose();
+      }
     } catch (err) {
       toast({ title: 'No se pudo registrar el pago', msg: err instanceof Error ? err.message : 'Inténtalo de nuevo', icon: 'Alert', kind: 'err' });
     }
@@ -112,28 +120,39 @@ export function CobroMesaDrawer({ mesaId, mesaNumero, onClose, onPaid }: Readonl
         )}
 
         <div className="modal-scroll">
-          <CobroBody
-            loading={loading}
-            online={online}
-            cuentaActiva={cuentaActiva}
-            items={items}
-            subtotal={subtotal}
-            descuento={descuento}
-            setDescuento={setDescuento}
-            propina={propina}
-            setPropina={setPropina}
-            totalCobro={totalCobro}
-            igv={igv}
-            metodo={metodo}
-            setMetodo={setMetodo}
-            recibido={recibido}
-            setRecibido={setRecibido}
-            vuelto={vuelto}
-            faltaPago={faltaPago}
-            onClose={onClose}
-            onKey={key}
-            onPagar={handlePagar}
-          />
+          {recibo ? (
+            <BoletaInterna
+              ticket={recibo.ticket}
+              transaccion={recibo.transaccion}
+              mesaNumero={mesaNumero}
+              propina={tip}
+              onImprimir={() => globalThis.print()}
+              onCerrar={onClose}
+            />
+          ) : (
+            <CobroBody
+              loading={loading}
+              online={online}
+              cuentaActiva={cuentaActiva}
+              items={items}
+              subtotal={subtotal}
+              descuento={descuento}
+              setDescuento={setDescuento}
+              propina={propina}
+              setPropina={setPropina}
+              totalCobro={totalCobro}
+              igv={igv}
+              metodo={metodo}
+              setMetodo={setMetodo}
+              recibido={recibido}
+              setRecibido={setRecibido}
+              vuelto={vuelto}
+              faltaPago={faltaPago}
+              onClose={onClose}
+              onKey={key}
+              onPagar={handlePagar}
+            />
+          )}
         </div>
       </dialog>
     </div>

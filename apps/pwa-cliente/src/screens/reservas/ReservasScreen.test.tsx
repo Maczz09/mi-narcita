@@ -36,7 +36,7 @@ describe('ReservasScreen', () => {
     } as any);
     vi.spyOn(reservasQueryHook, 'useReservasQuery').mockReturnValue({
       reservas: [
-        { id: 'R1', hora: '20:00', clienteNombre: 'Juan', clienteTelefono: '123', mesaPreferida: 'M1', numComensales: 2, estado: 'PENDIENTE', estadoClass: 'warn', estadoLabel: 'Pendiente' },
+        { id: 'R1', hora: '20:00', clienteNombre: 'Juan', clienteTelefono: '123', mesaPreferida: 'M1', numComensales: 2, estado: 'PENDIENTE', estadoClass: 'warn', estadoLabel: 'Pendiente', usuarioNombre: 'Recepción Uno' },
         { id: 'R2', hora: '21:00', clienteNombre: 'Ana', mesaPreferida: 'M99', numComensales: 4, estado: 'CANCELADA', estadoClass: 'err', estadoLabel: 'Cancelada' },
       ],
       nextCursor: 'abc',
@@ -59,10 +59,16 @@ describe('ReservasScreen', () => {
   it('renders and fetches data', () => {
     render(<ReservasScreen />);
     expect(screen.getByText('Reservas')).toBeInTheDocument();
-    
+
     const refreshBtn = screen.getByTitle('Refrescar');
     fireEvent.click(refreshBtn);
     expect(mockFetch).toHaveBeenCalled();
+  });
+
+  it('muestra quién registró la reserva, con guion cuando no hay dato', () => {
+    render(<ReservasScreen />);
+    expect(screen.getByText('Recepción Uno')).toBeInTheDocument();
+    expect(screen.getByText('—')).toBeInTheDocument();
   });
 
   it('shows error and success banners', () => {

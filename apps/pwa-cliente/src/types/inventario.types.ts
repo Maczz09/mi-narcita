@@ -2,6 +2,8 @@
 
 import type {
   CategoriaDto as ContractCategoriaDto,
+  CrearCategoriaCommand,
+  ActualizarCategoriaCommand,
   CrearProductoCommand,
   ActualizarProductoCommand,
   ListarProductosQuery,
@@ -10,6 +12,8 @@ import type {
 } from '@org/contracts';
 
 export type CategoriaDto = ContractCategoriaDto;
+export type CrearCategoriaPayload = CrearCategoriaCommand;
+export type ActualizarCategoriaPayload = ActualizarCategoriaCommand;
 export type ProductoDto = ContractProductoDto;
 export type ProductoListQuery = ListarProductosQuery;
 export type ProductoListResponse = ContractProductoListResponse;
@@ -38,6 +42,11 @@ export interface ProductoResponse {
 
 export interface CategoriasResponse {
   categorias: CategoriaDto[];
+}
+
+export interface CategoriaResponse {
+  message: string;
+  categoria: CategoriaDto;
 }
 
 export interface ProductosResponse {

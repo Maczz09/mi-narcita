@@ -62,6 +62,9 @@ export class CategoriaDto {
   @IsOptional()
   @IsString()
   descripcion?: string | null;
+  @IsOptional()
+  @IsString()
+  parentId?: string | null;
 }
 
 export class CrearCategoriaCommand {
@@ -70,6 +73,21 @@ export class CrearCategoriaCommand {
   @IsOptional()
   @IsString()
   descripcion?: string;
+  @IsOptional()
+  @IsString()
+  parentId?: string;
+}
+
+export class ActualizarCategoriaCommand {
+  @IsOptional()
+  @IsString()
+  nombre?: string;
+  @IsOptional()
+  @IsString()
+  descripcion?: string | null;
+  @IsOptional()
+  @IsString()
+  parentId?: string | null;
 }
 
 export class ProductoDto {

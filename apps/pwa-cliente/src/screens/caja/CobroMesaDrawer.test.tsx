@@ -30,7 +30,8 @@ vi.mock('../../components/ui/icons', () => ({
     Wallet: () => <svg data-testid="icon-wallet" />,
     Coins: () => <svg data-testid="icon-coins" />,
     Alert: () => <svg data-testid="icon-alert" />,
-    Check: () => <svg data-testid="icon-check" />
+    Check: () => <svg data-testid="icon-check" />,
+    Print: () => <svg data-testid="icon-print" />
   }
 }));
 
@@ -121,6 +122,41 @@ describe('CobroMesaDrawer', () => {
       expect(onPaid).toHaveBeenCalled();
       expect(onClose).toHaveBeenCalled();
     });
+  });
+
+  it('muestra la boleta interna imprimible cuando el pago devuelve un ticket, en vez de cerrar de una', async () => {
+    const registrarPago = vi.fn().mockResolvedValue({
+      transaccion: { id: 'tx1', cuentaId: 'cuenta1', monto: 100, metodo: 'EFECTIVO', cajeroNombre: 'Ana' },
+      ticket: {
+        id: 'ticket-001', cuentaId: 'cuenta1', mesaId: 'mesa1',
+        items: [{ nombre: 'Plato 1', cantidad: 1, precioUnitario: 60 }, { nombre: 'Plato 2', cantidad: 1, precioUnitario: 40 }],
+        subtotal: 100, descuento: 0, total: 100, fecha: '2026-08-08T20:00:00.000Z',
+      },
+    });
+    vi.mocked(useCuentasQuery).mockReturnValue({
+      cuentaActiva: mockCuenta, loading: false, error: null, success: null,
+      registrarPago, clearFeedback: vi.fn(),
+    } as any);
+    const printSpy = vi.spyOn(globalThis, 'print').mockImplementation(() => {});
+    const onClose = vi.fn();
+    const onPaid = vi.fn();
+
+    render(<CobroMesaDrawer mesaId="mesa1" mesaNumero="12" onClose={onClose} onPaid={onPaid} />);
+    fireEvent.click(screen.getByRole('button', { name: /Registrar pago y cerrar cuenta/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText('Boleta de venta · Documento interno')).toBeInTheDocument();
+    });
+    expect(onPaid).toHaveBeenCalled();
+    expect(onClose).not.toHaveBeenCalled(); // no cierra hasta que el usuario confirme
+
+    fireEvent.click(screen.getByRole('button', { name: /Imprimir boleta/i }));
+    expect(printSpy).toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Listo' }));
+    expect(onClose).toHaveBeenCalled();
+
+    printSpy.mockRestore();
   });
 
   it('handles other payment methods and insufficient payment', () => {

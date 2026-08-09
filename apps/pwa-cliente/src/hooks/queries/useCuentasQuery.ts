@@ -106,7 +106,7 @@ export function useCuentasQuery(mesaId?: string) {
       await mutationAbrir.mutateAsync(idMesa);
     },
     registrarPago: async (payload: RegistrarPagoPayload) => {
-      await mutationRegistrarPago.mutateAsync(payload);
+      return mutationRegistrarPago.mutateAsync(payload);
     },
     cerrar: async (descuento = 0) => {
       if (query.data?.id) {

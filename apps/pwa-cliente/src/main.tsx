@@ -13,15 +13,17 @@ import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 import { queryClient, queryPersister, PERSIST_MAX_AGE_MS } from './api/queryClient';
 import { ToastProvider } from './components/ui/ToastProvider';
-import { applyThemeColor, type Theme } from './utils/theme';
+import { applyThemeColor, isTheme, type Theme } from './utils/theme';
 import './styles.css';
 
 // ─── Restaurar preferencias de vista persistidas ────────────────
 // Tema: preferencia guardada, o la del sistema operativo en el primer arranque.
+// Un valor desconocido/legacy en localStorage (versión anterior, storage
+// corrupto) cae al criterio del sistema en vez de dejar la página sin tema.
 const savedTheme = localStorage.getItem('nachopps-theme');
 const systemPrefersDark = globalThis.matchMedia?.('(prefers-color-scheme: dark)').matches;
 let initialTheme: Theme;
-if (savedTheme === 'dark' || savedTheme === 'light') {
+if (isTheme(savedTheme)) {
   initialTheme = savedTheme;
 } else {
   initialTheme = systemPrefersDark ? 'dark' : 'light';

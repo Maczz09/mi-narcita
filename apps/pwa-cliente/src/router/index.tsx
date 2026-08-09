@@ -12,8 +12,10 @@ const MesasScreen = lazy(() => import('../screens/ops/MesasScreen').then(m => ({
 const PedidosScreen = lazy(() => import('../screens/ops/PedidosScreen').then(m => ({ default: m.PedidosScreen })));
 const CocinaScreen = lazy(() => import('../screens/ops/CocinaScreen').then(m => ({ default: m.CocinaScreen })));
 const CajaScreen = lazy(() => import('../screens/caja/CajaScreen').then(m => ({ default: m.CajaScreen })));
+const HistorialCajaScreen = lazy(() => import('../screens/caja/HistorialCajaScreen').then(m => ({ default: m.HistorialCajaScreen })));
 const ReservasScreen = lazy(() => import('../screens/reservas/ReservasScreen').then(m => ({ default: m.ReservasScreen })));
 const InventarioScreen = lazy(() => import('../screens/inventario/InventarioScreen').then(m => ({ default: m.InventarioScreen })));
+const CategoriasScreen = lazy(() => import('../screens/categorias/CategoriasScreen').then(m => ({ default: m.CategoriasScreen })));
 const ReportesScreen = lazy(() => import('../screens/reportes/ReportesScreen').then(m => ({ default: m.ReportesScreen })));
 const UsuariosScreen = lazy(() => import('../screens/admin/UsuariosScreen').then(m => ({ default: m.UsuariosScreen })));
 const CartaScreen = lazy(() => import('../screens/carta/CartaScreen').then(m => ({ default: m.CartaScreen })));
@@ -113,8 +115,10 @@ export function AppRouter() {
           <Route path="delivery" element={<Navigate to="/app/pedidos" replace />} />
           <Route path="crear-pedido" element={<Navigate to="/app/pedidos" replace />} />
           <Route path="caja" element={<RutaPorRol ruta="caja"><ScreenBoundary modulo="Caja"><CajaScreen /></ScreenBoundary></RutaPorRol>} />
+          <Route path="historial-caja" element={<RutaPorRol ruta="historial-caja"><ScreenBoundary modulo="Historial de caja"><HistorialCajaScreen /></ScreenBoundary></RutaPorRol>} />
           <Route path="reservas" element={<RutaPorRol ruta="reservas"><ScreenBoundary modulo="Reservas"><ReservasScreen /></ScreenBoundary></RutaPorRol>} />
           <Route path="inventario" element={<RutaPorRol ruta="inventario"><ScreenBoundary modulo="Inventario"><InventarioScreen /></ScreenBoundary></RutaPorRol>} />
+          <Route path="categorias" element={<RutaPorRol ruta="categorias"><ScreenBoundary modulo="Categorías"><CategoriasScreen /></ScreenBoundary></RutaPorRol>} />
           <Route path="reportes" element={<RutaPorRol ruta="reportes"><ScreenBoundary modulo="Reportes"><ReportesScreen /></ScreenBoundary></RutaPorRol>} />
           <Route path="usuarios" element={<RutaPorRol ruta="usuarios"><ScreenBoundary modulo="Usuarios"><UsuariosScreen /></ScreenBoundary></RutaPorRol>} />
           <Route path="carta" element={<RutaPorRol ruta="carta"><ScreenBoundary modulo="Carta"><CartaScreen /></ScreenBoundary></RutaPorRol>} />
