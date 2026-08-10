@@ -31,6 +31,10 @@ function createMockPrismaService(overrides: Record<string, unknown> = {}): any {
       update: jest.fn(),
       delete: jest.fn(),
     },
+    merma: {
+      findMany: jest.fn(),
+      create: jest.fn(),
+    },
     outboxEvent: {
       create: jest.fn().mockResolvedValue({}),
     },
@@ -861,6 +865,100 @@ describe('AppService — Inventario (comprehensive)', () => {
       expect(mockPrisma.menuDiario.delete).toHaveBeenCalledWith({ where: { id: 'md-1' } });
       expect(mockPrisma.producto.update).not.toHaveBeenCalled();
       expect(result.message).toMatch(/Quitado/);
+    });
+  });
+
+  // ─── Merma de inventario (T-22) ─────────────────────────────────────────
+
+  describe('registrarMerma', () => {
+    it('rechaza si el producto no existe', async () => {
+      mockPrisma.producto.findUnique.mockResolvedValue(null);
+      await expect(
+        service.registrarMerma({ productoId: 'no-existe', cantidad: 1, motivo: 'Rota' }),
+      ).rejects.toThrow('no encontrado');
+    });
+
+    it('rechaza si el producto no lleva control de stock', async () => {
+      mockPrisma.producto.findUnique.mockResolvedValue({ ...productoBase, stockActual: null });
+      await expect(
+        service.registrarMerma({ productoId: 'prod-001', cantidad: 1, motivo: 'Rota' }),
+      ).rejects.toThrow('no lleva control de stock');
+    });
+
+    it('rechaza mermar más de lo que hay en stock', async () => {
+      mockPrisma.producto.findUnique.mockResolvedValue({ ...productoBase, stockActual: 3 });
+      await expect(
+        service.registrarMerma({ productoId: 'prod-001', cantidad: 5, motivo: 'Vencidas' }),
+      ).rejects.toThrow('solo hay 3 en stock');
+    });
+
+    it('descuenta el stock, crea el registro de merma y emite el evento', async () => {
+      mockPrisma.producto.findUnique.mockResolvedValue({ ...productoBase, stockActual: 10 });
+      mockPrisma.producto.update.mockResolvedValue({ ...productoBase, stockActual: 7 });
+      mockPrisma.merma.create.mockResolvedValue({
+        id: 'merma-1', productoId: 'prod-001', cantidad: 3, motivo: 'Botellas rotas',
+        usuarioId: 'u-1', usuarioNombre: 'Ana', createdAt: new Date(),
+      });
+
+      const result = await service.registrarMerma(
+        { productoId: 'prod-001', cantidad: 3, motivo: 'Botellas rotas' },
+        'u-1', 'Ana',
+      );
+
+      expect(mockPrisma.producto.update).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { id: 'prod-001' }, data: expect.objectContaining({ stockActual: 7 }) }),
+      );
+      expect(mockPrisma.merma.create).toHaveBeenCalledWith(
+        expect.objectContaining({ data: expect.objectContaining({ productoId: 'prod-001', cantidad: 3, motivo: 'Botellas rotas', usuarioId: 'u-1', usuarioNombre: 'Ana' }) }),
+      );
+      expect(mockPrisma.outboxEvent.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            routingKey: 'producto.actualizado',
+            payload: expect.stringContaining('"stockSyncMode":"MERMA"'),
+          }),
+        }),
+      );
+      expect(result.merma.cantidad).toBe(3);
+      expect(result.merma.motivo).toBe('Botellas rotas');
+    });
+
+    it('marca el producto como no disponible si la merma agota el stock', async () => {
+      mockPrisma.producto.findUnique.mockResolvedValue({ ...productoBase, stockActual: 2 });
+      mockPrisma.producto.update.mockResolvedValue({ ...productoBase, stockActual: 0, disponible: false });
+      mockPrisma.merma.create.mockResolvedValue({
+        id: 'merma-2', productoId: 'prod-001', cantidad: 2, motivo: 'Se venció todo',
+        usuarioId: null, usuarioNombre: null, createdAt: new Date(),
+      });
+
+      await service.registrarMerma({ productoId: 'prod-001', cantidad: 2, motivo: 'Se venció todo' });
+
+      expect(mockPrisma.producto.update).toHaveBeenCalledWith(
+        expect.objectContaining({ data: expect.objectContaining({ stockActual: 0, disponible: false }) }),
+      );
+    });
+  });
+
+  describe('listarMermas', () => {
+    it('lista las mermas más recientes primero', async () => {
+      mockPrisma.merma.findMany.mockResolvedValue([
+        { id: 'merma-1', productoId: 'prod-001', cantidad: 2, motivo: 'Rotas', usuarioId: null, usuarioNombre: null, createdAt: new Date(), producto: productoBase },
+      ]);
+
+      const result = await service.listarMermas();
+
+      expect(mockPrisma.merma.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ orderBy: { createdAt: 'desc' } }),
+      );
+      expect(result.mermas).toHaveLength(1);
+    });
+
+    it('filtra por productoId cuando se indica', async () => {
+      mockPrisma.merma.findMany.mockResolvedValue([]);
+      await service.listarMermas({ productoId: 'prod-001' });
+      expect(mockPrisma.merma.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { productoId: 'prod-001' } }),
+      );
     });
   });
 });

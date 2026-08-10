@@ -1,7 +1,8 @@
 import { Controller, Get, Post, Body, Param, Patch, Delete, Query, UseGuards } from '@nestjs/common';
 import { Roles, RolesGuard } from '@org/shared-auth';
+import { UsuarioActual } from '@org/observabilidad';
 import { AppService } from './app.service';
-import { CrearCategoriaCommand, ActualizarCategoriaCommand, CrearProductoCommand, ActualizarProductoCommand, ListarProductosQuery, ObtenerProductosLoteCommand, AgregarAlMenuCommand, ActualizarMenuDiarioCommand } from '@org/contracts';
+import { CrearCategoriaCommand, ActualizarCategoriaCommand, CrearProductoCommand, ActualizarProductoCommand, ListarProductosQuery, ObtenerProductosLoteCommand, AgregarAlMenuCommand, ActualizarMenuDiarioCommand, RegistrarMermaCommand, ListarMermasQuery } from '@org/contracts';
 
 // Lectura del catálogo: la usan inventario/carta (admin, sistema, gerencia) y
 // también el comandero del PWA (cajero, mesero) al armar pedidos. La gestión
@@ -103,5 +104,22 @@ export class AppController {
   @Delete('menu-diario/:id')
   quitarDelMenu(@Param('id') id: string) {
     return this.appService.quitarDelMenu(id);
+  }
+
+  // --- MERMA DE INVENTARIO ---
+
+  @Get('mermas')
+  listarMermas(@Query() query: ListarMermasQuery) {
+    return this.appService.listarMermas(query);
+  }
+
+  @Roles('ADMIN', 'SISTEMA', 'GERENCIA')
+  @Post('mermas')
+  registrarMerma(
+    @Body() body: RegistrarMermaCommand,
+    @UsuarioActual() usuarioId: string | null,
+    @UsuarioActual('nombre') usuarioNombre: string | null,
+  ) {
+    return this.appService.registrarMerma(body, usuarioId, usuarioNombre);
   }
 }

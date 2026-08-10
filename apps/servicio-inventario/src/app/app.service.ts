@@ -18,6 +18,9 @@ import {
   MenuDiarioItemDto,
   AgregarAlMenuCommand,
   ActualizarMenuDiarioCommand,
+  MermaDto,
+  RegistrarMermaCommand,
+  ListarMermasQuery,
 } from '@org/contracts';
 import { Prisma } from '../generated/prisma';
 
@@ -564,6 +567,106 @@ export class AppService {
     if (!existe) throw new NotFoundException('Ítem de menú del día no encontrado');
     await this.prisma.menuDiario.delete({ where: { id } });
     return { message: 'Quitado del menú del día' };
+  }
+
+  // --- MERMA DE INVENTARIO (T-22) ---
+
+  private toMermaDto(merma: {
+    id: string;
+    productoId: string;
+    cantidad: number;
+    motivo: string;
+    usuarioId: string | null;
+    usuarioNombre: string | null;
+    createdAt: Date;
+    producto?: Record<string, unknown>;
+  }): MermaDto {
+    return {
+      id: merma.id,
+      productoId: merma.productoId,
+      producto: merma.producto ? this.toProductoDto(merma.producto) : undefined,
+      cantidad: merma.cantidad,
+      motivo: merma.motivo,
+      usuarioId: merma.usuarioId,
+      usuarioNombre: merma.usuarioNombre,
+      createdAt: merma.createdAt.toISOString(),
+    };
+  }
+
+  async registrarMerma(
+    command: RegistrarMermaCommand,
+    usuarioId?: string | null,
+    usuarioNombre?: string | null,
+  ): Promise<{ message: string; merma: MermaDto }> {
+    const merma = await this.prisma.$transaction(async (prisma) => {
+      // classid 1234 compartido entre servicios A PROPOSITO: cada servicio tiene su propia BD (database-per-service), el espacio de locks no se cruza.
+      await prisma.$executeRaw`SELECT pg_advisory_xact_lock(1234, ('x' || substr(md5(${command.productoId}), 1, 8))::bit(32)::int)`;
+
+      const producto = await prisma.producto.findUnique({ where: { id: command.productoId }, include: { categoria: true } });
+      if (!producto) throw new NotFoundException('Producto no encontrado');
+      if (producto.stockActual === null) {
+        throw new BadRequestException('Este producto no lleva control de stock; no se le puede registrar merma.');
+      }
+      if (command.cantidad > producto.stockActual) {
+        throw new BadRequestException(`No puedes mermar ${command.cantidad}: solo hay ${producto.stockActual} en stock.`);
+      }
+
+      const nuevoStock = producto.stockActual - command.cantidad;
+      const productoActualizado = await prisma.producto.update({
+        where: { id: command.productoId },
+        data: {
+          stockActual: nuevoStock,
+          disponible: nuevoStock === 0 ? false : producto.disponible,
+        },
+      });
+
+      const m = await prisma.merma.create({
+        data: {
+          productoId: command.productoId,
+          cantidad: command.cantidad,
+          motivo: command.motivo,
+          usuarioId: usuarioId ?? undefined,
+          usuarioNombre: usuarioNombre ?? undefined,
+        },
+      });
+
+      await prisma.outboxEvent.create({
+        data: {
+          routingKey: RoutingKeys.ProductoActualizado,
+          payload: JSON.stringify({
+            id: productoActualizado.id,
+            nombre: productoActualizado.nombre,
+            precio: productoActualizado.precio.toNumber(),
+            stockActual: productoActualizado.stockActual,
+            categoriaNombre: producto.categoria?.nombre,
+            disponible: productoActualizado.disponible,
+            stockSyncMode: 'MERMA',
+            stockDelta: -command.cantidad,
+          } satisfies ProductoActualizadoPayload),
+          status: 'PENDING',
+        },
+      });
+
+      return { ...m, producto: { ...productoActualizado, categoria: producto.categoria } };
+    });
+
+    this.logger.log({
+      operation: 'registrarMerma',
+      aggregateId: merma.id,
+      message: `Merma de ${merma.cantidad} registrada para ${merma.producto.nombre}: ${merma.motivo}`,
+    } satisfies OperableLog);
+
+    return { message: 'Merma registrada', merma: this.toMermaDto(merma) };
+  }
+
+  async listarMermas(query: ListarMermasQuery = {}): Promise<{ mermas: MermaDto[] }> {
+    const mermas = await this.prisma.merma.findMany({
+      where: query.productoId ? { productoId: query.productoId } : undefined,
+      include: { producto: { include: { categoria: true } } },
+      orderBy: { createdAt: 'desc' },
+      take: this.normalizeLimit(query.limit),
+    });
+    return { mermas: mermas.map((m) => this.toMermaDto(m)) };
   }
 
   // A2: idempotencia por pedido.id — reclama la clave atómicamente

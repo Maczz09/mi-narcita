@@ -6,9 +6,12 @@ import { Icons } from '../../components/ui/icons';
 import { StatKpi } from '../../components/ui/StatKpi';
 import { ProductoTable } from '../../components/inventario/ProductoTable';
 import { NuevoProductoForm } from '../../components/inventario/NuevoProductoForm';
+import { RegistrarMermaModal } from '../../components/inventario/RegistrarMermaModal';
+import { MermasHistorialDrawer } from '../../components/inventario/MermasHistorialDrawer';
+import { useMermasQuery } from '../../hooks/queries/useMermasQuery';
 import { useToast } from '../../components/ui/ToastProvider';
 import { INITIAL_PRODUCT, STOCK_BAJO, computeInventarioKpis } from '../../domain/inventario';
-import type { CrearProductoPayload } from '../../types/inventario.types';
+import type { CrearProductoPayload, ProductoVM } from '../../types/inventario.types';
 
 export function InventarioScreen() {
   const online = useOnlineStatus();
@@ -20,8 +23,11 @@ export function InventarioScreen() {
     fetch, fetchMore, crearProducto, actualizarProducto, reponerStock, clearFeedback,
   } = useInventarioQuery(categoriaId || undefined, { conStock: true, search: search.trim() || undefined });
 
+  const { registrarMerma, saving: savingMerma } = useMermasQuery();
   const [productoForm, setProductoForm] = useState<CrearProductoPayload>(INITIAL_PRODUCT);
   const [stockInputs, setStockInputs] = useState<Record<string, string>>({});
+  const [mermaProducto, setMermaProducto] = useState<ProductoVM | null>(null);
+  const [historialMermas, setHistorialMermas] = useState(false);
 
   useEffect(() => {
     const el = document.querySelector('.content');
@@ -74,6 +80,17 @@ export function InventarioScreen() {
     }
   };
 
+  const handleRegistrarMerma = async (cantidad: number, motivo: string) => {
+    if (!mermaProducto || !online) return;
+    try {
+      await registrarMerma({ productoId: mermaProducto.id, cantidad, motivo });
+      toast({ title: 'Merma registrada', msg: `${mermaProducto.nombre} · -${cantidad}`, icon: 'Check' });
+      setMermaProducto(null);
+    } catch (err) {
+      toast({ title: 'No se pudo registrar la merma', msg: err instanceof Error ? err.message : 'Inténtalo de nuevo', icon: 'Alert', kind: 'err' });
+    }
+  };
+
   return (
     <div>
       <div className="page-h">
@@ -82,6 +99,9 @@ export function InventarioScreen() {
           <div className="sub">Productos, disponibilidad y reposición de stock</div>
         </div>
         <span className="spacer" />
+        <button className="btn btn-ghost btn-sm" onClick={() => setHistorialMermas(true)}>
+          <Icons.Alert s={15} /> Historial de mermas
+        </button>
         <button className="btn btn-ghost btn-sm" onClick={() => fetch()} title="Refrescar" aria-label="Refrescar inventario">
           <Icons.Refresh s={16} />
         </button>
@@ -147,6 +167,7 @@ export function InventarioScreen() {
             onToggleDisponible={(p) => { if (!saving) { actualizarProducto(p.id, { disponible: !p.disponible }).catch((e: unknown) => toast({ title: 'No se pudo actualizar el producto', msg: e instanceof Error ? e.message : 'Inténtalo de nuevo', icon: 'Alert', kind: 'err' })); } }}
             onReponer={handleReponer}
             onReponerQuick={(id, cant) => { if (online) { reponerStock(id, cant).catch((e: unknown) => toast({ title: 'No se pudo reponer el stock', msg: e instanceof Error ? e.message : 'Inténtalo de nuevo', icon: 'Alert', kind: 'err' })); } }}
+            onRegistrarMerma={setMermaProducto}
             nextCursor={nextCursor}
             loadingMore={loadingMore}
             onLoadMore={fetchMore}
@@ -162,6 +183,17 @@ export function InventarioScreen() {
           online={online}
         />
       </div>
+
+      {mermaProducto && (
+        <RegistrarMermaModal
+          producto={mermaProducto}
+          saving={savingMerma}
+          onClose={() => setMermaProducto(null)}
+          onSave={handleRegistrarMerma}
+        />
+      )}
+
+      {historialMermas && <MermasHistorialDrawer onClose={() => setHistorialMermas(false)} />}
     </div>
   );
 }

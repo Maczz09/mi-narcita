@@ -241,6 +241,56 @@ export class ActualizarMenuDiarioCommand {
   disponible: boolean;
 }
 
+// --- Merma de inventario (T-22) ---
+// Pérdida de stock que no viene de una venta (botellas rotas, vencidas,
+// etc.). Queda como registro auditable con motivo obligatorio.
+
+export class MermaDto {
+  @IsString()
+  id: string;
+  @IsString()
+  productoId: string;
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => ProductoDto)
+  producto?: ProductoDto | null;
+  @IsInt()
+  cantidad: number;
+  @IsString()
+  motivo: string;
+  @IsOptional()
+  @IsString()
+  usuarioId?: string | null;
+  @IsOptional()
+  @IsString()
+  usuarioNombre?: string | null;
+  @IsString()
+  createdAt: string;
+}
+
+export class RegistrarMermaCommand {
+  @IsString()
+  productoId: string;
+  @IsInt()
+  @Min(1)
+  cantidad: number;
+  @IsString()
+  motivo: string;
+}
+
+export class ListarMermasQuery {
+  @IsOptional()
+  @IsString()
+  productoId?: string;
+
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Max(100)
+  @Type(() => Number)
+  limit?: number;
+}
+
 export class ObtenerProductosLoteCommand {
   @IsArray()
   @ArrayMinSize(1)
@@ -288,7 +338,7 @@ export class ProductoActualizadoPayload {
   disponible: boolean;
   @IsOptional()
   @IsString()
-  stockSyncMode?: 'REPOSICION' | 'CONSUMO_PEDIDO';
+  stockSyncMode?: 'REPOSICION' | 'CONSUMO_PEDIDO' | 'MERMA';
   @IsOptional()
   @IsNumber()
   stockDelta?: number;

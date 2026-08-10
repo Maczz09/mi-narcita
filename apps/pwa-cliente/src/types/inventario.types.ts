@@ -12,6 +12,9 @@ import type {
   MenuDiarioItemDto as ContractMenuDiarioItemDto,
   AgregarAlMenuCommand,
   ActualizarMenuDiarioCommand,
+  MermaDto as ContractMermaDto,
+  RegistrarMermaCommand,
+  ListarMermasQuery,
 } from '@org/contracts';
 
 export type CategoriaDto = ContractCategoriaDto;
@@ -78,4 +81,29 @@ export interface MenuDiarioItemVM {
   disponible: boolean;
   /** producto completo (mismo VM que la carta) — se pasa directo a cmd.addProducto */
   producto: ProductoVM;
+}
+
+// --- Merma de inventario (T-22) ---
+
+export type MermaDto = ContractMermaDto;
+export type RegistrarMermaPayload = RegistrarMermaCommand;
+export type MermaListQuery = ListarMermasQuery;
+
+export interface MermasResponse {
+  mermas: MermaDto[];
+}
+
+export interface MermaResponse {
+  message: string;
+  merma: MermaDto;
+}
+
+export interface MermaVM {
+  id: string;
+  productoId: string;
+  productoNombre: string;
+  cantidad: number;
+  motivo: string;
+  usuarioNombre: string | null;
+  fechaLabel: string;
 }

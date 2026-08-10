@@ -35,11 +35,30 @@ model Producto {
   disponible  Boolean      @default(true)
   stockActual Int?
   menuDiario  MenuDiario[]
+  mermas      Merma[]
   createdAt   DateTime     @default(now())
   updatedAt   DateTime     @updatedAt
 
   @@index([categoriaId])
   @@map("productos")
+}
+
+// T-22: merma de inventario — botellas rotas/vencidas u otra pérdida de
+// stock que no viene de una venta. Queda como registro auditable (motivo +
+// quién la reportó), separado de la reposición/consumo normal.
+model Merma {
+  id            String   @id @default(uuid())
+  productoId    String
+  producto      Producto @relation(fields: [productoId], references: [id])
+  cantidad      Int
+  motivo        String
+  usuarioId     String?
+  usuarioNombre String?
+  createdAt     DateTime @default(now())
+
+  @@index([productoId])
+  @@index([createdAt])
+  @@map("mermas")
 }
 
 // T-20: menú del día — selección de productos ofrecidos en una fecha

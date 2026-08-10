@@ -19,6 +19,7 @@ interface ProductoTableProps {
   onToggleDisponible: (p: ProductoVM) => void;
   onReponer: (id: string) => void;
   onReponerQuick: (id: string, cantidad: number) => void;
+  onRegistrarMerma: (p: ProductoVM) => void;
   nextCursor: string | null;
   loadingMore: boolean;
   onLoadMore: () => void;
@@ -27,7 +28,7 @@ interface ProductoTableProps {
 
 export function ProductoTable({
   grupos, stockInputs, onStockInput, saving, online,
-  onToggleDisponible, onReponer, onReponerQuick,
+  onToggleDisponible, onReponer, onReponerQuick, onRegistrarMerma,
   nextCursor, loadingMore, onLoadMore, loading,
 }: Readonly<ProductoTableProps>) {
   if (loading) return <LoadingRows />;
@@ -61,6 +62,7 @@ export function ProductoTable({
                   <th>Stock</th>
                   <th>Disponible</th>
                   <th>Reponer</th>
+                  <th>Merma</th>
                 </tr>
               </thead>
               <tbody>
@@ -125,6 +127,16 @@ export function ProductoTable({
                           </button>
                         </div>
                       </td>
+                      <td>
+                        <button
+                          className="btn btn-sm btn-ghost"
+                          disabled={saving || !online || (producto.stockActual ?? 0) <= 0}
+                          onClick={() => onRegistrarMerma(producto)}
+                          aria-label={`Registrar merma de ${producto.nombre}`}
+                        >
+                          Merma
+                        </button>
+                      </td>
                     </tr>
                   );
                 })}
@@ -152,7 +164,7 @@ function LoadingRows() {
         <thead>
           <tr>
             <th>Producto</th><th className="num">Precio</th>
-            <th>Stock</th><th>Disponible</th><th>Reponer</th>
+            <th>Stock</th><th>Disponible</th><th>Reponer</th><th>Merma</th>
           </tr>
         </thead>
         <tbody>
@@ -163,6 +175,7 @@ function LoadingRows() {
               <td><div className="skel" style={{ width: 40, height: 16 }} /></td>
               <td><div className="skel" style={{ width: 48, height: 24 }} /></td>
               <td><div className="skel" style={{ width: 150, height: 30 }} /></td>
+              <td><div className="skel" style={{ width: 70, height: 24 }} /></td>
             </tr>
           ))}
         </tbody>

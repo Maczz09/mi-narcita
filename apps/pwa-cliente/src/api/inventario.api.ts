@@ -20,6 +20,11 @@ import type {
   MenuDiarioItemDto,
   MenuDiarioItemResponse,
   MenuDiarioResponse,
+  RegistrarMermaPayload,
+  MermaListQuery,
+  MermaDto,
+  MermaResponse,
+  MermasResponse,
 } from '../types/inventario.types';
 
 export async function getCategorias(): Promise<CategoriaDto[]> {
@@ -124,4 +129,20 @@ export async function actualizarMenuDiario(id: string, payload: ActualizarMenuDi
 
 export async function quitarDelMenu(id: string): Promise<void> {
   await client.delete(`/inventario/menu-diario/${id}`);
+}
+
+// --- Merma de inventario (T-22) ---
+
+export async function getMermas(query: MermaListQuery = {}): Promise<MermaDto[]> {
+  const params = new URLSearchParams();
+  if (query.productoId) params.set('productoId', query.productoId);
+  if (query.limit != null) params.set('limit', String(query.limit));
+  const qs = params.toString();
+  const response = await client.get<MermasResponse | MermaDto[]>(`/inventario/mermas${qs ? `?${qs}` : ''}`);
+  return unwrapArray<MermaDto>(response, 'mermas');
+}
+
+export async function registrarMerma(payload: RegistrarMermaPayload): Promise<MermaDto> {
+  const response = await client.post<MermaResponse | MermaDto>('/inventario/mermas', payload);
+  return unwrapEntity<MermaDto>(response, 'merma');
 }

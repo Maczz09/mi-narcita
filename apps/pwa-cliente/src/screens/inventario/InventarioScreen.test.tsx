@@ -18,6 +18,19 @@ vi.mock('../../components/inventario/ProductoTable', () => ({
   )
 }));
 
+vi.mock('../../hooks/queries/useMermasQuery', () => ({
+  useMermasQuery: () => ({
+    mermas: [],
+    loading: false,
+    saving: false,
+    error: null,
+    success: null,
+    fetch: vi.fn(),
+    registrarMerma: vi.fn(),
+    clearFeedback: vi.fn(),
+  })
+}));
+
 vi.mock('../../components/inventario/NuevoProductoForm', () => ({
   NuevoProductoForm: ({ form, onChange, onSubmit }: any) => (
     <form data-testid="nuevo-producto-form" onSubmit={onSubmit}>
