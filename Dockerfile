@@ -78,6 +78,11 @@ COPY --chown=node:node --from=builder /usr/src/app/apps/${APP_NAME}/package.json
 COPY --chown=node:node infra/entrypoint.sh ./entrypoint.sh
 RUN sed -i 's/\r$//' ./entrypoint.sh && chmod +x ./entrypoint.sh
 
+# Punto de montaje de adjuntos (servicio-compras). Docker inicializa un volumen
+# nombrado nuevo heredando el owner del directorio de la imagen; sin esto el
+# volumen quedaría root y el proceso (USER node) no podría escribir.
+RUN mkdir -p /data/comprobantes && chown -R node:node /data
+
 USER node
 EXPOSE 3000
 

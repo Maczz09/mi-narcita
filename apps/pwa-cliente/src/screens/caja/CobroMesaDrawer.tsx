@@ -143,7 +143,6 @@ export function CobroMesaDrawer({ mesaId, mesaNumero, onClose, onPaid }: Readonl
     if (cuentaActiva) setRecibido(totalConTip > 0 ? totalConTip.toFixed(2) : '');
     // Solo se re-propone el monto sugerido al cambiar de cuenta, de modo o de
     // parte — no en cada tecla que el cajero escribe.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cuentaActiva?.id, parteIndex, modoDivision, numPartes]);
 
   const appendDigit = (r: string, d: string): string => {

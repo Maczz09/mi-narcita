@@ -8,6 +8,7 @@ import {
   StockInsuficientePayload,
   PagoRegistradoPayload,
   MesaDto,
+  CompraRecibidaPayload,
   RoutingKeys,
 } from './index';
 
@@ -23,6 +24,7 @@ import {
 // { servicio consumidor, routingKey, clase de payload, sample válido, campo requerido a romper }
 const pedidoDto = {
   id: 'p1',
+  sedeId: 's1',
   mesaId: 'm1',
   total: 50,
   estado: 'PENDIENTE',
@@ -64,8 +66,22 @@ const cases = [
     consumer: 'servicio-pedidos',
     routingKey: RoutingKeys.MesaCreada,
     Payload: MesaDto,
-    sample: { id: 'm1', numero: 1, capacidad: 4, ubicacionId: 'u1', ubicacion: 'SALON', estado: 'LIBRE' },
+    sample: { id: 'm1', sedeId: 's1', numero: 1, capacidad: 4, ubicacionId: 'u1', ubicacion: 'SALON', estado: 'LIBRE' },
     breakPath: (s: { numero?: number }) => { delete s.numero; },
+  },
+  {
+    consumer: 'servicio-inventario',
+    routingKey: RoutingKeys.CompraRecibida,
+    Payload: CompraRecibidaPayload,
+    sample: {
+      recepcionId: 'rc1',
+      ordenId: 'oc1',
+      sedeId: 's1',
+      lineas: [
+        { insumoId: 'i1', insumoNombre: 'Pisco', productoId: 'pr1', cantidadRecibida: 12, cantidadStockVenta: 12 },
+      ],
+    },
+    breakPath: (s: { recepcionId?: string }) => { delete s.recepcionId; },
   },
 ] as const;
 

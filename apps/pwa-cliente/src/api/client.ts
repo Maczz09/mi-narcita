@@ -48,6 +48,7 @@ const SEDE_SCOPED_PATH_PREFIXES = [
   '/cuentas',
   '/caja',
   '/reservas',
+  '/compras',
 ];
 
 let usuarioSedeId: string | null = null;
@@ -161,8 +162,11 @@ function buildUrl(path: string): string {
   return `${BASE_URL}${versionedPath}`;
 }
 
-function applyHeaders(headers: Headers, method: string): void {
-  if (!headers.has('Content-Type')) {
+function applyHeaders(headers: Headers, method: string, body?: BodyInit | null): void {
+  // FormData: el browser DEBE poner su propio Content-Type con el boundary
+  // del multipart. Fijarlo a application/json aquí rompería la subida de fotos.
+  const esFormData = typeof FormData !== 'undefined' && body instanceof FormData;
+  if (!esFormData && !headers.has('Content-Type')) {
     headers.set('Content-Type', 'application/json');
   }
   const csrfToken = getCookie(CSRF_COOKIE_KEY);
@@ -298,13 +302,40 @@ async function request<T>(path: string, init?: RequestInit, retried = false): Pr
   const url = buildUrl(appendSedeParam(path));
   const headers = new Headers(init?.headers);
   const method = (init?.method ?? 'GET').toUpperCase();
-  applyHeaders(headers, method);
+  applyHeaders(headers, method, init?.body);
 
   const res = await fetchWithRetry(url, { ...init, headers, credentials: 'include' }, isRetryable(headers, method));
 
   if (!res.ok) return handleErrorResponse<T>(res, path, url, init, retried);
   if (res.status === 204) return undefined as T;
   return res.json() as Promise<T>;
+}
+
+// Descarga binaria (foto del comprobante de compra): no pasa por res.json().
+// Duplica el ciclo mínimo de refresh-en-401 de `request` porque su firma
+// genérica siempre retry-a-JSON; aquí el contrato de salida es Blob.
+async function requestBlob(path: string, init?: RequestInit, retried = false): Promise<Blob> {
+  const url = buildUrl(appendSedeParam(path));
+  const headers = new Headers(init?.headers);
+  const method = (init?.method ?? 'GET').toUpperCase();
+  applyHeaders(headers, method, init?.body);
+
+  const res = await fetchWithRetry(url, { ...init, headers, credentials: 'include' }, isRetryable(headers, method));
+
+  if (res.status === 401) {
+    if (!retried && (await tryRefresh())) {
+      return requestBlob(path, init, true);
+    }
+    clearAuthToken();
+    globalThis.dispatchEvent(new CustomEvent('auth:expired'));
+    const body = await parseErrorBody(res);
+    throw new ApiError(res.status, res.statusText, body);
+  }
+  if (!res.ok) {
+    const body = await parseErrorBody(res);
+    throw new ApiError(res.status, res.statusText, body);
+  }
+  return res.blob();
 }
 
 function withIdempotencyKey(init?: RequestInit): RequestInit {
@@ -339,4 +370,13 @@ export const client = {
 
   delete: <T>(path: string, init?: RequestInit) =>
     request<T>(path, { ...init, method: 'DELETE' }),
+
+  // Subida de foto de comprobante (multipart/form-data). No JSON.stringify:
+  // el FormData va tal cual, con Idempotency-Key para el mismo replay-safe
+  // que el resto de POSTs.
+  postForm: <T>(path: string, form: FormData, init?: RequestInit) =>
+    request<T>(path, withIdempotencyKey({ ...init, method: 'POST', body: form })),
+
+  // Descarga binaria (foto del comprobante). No pasa por res.json().
+  getBlob: (path: string, init?: RequestInit) => requestBlob(path, { ...init, method: 'GET' }),
 };

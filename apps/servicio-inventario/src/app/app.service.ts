@@ -22,6 +22,8 @@ import {
   MermaDto,
   RegistrarMermaCommand,
   ListarMermasQuery,
+  CompraRecibidaPayload,
+  CompraRecibidaLineaPayload,
 } from '@org/contracts';
 import { Prisma } from '../generated/prisma';
 
@@ -732,5 +734,92 @@ export class AppService {
       }
       throw e;
     }
+  }
+
+  // Compras → Inventario: idempotencia por recepcion.id — reclama la clave
+  // atómicamente (mismo patrón que procesarPedidoCreado).
+  async procesarCompraRecibida(payload: CompraRecibidaPayload): Promise<void> {
+    if (!payload?.recepcionId || !Array.isArray(payload.lineas)) {
+      this.logger.warn({
+        operation: 'procesarCompraRecibida',
+        errorCode: 'PAYLOAD_INVALIDO',
+        message: 'Evento CompraRecibida sin recepcionId/lineas — ignorado.',
+      } satisfies OperableLog);
+      return;
+    }
+    const key = `compra.recibida:${payload.recepcionId}`;
+
+    try {
+      await this.prisma.$transaction(async (prisma) => {
+        await prisma.idempotencyKey.create({ data: { key } });
+
+        await Promise.all(
+          payload.lineas.map((linea) => this.aplicarCompraRecibidaLinea(prisma, payload.sedeId, linea)),
+        );
+      });
+    } catch (e: unknown) {
+      if ((e as { code?: string })?.code === 'P2002') {
+        this.logger.warn({
+          operation: 'procesarCompraRecibida',
+          aggregateId: payload.recepcionId,
+          message: 'Evento CompraRecibida ya procesado — stock no se incrementa de nuevo (idempotente).',
+        } satisfies OperableLog);
+        return;
+      }
+      throw e;
+    }
+  }
+
+  private async aplicarCompraRecibidaLinea(
+    prisma: Prisma.TransactionClient,
+    sedeId: string,
+    linea: CompraRecibidaLineaPayload,
+  ): Promise<void> {
+    // null/undefined = insumo crudo que Compras nunca debió incluir en el
+    // payload (no hay puente a un producto vendible); cantidad<=0 no mueve nada.
+    if (!linea.productoId || linea.cantidadStockVenta <= 0) return;
+
+    await prisma.$executeRaw`SELECT pg_advisory_xact_lock(1234, ('x' || substr(md5(${linea.productoId}), 1, 8))::bit(32)::int)`;
+
+    const producto = await prisma.producto.findUnique({ where: { id: linea.productoId }, include: { categoria: true } });
+    if (!producto || producto.sedeId !== sedeId || producto.stockActual == null) {
+      this.logger.warn({
+        operation: 'procesarCompraRecibida',
+        aggregateId: linea.productoId,
+        errorCode: 'PRODUCTO_NO_APLICABLE',
+        message: `Insumo "${linea.insumoNombre}" puentea a un producto que no existe, es de otra sede o no lleva stock — se ignora.`,
+      } satisfies OperableLog);
+      return;
+    }
+
+    const nuevoStock = producto.stockActual + linea.cantidadStockVenta;
+    // Reactivación explícita (a diferencia de actualizarStock, que nunca
+    // reactiva): llegó mercadería, así que un producto que se había
+    // auto-desactivado al llegar a stock 0 vuelve a ser vendible.
+    const disponibleFinal = nuevoStock > 0 ? true : producto.disponible;
+
+    const actualizado = await prisma.producto.update({
+      where: { id: linea.productoId },
+      data: { stockActual: nuevoStock, disponible: disponibleFinal },
+    });
+
+    const evento: ProductoActualizadoPayload = {
+      id: actualizado.id,
+      nombre: actualizado.nombre,
+      precio: actualizado.precio.toNumber(),
+      stockActual: actualizado.stockActual,
+      categoriaNombre: producto.categoria?.nombre,
+      disponible: disponibleFinal,
+      stockSyncMode: 'REPOSICION',
+      stockDelta: linea.cantidadStockVenta,
+    };
+
+    await prisma.outboxEvent.create({
+      data: {
+        routingKey: RoutingKeys.ProductoActualizado,
+        payload: JSON.stringify(evento),
+        status: 'PENDING',
+      },
+    });
   }
 }

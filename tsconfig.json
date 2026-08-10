@@ -49,6 +49,9 @@
       "path": "./apps/servicio-facturacion"
     },
     {
+      "path": "./apps/servicio-compras"
+    },
+    {
       "path": "./apps/servicio-notificaciones-e2e"
     },
     {

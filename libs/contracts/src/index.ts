@@ -9,3 +9,4 @@ export * from './domains/cuentas';
 export * from './domains/caja';
 export * from './domains/inventario';
 export * from './domains/identidad';
+export * from './domains/compras';

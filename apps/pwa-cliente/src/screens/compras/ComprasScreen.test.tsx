@@ -2,68 +2,124 @@
 import { render, screen, fireEvent, within } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { ComprasScreen } from './ComprasScreen';
+import { useToast } from '../../components/ui/ToastProvider';
+import * as comprasQueryHook from '../../hooks/queries/useComprasQuery';
 
-const mockToast = vi.fn();
 vi.mock('../../components/ui/ToastProvider', () => ({
-  useToast: () => ({ toast: mockToast })
+  useToast: vi.fn(),
 }));
 
-vi.mock('../../utils/format', () => ({
-  fmt: (v: number) => `S/ ${v.toFixed(2)}`
-}));
+const proveedorA = {
+  id: 'pr-a', sedeId: 's1', nombre: 'Proveedor A', ruc: '123456789', categoria: 'Abarrotes',
+  contacto: 'Juan', telefono: '999', diasEntrega: 'L a V', condicionPago: '30 días', activo: true,
+  createdAt: '2026-06-01T00:00:00.000Z', iniciales: 'PA',
+};
+const proveedorSinInsumos = {
+  id: 'pr-b', sedeId: 's1', nombre: 'Proveedor Sin Insumos', ruc: '987', categoria: 'Otros',
+  contacto: 'Pedro', telefono: '777', diasEntrega: 'N/A', condicionPago: 'Contado', activo: true,
+  createdAt: '2026-06-01T00:00:00.000Z', iniciales: 'PS',
+};
 
-vi.mock('../../data/compras.mock', () => ({
-  buildOC: vi.fn(() => [
-    {
-      id: 'OC-123',
-      prov: 'Proveedor A',
-      estado: 'BORRADOR',
-      fecha: 'Hoy',
-      entrega: '—',
-      items: [{ n: 'Insumo 1', q: 10, uni: 'kg', costo: 5 }]
-    },
-    {
-      id: 'OC-456',
-      prov: 'Proveedor B',
-      estado: 'ENVIADA',
-      fecha: 'Ayer',
-      entrega: 'Mañana',
-      items: [{ n: 'Insumo 2', q: 5, uni: 'L', costo: 10 }]
-    },
-    {
-      id: 'OC-789',
-      prov: 'Proveedor C',
-      estado: 'PARCIAL',
-      fecha: 'Ayer',
-      entrega: 'Hoy',
-      items: [{ n: 'Insumo 3', q: 5, uni: 'und', costo: 2 }]
-    },
-    {
-      id: 'OC-000',
-      prov: 'Proveedor D',
-      estado: 'RECIBIDA',
-      fecha: 'Hace 2 días',
-      entrega: 'Ayer',
-      items: [{ n: 'Insumo 4', q: 2, uni: 'und', costo: 50 }]
-    }
-  ]),
-  INSUMOS: [
-    { id: 'I1', n: 'Insumo 1', prov: 'Proveedor A', stock: 5, min: 10, uni: 'kg', costo: 5 },
-    { id: 'I2', n: 'Insumo 2', prov: 'Proveedor B', stock: 20, min: 5, uni: 'L', costo: 10 }
-  ],
-  PROVEEDORES_COMPRAS: [
-    { id: 'P1', n: 'Proveedor A', cat: 'Abarrotes', ruc: '123456789', contacto: 'Juan', tel: '999', dias: 'L a V', credito: '30 días' },
-    { id: 'P2', n: 'Proveedor Sin Insumos', cat: 'Otros', ruc: '987', contacto: 'Pedro', tel: '777', dias: 'N/A', credito: 'Contado' }
-  ]
-}));
+const insumo1 = {
+  id: 'i-1', sedeId: 's1', nombre: 'Insumo 1', unidad: 'kg', stockActual: 5, stockMinimo: 10,
+  costoUnitario: 5, proveedorId: 'pr-a', proveedorNombre: 'Proveedor A', productoId: null,
+  factorConversion: 1, activo: true, createdAt: '2026-06-01T00:00:00.000Z', bajoMinimo: true,
+};
+
+function ordenVM(overrides: Record<string, unknown> = {}) {
+  return {
+    id: 'oc-123', sedeId: 's1', codigo: 'OC-123', proveedorId: 'pr-a', proveedorNombre: 'Proveedor A',
+    estado: 'BORRADOR', fechaEmision: '2026-06-01T00:00:00.000Z', fechaEnvio: null,
+    fechaEntregaEsperada: null, fechaCierre: null, moneda: 'PEN', total: 50, notas: null,
+    usuarioId: null, usuarioNombre: null, createdAt: '2026-06-01T00:00:00.000Z',
+    items: [
+      { id: 'it-1', insumoId: 'i-1', insumoNombre: 'Insumo 1', unidad: 'kg', cantidadPedida: 10, cantidadRecibida: 0, costoUnitario: 5, pendiente: 10, subtotal: 50 },
+    ],
+    estadoLabel: 'Borrador', estadoClass: 'badge-muted',
+    fechaEmisionLabel: '01 jun', fechaEntregaLabel: '—',
+    puedeEditar: true, puedeEnviar: true, puedeRecibir: false, puedeCerrar: false, puedeAnular: true,
+    ...overrides,
+  };
+}
 
 describe('ComprasScreen', () => {
+  const mockToast = vi.fn();
+  const mockCrear = vi.fn().mockResolvedValue(ordenVM());
+  const mockEnviar = vi.fn().mockResolvedValue(ordenVM({ estado: 'ENVIADA' }));
+  const mockRecibir = vi.fn().mockResolvedValue({ orden: ordenVM({ estado: 'RECIBIDA' }), recepcion: {} });
+  const mockCerrar = vi.fn().mockResolvedValue(ordenVM({ estado: 'RECIBIDA' }));
+  const mockAnular = vi.fn().mockResolvedValue(ordenVM({ estado: 'ANULADA' }));
+  const mockEliminar = vi.fn().mockResolvedValue({ message: 'ok' });
+
   beforeEach(() => {
     vi.clearAllMocks();
     Object.defineProperty(window, 'crypto', {
       value: { randomUUID: () => '12345678-1234-1234-1234-123456789012' },
-      configurable: true
+      configurable: true,
     });
+    vi.mocked(useToast).mockReturnValue({ toast: mockToast } as any);
+
+    vi.spyOn(comprasQueryHook, 'useResumenComprasQuery').mockReturnValue({
+      resumen: { ordenesAbiertas: 1, ordenesPorRecibir: 1, montoPorRecibir: 50, gastoRecibido: 0, insumosBajoMinimo: 1 },
+      loading: false,
+    } as any);
+
+    vi.spyOn(comprasQueryHook, 'useProveedoresQuery').mockReturnValue({
+      proveedores: [proveedorA, proveedorSinInsumos],
+      loading: false,
+      saving: false,
+      error: null,
+      success: null,
+      crear: vi.fn(),
+      actualizar: vi.fn(),
+      eliminar: vi.fn(),
+      clearFeedback: vi.fn(),
+    } as any);
+
+    vi.spyOn(comprasQueryHook, 'useInsumosQuery').mockReturnValue({
+      insumos: [insumo1],
+      loading: false,
+      saving: false,
+      error: null,
+      success: null,
+      crear: vi.fn(),
+      actualizar: vi.fn(),
+      eliminar: vi.fn(),
+      clearFeedback: vi.fn(),
+    } as any);
+
+    vi.spyOn(comprasQueryHook, 'useOrdenesQuery').mockReturnValue({
+      ordenes: [ordenVM()],
+      loading: false,
+      saving: false,
+      error: null,
+      success: null,
+      crear: mockCrear,
+      eliminar: mockEliminar,
+      enviar: mockEnviar,
+      cerrar: mockCerrar,
+      anular: mockAnular,
+      recibir: mockRecibir,
+      clearFeedback: vi.fn(),
+    } as any);
+
+    vi.spyOn(comprasQueryHook, 'useOrdenDetalleQuery').mockReturnValue({
+      orden: ordenVM(),
+      recepciones: [],
+      comprobantes: [],
+      loading: false,
+      error: null,
+      refetch: vi.fn(),
+    } as any);
+
+    vi.spyOn(comprasQueryHook, 'useComprobantesMutation').mockReturnValue({
+      subiendo: false,
+      eliminando: false,
+      error: null,
+      subir: vi.fn(),
+      eliminar: vi.fn(),
+      clearFeedback: vi.fn(),
+    } as any);
   });
 
   it('renders title and sub', () => {
@@ -85,57 +141,73 @@ describe('ComprasScreen', () => {
     expect(screen.getByText('OC-123')).toBeInTheDocument();
   });
 
-  it('can send a BORRADOR OC', () => {
+  it('puede enviar una OC en BORRADOR', async () => {
     render(<ComprasScreen />);
     const row = screen.getByText('OC-123').closest('tr');
-    const sendBtn = within(row!).getByText('Enviar');
-    fireEvent.click(sendBtn);
-    expect(within(row!).queryByText('Enviar')).not.toBeInTheDocument();
+    fireEvent.click(within(row!).getByText('Enviar'));
+    expect(mockEnviar).toHaveBeenCalledWith('oc-123');
   });
 
-  it('can receive an ENVIADA or PARCIAL OC and close the drawer', () => {
+  it('puede abrir el drawer de recepción y confirmar con el stepper', async () => {
+    vi.spyOn(comprasQueryHook, 'useOrdenesQuery').mockReturnValue({
+      ordenes: [ordenVM({ estado: 'ENVIADA', puedeEnviar: false, puedeRecibir: true, puedeCerrar: true })],
+      loading: false,
+      saving: false,
+      error: null,
+      success: null,
+      crear: mockCrear,
+      eliminar: mockEliminar,
+      enviar: mockEnviar,
+      cerrar: mockCerrar,
+      anular: mockAnular,
+      recibir: mockRecibir,
+      clearFeedback: vi.fn(),
+    } as any);
+
     render(<ComprasScreen />);
-    const row = screen.getByText('OC-456').closest('tr');
-    const receiveBtn = within(row!).getByText('Recepcionar');
-    fireEvent.click(receiveBtn);
-
-    expect(screen.getByText('Recepción · OC-456')).toBeInTheDocument();
-
-    // Uncheck and check item
-    const tickBtn = screen.getByText('Insumo 2').closest('button');
-    fireEvent.click(tickBtn!);
-    fireEvent.click(tickBtn!);
-
-    // Confirm
-    fireEvent.click(screen.getByText('Confirmar recepción'));
-    expect(mockToast).toHaveBeenCalledWith(expect.objectContaining({ title: 'Mercadería recibida' }));
-  });
-  
-  it('can close the Recepcion drawer without confirming', () => {
-    const { container } = render(<ComprasScreen />);
-    const row = screen.getByText('OC-456').closest('tr');
+    const row = screen.getByText('OC-123').closest('tr');
     fireEvent.click(within(row!).getByText('Recepcionar'));
-    
+
+    expect(screen.getByText('Recepción · OC-123')).toBeInTheDocument();
+    // El stepper arranca en el pendiente (10): confirmar sin tocar nada ya
+    // manda cantidadRecibida = 10 (default = pendiente, no checkbox).
+    fireEvent.click(screen.getByText('Confirmar recepción'));
+
+    expect(mockRecibir).toHaveBeenCalledWith('oc-123', { items: [{ ordenItemId: 'it-1', cantidadRecibida: 10 }] });
+  });
+
+  it('puede cerrar el drawer de recepción sin confirmar', () => {
+    vi.spyOn(comprasQueryHook, 'useOrdenesQuery').mockReturnValue({
+      ordenes: [ordenVM({ estado: 'ENVIADA', puedeEnviar: false, puedeRecibir: true })],
+      loading: false, saving: false, error: null, success: null,
+      crear: mockCrear, eliminar: mockEliminar, enviar: mockEnviar, cerrar: mockCerrar, anular: mockAnular, recibir: mockRecibir,
+      clearFeedback: vi.fn(),
+    } as any);
+
+    const { container } = render(<ComprasScreen />);
+    const row = screen.getByText('OC-123').closest('tr');
+    fireEvent.click(within(row!).getByText('Recepcionar'));
+
     const closeBtn = container.querySelector('.drawer .icon-btn');
     fireEvent.click(closeBtn!);
-    expect(screen.queryByText('Recepción · OC-456')).not.toBeInTheDocument();
+    expect(screen.queryByText('Recepción · OC-123')).not.toBeInTheDocument();
   });
 
-  it('can create a new OC', () => {
+  it('puede crear una nueva OC', async () => {
     const { container } = render(<ComprasScreen />);
     fireEvent.click(screen.getByText('Nueva orden'));
 
     const combobox = screen.getByLabelText('Proveedor');
-    fireEvent.change(combobox, { target: { value: 'Proveedor A' } });
+    fireEvent.change(combobox, { target: { value: 'pr-a' } });
 
     const plusBtns = container.querySelectorAll('.drawer .stepper button');
     fireEvent.click(plusBtns[1]);
 
     fireEvent.click(screen.getByText('Crear borrador'));
-    expect(mockToast).toHaveBeenCalledWith(expect.objectContaining({ title: 'OC creada' }));
+    expect(mockCrear).toHaveBeenCalledWith({ proveedorId: 'pr-a', items: [{ insumoId: 'i-1', cantidadPedida: 1 }] });
   });
 
-  it('can close the new OC drawer', () => {
+  it('puede cerrar el drawer de nueva OC', () => {
     const { container } = render(<ComprasScreen />);
     fireEvent.click(screen.getByText('Nueva orden'));
     const closeBtn = container.querySelector('.drawer .icon-btn');
@@ -143,23 +215,29 @@ describe('ComprasScreen', () => {
     expect(screen.queryByText('Nueva orden de compra')).not.toBeInTheDocument();
   });
 
-  it('handles provider without insumos when creating OC', () => {
+  it('muestra el mensaje de proveedor sin insumos', () => {
     render(<ComprasScreen />);
     fireEvent.click(screen.getByText('Nueva orden'));
     const combobox = screen.getByLabelText('Proveedor');
-    fireEvent.change(combobox, { target: { value: 'Proveedor Sin Insumos' } });
-    expect(screen.getByText('Sin insumos asociados a este proveedor.')).toBeInTheDocument();
+    fireEvent.change(combobox, { target: { value: 'pr-b' } });
+    expect(screen.getByText('Este proveedor no tiene insumos asociados todavía.')).toBeInTheDocument();
   });
 
-  it('handles minus button when quantity is 0', () => {
+  it('el stepper no baja de 0', () => {
     const { container } = render(<ComprasScreen />);
     fireEvent.click(screen.getByText('Nueva orden'));
     const combobox = screen.getByLabelText('Proveedor');
-    fireEvent.change(combobox, { target: { value: 'Proveedor A' } });
-    
+    fireEvent.change(combobox, { target: { value: 'pr-a' } });
+
     const minusBtns = container.querySelectorAll('.drawer .stepper button');
     fireEvent.click(minusBtns[0]); // 0 - 1 = 0
     expect(screen.getByText('Total · 0 líneas')).toBeInTheDocument();
   });
-});
 
+  it('abre el detalle de la orden al hacer click en la fila', () => {
+    render(<ComprasScreen />);
+    fireEvent.click(screen.getByText('OC-123').closest('tr')!);
+    // El modal usa el mismo código como título junto al badge de estado.
+    expect(screen.getAllByText('OC-123').length).toBeGreaterThan(1);
+  });
+});

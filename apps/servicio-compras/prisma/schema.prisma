@@ -1,0 +1,232 @@
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["driverAdapters"]
+  output          = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ── Proveedor ────────────────────────────────────────────────────────────
+// `ruc` es opcional A PROPOSITO: el cliente también compra en mercados sin
+// proveedor formal. Postgres no colisiona NULLs en UNIQUE, así que
+// @@unique([sedeId, ruc]) tolera N proveedores informales por sede.
+model Proveedor {
+  id            String   @id @default(uuid())
+  sedeId        String
+  nombre        String
+  ruc           String?
+  categoria     String?
+  contacto      String?
+  telefono      String?
+  diasEntrega   String?
+  condicionPago String?
+  activo        Boolean  @default(true)
+  insumos       Insumo[]
+  ordenes       OrdenCompra[]
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@unique([sedeId, nombre])
+  @@unique([sedeId, ruc])
+  @@index([sedeId, activo])
+  @@map("proveedores")
+}
+
+// ── Insumo (lo que se COMPRA) ────────────────────────────────────────────
+// Separado de Producto (servicio-inventario, lo que se VENDE): unidad de
+// compra, costo, stock fraccionario y mínimo. `productoId` es un puente
+// OPCIONAL y SIN FK (otra base de datos): solo lo llevan los insumos que
+// además se revenden tal cual (cervezas, gaseosas, pisco).
+model Insumo {
+  id               String     @id @default(uuid())
+  sedeId           String
+  nombre           String
+  unidad           String
+  stockActual      Decimal    @default(0) @db.Decimal(12, 3)
+  stockMinimo      Decimal    @default(0) @db.Decimal(12, 3)
+  costoUnitario    Decimal    @default(0) @db.Decimal(12, 4)
+  proveedorId      String?
+  proveedor        Proveedor? @relation(fields: [proveedorId], references: [id], onDelete: SetNull)
+  productoId       String?
+  factorConversion Decimal    @default(1) @db.Decimal(12, 4)
+  activo           Boolean    @default(true)
+  items            OrdenCompraItem[]
+  createdAt        DateTime   @default(now())
+  updatedAt        DateTime   @updatedAt
+
+  @@unique([sedeId, nombre])
+  @@index([sedeId, activo])
+  @@index([proveedorId])
+  @@map("insumos")
+}
+
+// ── Orden de compra ──────────────────────────────────────────────────────
+// `proveedorNombre` va denormalizado SIEMPRE: (a) la compra ad-hoc en
+// mercado no tiene fila de Proveedor, (b) el histórico no debe mutar si
+// luego renombran al proveedor, (c) el listado no necesita join.
+model OrdenCompra {
+  id                   String    @id @default(uuid())
+  sedeId               String
+  codigo               String
+  proveedorId          String?
+  proveedor            Proveedor? @relation(fields: [proveedorId], references: [id], onDelete: SetNull)
+  proveedorNombre      String
+  estado               String    @default("BORRADOR")
+  fechaEmision         DateTime  @default(now())
+  fechaEnvio           DateTime?
+  fechaEntregaEsperada DateTime? @db.Date
+  fechaCierre          DateTime?
+  moneda               String    @default("PEN")
+  total                Decimal   @default(0) @db.Decimal(12, 2)
+  notas                String?
+  usuarioId            String?
+  usuarioNombre        String?
+  items                OrdenCompraItem[]
+  recepciones          RecepcionCompra[]
+  comprobantes         ComprobanteCompra[]
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+
+  @@unique([sedeId, codigo])
+  @@index([sedeId, estado])
+  @@index([sedeId, fechaEmision])
+  @@map("ordenes_compra")
+}
+
+// `cantidadRecibida` es el ACUMULADO de todas las recepciones parciales.
+// El estado de la OC se DERIVA de comparar recibida vs pedida por ítem;
+// nunca se marca "RECIBIDA" a dedo.
+model OrdenCompraItem {
+  id               String      @id @default(uuid())
+  ordenId          String
+  orden            OrdenCompra @relation(fields: [ordenId], references: [id], onDelete: Cascade)
+  insumoId         String
+  insumo           Insumo      @relation(fields: [insumoId], references: [id])
+  insumoNombre     String
+  unidad           String
+  cantidadPedida   Decimal     @db.Decimal(12, 3)
+  cantidadRecibida Decimal     @default(0) @db.Decimal(12, 3)
+  costoUnitario    Decimal     @db.Decimal(12, 4)
+  recepciones      RecepcionCompraItem[]
+  createdAt        DateTime    @default(now())
+  updatedAt        DateTime    @updatedAt
+
+  @@unique([ordenId, insumoId])
+  @@index([ordenId])
+  @@map("orden_compra_items")
+}
+
+// Cada recepción es un hecho INMUTABLE. Recibir dos veces la misma OC
+// crea dos RecepcionCompra; los acumuladores del ítem y el estado de la
+// OC se recalculan a partir de ellas.
+model RecepcionCompra {
+  id            String   @id @default(uuid())
+  sedeId        String
+  ordenId       String
+  orden         OrdenCompra @relation(fields: [ordenId], references: [id], onDelete: Cascade)
+  fecha         DateTime @default(now())
+  observaciones String?
+  usuarioId     String?
+  usuarioNombre String?
+  items         RecepcionCompraItem[]
+  comprobantes  ComprobanteCompra[]
+  createdAt     DateTime @default(now())
+
+  @@index([sedeId, fecha])
+  @@index([ordenId])
+  @@map("recepciones_compra")
+}
+
+model RecepcionCompraItem {
+  id               String          @id @default(uuid())
+  recepcionId      String
+  recepcion        RecepcionCompra @relation(fields: [recepcionId], references: [id], onDelete: Cascade)
+  ordenItemId      String
+  ordenItem        OrdenCompraItem @relation(fields: [ordenItemId], references: [id], onDelete: Cascade)
+  cantidadRecibida Decimal         @db.Decimal(12, 3)
+  costoUnitario    Decimal         @db.Decimal(12, 4)
+
+  @@index([recepcionId])
+  @@index([ordenItemId])
+  @@map("recepcion_compra_items")
+}
+
+// ── Comprobante (foto de boleta/factura) ─────────────────────────────────
+// TABLA SEPARADA, no columna en OrdenCompra: con recepción parcial real
+// una misma OC llega en 2-3 entregas y cada una trae SU boleta. Además
+// permite adjuntar la foto de una compra ad-hoc que no tiene OC.
+model ComprobanteCompra {
+  id             String   @id @default(uuid())
+  sedeId         String
+  ordenId        String?
+  orden          OrdenCompra? @relation(fields: [ordenId], references: [id], onDelete: Cascade)
+  recepcionId    String?
+  recepcion      RecepcionCompra? @relation(fields: [recepcionId], references: [id], onDelete: Cascade)
+  tipo           String   @default("BOLETA")
+  serie          String?
+  numero         String?
+  fechaEmision   DateTime? @db.Date
+  montoTotal     Decimal?  @db.Decimal(12, 2)
+  // Archivo: la ruta se DERIVA siempre en el servidor (sedeId/YYYY/MM/<id>.webp).
+  // Nunca se acepta una ruta del cliente → sin superficie de path traversal.
+  rutaArchivo    String
+  rutaMiniatura  String?
+  mimeType       String   @default("image/webp")
+  bytes          Int
+  ancho          Int
+  alto           Int
+  sha256         String
+  nombreOriginal String?
+  usuarioId      String?
+  usuarioNombre  String?
+  createdAt      DateTime @default(now())
+
+  @@index([sedeId, createdAt])
+  @@index([ordenId])
+  @@index([recepcionId])
+  @@map("comprobantes_compra")
+}
+
+// Correlativo legible por sede ("OC-1042"). El UPDATE toma lock de fila →
+// serializa los creadores concurrentes.
+model SecuenciaOrden {
+  sedeId String @id
+  ultimo Int    @default(1000)
+
+  @@map("secuencias_orden")
+}
+
+model OutboxEvent {
+  id         String   @id @default(uuid())
+  routingKey String
+  payload    String
+  status     String   @default("PENDING")
+  attempts   Int      @default(0)
+  claimedAt  DateTime?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([status, createdAt])
+  @@map("outbox_events")
+}
+
+// Idempotencia HTTP: persiste la Idempotency-Key y la respuesta para hacer
+// *replay* en reintentos de POST /ordenes y POST /ordenes/:id/recepciones
+// (evita órdenes/recepciones duplicadas). Forma exacta que exige
+// IdempotencyInterceptor (libs/resiliencia).
+model IdempotencyKey {
+  id          String    @id @default(uuid())
+  key         String    @unique
+  method      String?
+  path        String?
+  statusCode  Int?
+  body        String?
+  completedAt DateTime?
+  createdAt   DateTime  @default(now())
+  requestHash String?
+
+  @@index([createdAt])
+  @@map("idempotency_keys")
+}

@@ -58,6 +58,10 @@ jobs:
             dockerfile: Dockerfile
             context: .
             build-args: APP_NAME=servicio-facturacion
+          - name: servicio-compras
+            dockerfile: Dockerfile
+            context: .
+            build-args: APP_NAME=servicio-compras
           - name: pwa-cliente
             dockerfile: apps/pwa-cliente/Dockerfile
             context: .

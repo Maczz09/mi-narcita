@@ -389,6 +389,33 @@ services:
         paths: [/facturacion, /v1/facturacion]
         strip_path: true
 
+  # ── Compras / Proveedores ──
+  - name: servicio-compras
+    url: http://servicio-compras:3000/api
+    connect_timeout: 2000
+    read_timeout: 10000
+    # 30000 (no 10000 como el resto): este servicio recibe subida de fotos de
+    # comprobante. Con precompresión client-side el upload típico es ~200 KB,
+    # pero un cliente que la salte puede mandar hasta 12 MB por 3G del local.
+    write_timeout: 30000
+    retries: 1
+    plugins:
+      - name: jwt
+        config:
+          key_claim_name: iss
+          claims_to_verify:
+            - exp
+          cookie_names:
+            - access_token
+      - name: request-size-limiting
+        config:
+          allowed_payload_size: 16
+          size_unit: megabytes
+    routes:
+      - name: compras
+        paths: [/compras, /v1/compras]
+        strip_path: true
+
   # ── Frontend PWA ──
   - name: pwa-cliente
     url: http://pwa-cliente:8080

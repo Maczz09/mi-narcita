@@ -773,6 +773,108 @@ describe('AppService — Inventario (comprehensive)', () => {
     });
   });
 
+  // ─── procesarCompraRecibida (Compras → Inventario) ─────────────────────────
+
+  describe('procesarCompraRecibida', () => {
+    function compraDto(recepcionId: string, lineas: Array<Record<string, unknown>>) {
+      return {
+        recepcionId,
+        ordenId: 'oc-1',
+        sedeId: SEDE,
+        lineas: lineas.map((l) => ({
+          insumoId: String(l['insumoId'] ?? 'i-1'),
+          insumoNombre: String(l['insumoNombre'] ?? 'Pisco Quebranta'),
+          productoId: (l['productoId'] as string | null | undefined) ?? null,
+          cantidadRecibida: Number(l['cantidadRecibida'] ?? 1),
+          cantidadStockVenta: Number(l['cantidadStockVenta'] ?? 1),
+        })),
+      };
+    }
+
+    it('ignora payload sin recepcionId', async () => {
+      await service.procesarCompraRecibida({ ordenId: 'oc-1', sedeId: SEDE, lineas: [] } as any);
+      expect(mockPrisma.idempotencyKey.create).not.toHaveBeenCalled();
+    });
+
+    it('ignora payload sin lineas array', async () => {
+      await service.procesarCompraRecibida({ recepcionId: 'rc-1', ordenId: 'oc-1', sedeId: SEDE, lineas: null } as any);
+      expect(mockPrisma.idempotencyKey.create).not.toHaveBeenCalled();
+    });
+
+    it('incrementa stockActual y emite ProductoActualizado con stockSyncMode REPOSICION', async () => {
+      mockPrisma.producto.findUnique.mockResolvedValue({ ...productoBase, stockActual: 5, disponible: true });
+      mockPrisma.producto.update.mockResolvedValue({ ...productoBase, stockActual: 17, disponible: true });
+
+      await service.procesarCompraRecibida(compraDto('rc-1', [{ productoId: 'prod-001', cantidadStockVenta: 12 }]));
+
+      expect(mockPrisma.producto.update).toHaveBeenCalledWith({
+        where: { id: 'prod-001' },
+        data: { stockActual: 17, disponible: true },
+      });
+      const arg = mockPrisma.outboxEvent.create.mock.calls[0][0];
+      expect(arg.data.routingKey).toBe('producto.actualizado');
+      expect(JSON.parse(arg.data.payload)).toMatchObject({
+        id: 'prod-001',
+        stockActual: 17,
+        stockSyncMode: 'REPOSICION',
+        stockDelta: 12,
+      });
+    });
+
+    it('reactiva disponible cuando el producto estaba en stock 0 y desactivado', async () => {
+      mockPrisma.producto.findUnique.mockResolvedValue({ ...productoBase, stockActual: 0, disponible: false });
+      mockPrisma.producto.update.mockResolvedValue({ ...productoBase, stockActual: 6, disponible: true });
+
+      await service.procesarCompraRecibida(compraDto('rc-2', [{ productoId: 'prod-001', cantidadStockVenta: 6 }]));
+
+      expect(mockPrisma.producto.update).toHaveBeenCalledWith({
+        where: { id: 'prod-001' },
+        data: { stockActual: 6, disponible: true },
+      });
+    });
+
+    it('ignora líneas sin productoId (insumo crudo que no se revende)', async () => {
+      await service.procesarCompraRecibida(compraDto('rc-3', [{ productoId: null, cantidadStockVenta: 10 }]));
+      expect(mockPrisma.producto.findUnique).not.toHaveBeenCalled();
+      expect(mockPrisma.producto.update).not.toHaveBeenCalled();
+    });
+
+    it('ignora un producto que pertenece a otra sede', async () => {
+      mockPrisma.producto.findUnique.mockResolvedValue({ ...productoBase, sedeId: 'otra-sede', stockActual: 5 });
+      await service.procesarCompraRecibida(compraDto('rc-4', [{ productoId: 'prod-001', cantidadStockVenta: 6 }]));
+      expect(mockPrisma.producto.update).not.toHaveBeenCalled();
+    });
+
+    it('ignora un producto sin control de stock (stockActual null)', async () => {
+      mockPrisma.producto.findUnique.mockResolvedValue({ ...productoBase, stockActual: null });
+      await service.procesarCompraRecibida(compraDto('rc-5', [{ productoId: 'prod-001', cantidadStockVenta: 6 }]));
+      expect(mockPrisma.producto.update).not.toHaveBeenCalled();
+    });
+
+    it('el segundo evento con el mismo recepcionId no vuelve a sumar (P2002, idempotente)', async () => {
+      const duplicate = Object.assign(new Error('Unique constraint failed'), { code: 'P2002' });
+      mockPrisma.idempotencyKey.create
+        .mockResolvedValueOnce({})
+        .mockRejectedValueOnce(duplicate);
+      mockPrisma.producto.findUnique.mockResolvedValue({ ...productoBase, stockActual: 5, disponible: true });
+      mockPrisma.producto.update.mockResolvedValue({ ...productoBase, stockActual: 17 });
+
+      const payload = compraDto('rc-repetido', [{ productoId: 'prod-001', cantidadStockVenta: 12 }]);
+      await service.procesarCompraRecibida(payload);
+      await service.procesarCompraRecibida(payload);
+
+      expect(mockPrisma.producto.update).toHaveBeenCalledTimes(1);
+    });
+
+    it('relanza errores no-P2002', async () => {
+      const err = new Error('DB down');
+      (mockPrisma.$transaction as any).mockRejectedValue(err);
+      await expect(
+        service.procesarCompraRecibida(compraDto('rc-err', [{ productoId: 'prod-001', cantidadStockVenta: 1 }])),
+      ).rejects.toThrow('DB down');
+    });
+  });
+
   // ─── Menú del día (T-20) ────────────────────────────────────────────────
 
   describe('listarMenuDelDia', () => {

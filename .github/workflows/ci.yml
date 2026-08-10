@@ -52,6 +52,7 @@ jobs:
           DATABASE_URL_SERVICIO_REPORTES: 'postgresql://user:pass@localhost:5438/reportes_db?schema=public'
           DATABASE_URL_SERVICIO_NOTIFICACIONES: 'postgresql://user:pass@localhost:5440/notificaciones_db?schema=public'
           DATABASE_URL_SERVICIO_FACTURACION: 'postgresql://user:pass@localhost:5442/facturacion_db?schema=public'
+          DATABASE_URL_SERVICIO_COMPRAS: 'postgresql://user:pass@localhost:5443/compras_db?schema=public'
         run: |
           cd apps/servicio-reservas && DATABASE_URL="$DATABASE_URL_SERVICIO_RESERVAS" npx prisma generate
           cd ../servicio-pedidos && DATABASE_URL="$DATABASE_URL_SERVICIO_PEDIDOS" npx prisma generate
@@ -63,6 +64,7 @@ jobs:
           cd ../servicio-reportes && DATABASE_URL="$DATABASE_URL_SERVICIO_REPORTES" npx prisma generate
           cd ../servicio-notificaciones && DATABASE_URL="$DATABASE_URL_SERVICIO_NOTIFICACIONES" npx prisma generate
           cd ../servicio-facturacion && DATABASE_URL="$DATABASE_URL_SERVICIO_FACTURACION" npx prisma generate
+          cd ../servicio-compras && DATABASE_URL="$DATABASE_URL_SERVICIO_COMPRAS" npx prisma generate
 
       - name: Typecheck, build and test affected projects
         env:

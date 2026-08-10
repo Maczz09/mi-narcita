@@ -10,6 +10,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { RabbitMQModule } from '@org/shared-rabbitmq';
 import { ObservabilidadModule, HealthModule } from '@org/observabilidad';
 import { SharedAuthModule, JwtAuthGuard } from '@org/shared-auth';
+import { RoutingKeys } from '@org/contracts';
 
 @Module({
   imports: [
@@ -24,7 +25,7 @@ import { SharedAuthModule, JwtAuthGuard } from '@org/shared-auth';
     RabbitMQModule.forRoot({
       uri: process.env['RABBITMQ_URI'],
       queue: 'inventario_queue',
-      bindings: ['pedido.creado']
+      bindings: ['pedido.creado', RoutingKeys.CompraRecibida]
     }),
   ],
   controllers: [AppController, EventsController],

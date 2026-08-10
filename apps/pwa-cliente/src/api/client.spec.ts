@@ -103,6 +103,33 @@ describe('client', () => {
     expect(getAuthToken()).toBe('new-token');
   });
 
+  it('client.postForm manda el FormData tal cual, sin fijar Content-Type', async () => {
+    const mockRes = { ok: true, status: 201, json: vi.fn().mockResolvedValue({ id: 1 }) };
+    vi.mocked(fetch).mockResolvedValue(mockRes as any);
+
+    const form = new FormData();
+    form.append('file', new Blob(['x']), 'foto.jpg');
+    await client.postForm('/compras/comprobantes', form);
+
+    const [, init] = vi.mocked(fetch).mock.calls.at(-1)!;
+    const headers = init.headers as Headers;
+    // El browser DEBE poner su propio Content-Type con el boundary del
+    // multipart; si el cliente lo fijara a application/json, la subida se rompe.
+    expect(headers.has('Content-Type')).toBe(false);
+    expect(headers.has('Idempotency-Key')).toBe(true);
+    expect(init.method).toBe('POST');
+    expect(init.body).toBe(form);
+  });
+
+  it('client.getBlob devuelve un Blob sin pasar por res.json()', async () => {
+    const blob = new Blob(['imagen']);
+    const mockRes = { ok: true, status: 200, blob: vi.fn().mockResolvedValue(blob) };
+    vi.mocked(fetch).mockResolvedValue(mockRes as any);
+
+    const result = await client.getBlob('/compras/comprobantes/cp-1/archivo');
+    expect(result).toBe(blob);
+  });
+
   it('handles 429 error', async () => {
     const mockRes429 = { ok: false, status: 429, statusText: 'Too Many Requests', json: vi.fn().mockResolvedValue({}) };
     vi.mocked(fetch).mockResolvedValue(mockRes429 as any);
@@ -315,6 +342,17 @@ describe('client', () => {
 
       expect(lastUrl()).toContain('sedeId=otra-sede');
       expect(lastUrl()).not.toContain('sedeId=sede-abc');
+    });
+
+    it('/compras entra en el allowlist sede-scoped', async () => {
+      const mockRes = { ok: true, status: 200, json: vi.fn().mockResolvedValue([]) };
+      vi.mocked(fetch).mockResolvedValue(mockRes as any);
+
+      setUsuarioSedeId(null);
+      setSedeSeleccionada('sede-abc');
+      await client.get('/compras/resumen');
+
+      expect(lastUrl()).toContain('sedeId=sede-abc');
     });
 
     it('setSedeSeleccionada persiste en localStorage y getSedeSeleccionada la expone', () => {

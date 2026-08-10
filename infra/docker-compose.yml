@@ -135,6 +135,25 @@ services:
       timeout: 3s
       retries: 5
 
+  db-compras:
+    image: postgres:16-alpine
+    container_name: nachopps-db-compras
+    environment:
+      POSTGRES_USER: nachopps
+      POSTGRES_PASSWORD: secret
+      POSTGRES_DB: compras_db
+    ports: ['5443:5432']
+    profiles: ['infra', 'all', 'dev']
+    restart: unless-stopped
+    mem_limit: 512m
+    volumes:
+      - nachopps-db-compras:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U nachopps -d compras_db']
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
   db-inventario:
     image: postgres:16-alpine
     container_name: nachopps-db-inventario
@@ -864,6 +883,52 @@ services:
       rabbitmq:
         condition: service_healthy
 
+  servicio-compras:
+    image: infra-servicio-compras
+    container_name: nachopps-servicio-compras
+    ports: ['3012:3000']
+    env_file: *jwt_dev_env
+    environment:
+      PORT: '3000'
+      # 320 y no 400 como el resto: sharp/libvips asigna FUERA del heap de V8.
+      # Con 400 + arena nativo el cgroup de 512m mata el contenedor al procesar
+      # una foto grande.
+      NODE_OPTIONS: '--max-old-space-size=320'
+      RMQ_PREFETCH: '5'
+      # 15 y no 40: servicio de baja concurrencia (solo ADMIN/GERENCIA/SISTEMA),
+      # sin consumidores de eventos. No hace falta reservar 40 conexiones.
+      PG_POOL_MAX: '15'
+      PG_TX_MAXWAIT_MS: '30000'
+      PG_POOL_CONN_TIMEOUT_MS: '30000'
+      OUTBOX_BATCH_SIZE: '200'
+      DATABASE_URL: 'postgresql://nachopps:secret@db-compras:5432/compras_db?schema=public'
+      SERVICE_NAME: 'servicio-compras'
+      SERVICE_AUD_ENFORCE: 'true'
+      RABBITMQ_URI: 'amqp://nachopps:nachopps_secret@rabbitmq:5672'
+      OTEL_EXPORTER_OTLP_ENDPOINT: 'http://otel-collector:4318'
+      SERVICE_JWT_SECRET: 'nachopps_service_secret_dev'
+      CORS_ORIGIN: 'http://localhost:4200'
+      COMPROBANTES_DIR: '/data/comprobantes'
+      COMPROBANTE_MAX_BYTES: '12582912' # 12 MB antes de comprimir
+      COMPROBANTE_MAX_LADO: '1600'
+      COMPROBANTE_WEBP_QUALITY: '72'
+    profiles: ['all']
+    restart: unless-stopped
+    mem_limit: 512m
+    volumes:
+      - nachopps-comprobantes:/data/comprobantes
+    healthcheck:
+      test: ['CMD', 'wget', '-qO-', 'http://localhost:3000/api/health/live']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
+    depends_on:
+      db-compras:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+
   # ═══════════════════════════════════════════════════
   # KONG API GATEWAY (con jwt-cache)
   # ═══════════════════════════════════════════════════
@@ -894,6 +959,10 @@ services:
       # conjunto no cabe en el mem_limit → el kernel mata workers (signal 9) y
       # Kong se recicla en plena carga. 4 workers sobran para este throughput.
       KONG_NGINX_WORKER_PROCESSES: '4'
+      # Compras sube fotos de comprobante (request-size-limiting del servicio
+      # ya limita a 16 MB; esto evita que el default de nginx de Kong corte
+      # antes con un 413 sin cuerpo informativo).
+      KONG_NGINX_HTTP_CLIENT_MAX_BODY_SIZE: '16m'
     ports:
       - '8000:8000'
       - '8001:8001'
@@ -1065,6 +1134,10 @@ volumes:
   nachopps-db-pedidos:
   nachopps-db-cuentas:
   nachopps-db-facturacion:
+  nachopps-db-compras:
+  # Fotos de boletas/facturas de compra (WebP + miniatura). Persiste a
+  # `docker compose down`; NO va a la BD para no arrastrar blobs por el heap.
+  nachopps-comprobantes:
   nachopps-db-inventario:
   nachopps-db-caja:
   nachopps-db-reportes:

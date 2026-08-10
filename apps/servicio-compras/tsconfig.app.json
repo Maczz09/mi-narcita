@@ -1,0 +1,44 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "outDir": "../../dist/apps/servicio-compras",
+    "rootDir": "../../",
+    "module": "CommonJS",
+    "moduleResolution": "Node",
+    "types": ["node"],
+    "tsBuildInfoFile": "dist/tsconfig.app.tsbuildinfo",
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true,
+    "target": "ES2021",
+    "declaration": false,
+    "declarationMap": false,
+    "emitDeclarationOnly": false,
+    "composite": false
+  },
+  "exclude": [
+    "jest.config.ts",
+    "src/**/*.spec.ts",
+    "src/**/*.test.ts",
+    "jest.config.cts"
+  ],
+  "include": [
+    "src/**/*.ts",
+    "../../libs/resiliencia/**/*.ts",
+    "../../libs/contracts/**/*.ts",
+    "../../libs/shared-rabbitmq/**/*.ts",
+    "../../libs/observabilidad/**/*.ts",
+    "../../libs/shared-auth/**/*.ts"
+  ],
+  "nx": {
+    "sync": {
+      "ignoredDependencies": [
+        "@org/observabilidad",
+        "@org/resiliencia",
+        "@org/shared-auth",
+        "@org/shared-rabbitmq",
+        "contracts",
+        "shared-prisma"
+      ]
+    }
+  }
+}

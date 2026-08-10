@@ -129,6 +129,22 @@ services:
       timeout: 3s
       retries: 5
 
+  db-compras:
+    image: postgres:16-alpine
+    container_name: nachopps-db-compras
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${DB_USER:-nachopps}
+      POSTGRES_PASSWORD: ${DB_PASS:?DB_PASS es obligatorio en produccion}
+      POSTGRES_DB: compras_db
+    volumes:
+      - nachopps-db-compras:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ${DB_USER:-nachopps} -d compras_db']
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
   db-caja:
     image: postgres:16-alpine
     container_name: nachopps-db-caja
@@ -480,6 +496,42 @@ services:
       rabbitmq:
         condition: service_healthy
 
+  servicio-compras:
+    image: ${REGISTRY:-nachopps}/servicio-compras:latest
+    container_name: nachopps-servicio-compras
+    restart: unless-stopped
+    stop_grace_period: 30s
+    environment:
+      PORT: '3000'
+      DATABASE_URL: 'postgresql://${DB_USER:-nachopps}:${DB_PASS:?DB_PASS es obligatorio en produccion}@db-compras:5432/compras_db?schema=public'
+      SERVICE_NAME: 'servicio-compras'
+      SERVICE_AUD_ENFORCE: 'true'
+      RABBITMQ_URI: 'amqp://${RABBITMQ_USER:-nachopps}:${RABBITMQ_PASS:?RABBITMQ_PASS es obligatorio en produccion}@rabbitmq:5672'
+      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-http://otel-collector:4318}
+      JWT_PUBLIC_KEY: ${JWT_PUBLIC_KEY:?JWT_PUBLIC_KEY es obligatorio (PEM RS256, \n literales)}
+      SERVICE_JWT_SECRET: ${SERVICE_JWT_SECRET:?SERVICE_JWT_SECRET es obligatorio (tokens S2S internos)}
+      NODE_ENV: 'production'
+      CORS_ORIGIN: ${CORS_ORIGIN:?CORS_ORIGIN es obligatorio, p.ej. https://app.tudominio.com}
+      COMPROBANTES_DIR: '/data/comprobantes'
+      COMPROBANTE_MAX_BYTES: ${COMPROBANTE_MAX_BYTES:-12582912}
+      COMPROBANTE_MAX_LADO: ${COMPROBANTE_MAX_LADO:-1600}
+      COMPROBANTE_WEBP_QUALITY: ${COMPROBANTE_WEBP_QUALITY:-72}
+    volumes:
+      # Fotos de boletas/facturas de compra: deben entrar en la rutina de
+      # backup junto a nachopps-backups (ver bloque de backups más abajo).
+      - nachopps-comprobantes:/data/comprobantes
+    healthcheck:
+      test: ['CMD', 'wget', '-qO-', 'http://localhost:3000/api/health/live']
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    depends_on:
+      db-compras:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+
   # ═══════════════════════════════════════════════════
   # FRONTEND (PWA)
   # ═══════════════════════════════════════════════════
@@ -646,5 +698,9 @@ volumes:
   nachopps-db-caja:
   nachopps-db-reportes:
   nachopps-db-facturacion:
+  nachopps-db-compras:
+  # Fotos de boletas/facturas de compra (WebP + miniatura). Debe entrar en la
+  # rutina de backup junto a nachopps-backups.
+  nachopps-comprobantes:
   nachopps-db-identidad:
   nachopps-db-notificaciones:
