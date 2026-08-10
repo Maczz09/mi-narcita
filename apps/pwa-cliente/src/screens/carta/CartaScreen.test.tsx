@@ -6,6 +6,11 @@ import { useOnlineStatus } from '../../hooks/useOnlineStatus';
 import { useInventarioQuery } from '../../hooks/queries/useInventarioQuery';
 import { useToast } from '../../components/ui/ToastProvider';
 
+const mockNavigate = vi.fn();
+vi.mock('react-router-dom', () => ({
+  useNavigate: () => mockNavigate,
+}));
+
 vi.mock('../../hooks/useOnlineStatus', () => ({
   useOnlineStatus: vi.fn()
 }));
@@ -44,7 +49,8 @@ vi.mock('../../components/ui/icons', () => ({
     Alert: () => <svg data-testid="icon-alert" />,
     Check: () => <svg data-testid="icon-check" />,
     Pedidos: () => <svg data-testid="icon-pedidos" />,
-    Close: () => <svg data-testid="icon-close" />
+    Close: () => <svg data-testid="icon-close" />,
+    Layers: () => <svg data-testid="icon-layers" />
   }
 }));
 
@@ -66,6 +72,7 @@ describe('CartaScreen', () => {
   const toastMock = vi.fn();
 
   beforeEach(() => {
+    mockNavigate.mockClear();
     vi.mocked(useOnlineStatus).mockReturnValue(true);
     vi.mocked(useToast).mockReturnValue({ toast: toastMock } as any);
     vi.mocked(useInventarioQuery).mockReturnValue({
@@ -298,5 +305,11 @@ describe('CartaScreen', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'A la carta' }));
     expect(screen.getByText('Lomo Saltado')).toBeInTheDocument();
+  });
+
+  it('T-21: navega a Categorías desde el atajo de Carta/Menú', () => {
+    render(<CartaScreen />);
+    fireEvent.click(screen.getByRole('button', { name: /Gestionar categorías/i }));
+    expect(mockNavigate).toHaveBeenCalledWith('/app/categorias');
   });
 });

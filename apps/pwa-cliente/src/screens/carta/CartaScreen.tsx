@@ -6,6 +6,7 @@
 
 import { Scrim } from '../../components/ui/Scrim';
 import { useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Icons } from '../../components/ui/icons';
 import { MiniStat } from '../../components/ui/Stat';
 import { useToast } from '../../components/ui/ToastProvider';
@@ -17,6 +18,7 @@ import { MenuDiarioPanel } from './MenuDiarioPanel';
 export function CartaScreen() {
   const { toast } = useToast();
   const online = useOnlineStatus();
+  const navigate = useNavigate();
   const {
     categorias,
     productos,
@@ -106,6 +108,9 @@ export function CartaScreen() {
           </div>
         </div>
         <span className="spacer" />
+        <button className="btn btn-ghost" onClick={() => navigate('/app/categorias')}>
+          <Icons.Layers s={16} /> Gestionar categorías
+        </button>
         {modo === 'CARTA' && (
           <button className="btn btn-primary" disabled={!online || categorias.length === 0} onClick={() => setNuevo(true)}>
             <Icons.Plus s={16} /> Nuevo plato
