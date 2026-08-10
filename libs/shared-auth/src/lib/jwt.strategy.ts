@@ -16,6 +16,8 @@ interface JwtPayload {
   email?: string;
   nombre?: string;
   aud?: string;
+  // T-23 (multi-sede): null/ausente = admin general sin sede fija.
+  sedeId?: string | null;
 }
 
 const cookieExtractor: JwtFromRequestFunction = (req: Request & { cookies?: Record<string, string> }) => {
@@ -53,6 +55,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       email: payload.email,
       rol: payload.rol,
       nombre: payload.nombre,
+      sedeId: payload.sedeId ?? null,
     };
   }
 }

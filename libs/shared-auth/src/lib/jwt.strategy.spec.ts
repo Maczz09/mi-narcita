@@ -24,7 +24,7 @@ describe('JwtStrategy (shared-auth)', () => {
     const payload = { sub: 'u1', email: 'a@b.com', rol: 'ADMIN', nombre: 'Ana', extra: 'ignored' };
     expect(
       strategy.validate(payload),
-    ).toEqual({ sub: 'u1', email: 'a@b.com', rol: 'ADMIN', nombre: 'Ana' });
+    ).toEqual({ sub: 'u1', email: 'a@b.com', rol: 'ADMIN', nombre: 'Ana', sedeId: null });
 
     process.env.JWT_PUBLIC_KEY = pub;
     process.env.SERVICE_JWT_SECRET = svc;

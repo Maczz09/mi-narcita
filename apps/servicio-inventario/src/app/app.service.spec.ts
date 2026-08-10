@@ -67,10 +67,13 @@ function pedidoDto(id: string, items: Array<Record<string, unknown>>) {
   };
 }
 
+const SEDE = 'sede-001';
+
 const productoBase = {
   id: 'prod-001',
   categoriaId: 'cat-001',
-  categoria: { id: 'cat-001', nombre: 'Bebidas', descripcion: null },
+  sedeId: SEDE,
+  categoria: { id: 'cat-001', nombre: 'Bebidas', descripcion: null, sedeId: SEDE },
   nombre: 'Cerveza',
   descripcion: null,
   precio: { toNumber: () => 8.5 },
@@ -106,15 +109,19 @@ describe('AppService — Inventario (comprehensive)', () => {
         { id: 'cat-1', nombre: 'Bebidas', descripcion: null },
         { id: 'cat-2', nombre: 'Cocina', descripcion: 'Platos calientes' },
       ]);
-      const result = await service.listarCategorias();
+      const result = await service.listarCategorias(SEDE);
       expect(result.categorias).toHaveLength(2);
       expect(result.categorias[0].nombre).toBe('Bebidas');
     });
 
     it('devuelve array vacío si no hay categorías', async () => {
       mockPrisma.categoria.findMany.mockResolvedValue([] as any);
-      const result = await service.listarCategorias();
+      const result = await service.listarCategorias(SEDE);
       expect(result.categorias).toEqual([]);
+    });
+
+    it('T-23: un admin general sin sede fija debe indicar cuál usar', async () => {
+      await expect(service.listarCategorias(null)).rejects.toThrow('Indica la sede');
     });
   });
 
@@ -124,7 +131,7 @@ describe('AppService — Inventario (comprehensive)', () => {
     it('crea y devuelve la categoría', async () => {
       mockPrisma.categoria.findFirst.mockResolvedValue(null);
       mockPrisma.categoria.create.mockResolvedValue({ id: 'cat-1', nombre: 'Bebidas', descripcion: 'desc' });
-      const result = await service.crearCategoria({ nombre: 'Bebidas', descripcion: 'desc' });
+      const result = await service.crearCategoria({ nombre: 'Bebidas', descripcion: 'desc' }, SEDE);
       expect(result.message).toBe('Categoría creada exitosamente');
       expect(result.categoria.id).toBe('cat-1');
     });
@@ -132,54 +139,61 @@ describe('AppService — Inventario (comprehensive)', () => {
     it('crea categoría sin descripción', async () => {
       mockPrisma.categoria.findFirst.mockResolvedValue(null);
       mockPrisma.categoria.create.mockResolvedValue({ id: 'cat-2', nombre: 'Postres', descripcion: null });
-      const result = await service.crearCategoria({ nombre: 'Postres' });
+      const result = await service.crearCategoria({ nombre: 'Postres' }, SEDE);
       expect(result.categoria.nombre).toBe('Postres');
     });
 
     it('recorta espacios del nombre antes de guardar y validar', async () => {
       mockPrisma.categoria.findFirst.mockResolvedValue(null);
       mockPrisma.categoria.create.mockResolvedValue({ id: 'cat-3', nombre: 'Entradas', descripcion: null });
-      await service.crearCategoria({ nombre: '  Entradas  ' });
+      await service.crearCategoria({ nombre: '  Entradas  ' }, SEDE);
       expect(mockPrisma.categoria.findFirst).toHaveBeenCalledWith(
-        expect.objectContaining({ where: expect.objectContaining({ nombre: { equals: 'Entradas', mode: 'insensitive' } }) }),
+        expect.objectContaining({ where: expect.objectContaining({ sedeId: SEDE, nombre: { equals: 'Entradas', mode: 'insensitive' } }) }),
       );
-      expect(mockPrisma.categoria.create).toHaveBeenCalledWith({ data: { nombre: 'Entradas', descripcion: undefined } });
+      expect(mockPrisma.categoria.create).toHaveBeenCalledWith({ data: { nombre: 'Entradas', sedeId: SEDE, descripcion: undefined } });
     });
 
     it('rechaza con 409 si ya existe una categoría con el mismo nombre (case-insensitive)', async () => {
       mockPrisma.categoria.findFirst.mockResolvedValue({ id: 'cat-1', nombre: 'Bebidas' });
-      await expect(service.crearCategoria({ nombre: 'bebidas' })).rejects.toThrow('Ya existe una categoría llamada "Bebidas"');
+      await expect(service.crearCategoria({ nombre: 'bebidas' }, SEDE)).rejects.toThrow('Ya existe una categoría llamada "Bebidas"');
       expect(mockPrisma.categoria.create).not.toHaveBeenCalled();
     });
 
     it('traduce P2002 (carrera entre requests concurrentes) al mismo 409', async () => {
       mockPrisma.categoria.findFirst.mockResolvedValue(null);
       mockPrisma.categoria.create.mockRejectedValue({ code: 'P2002' });
-      await expect(service.crearCategoria({ nombre: 'Bebidas' })).rejects.toThrow('Ya existe una categoría llamada "Bebidas"');
+      await expect(service.crearCategoria({ nombre: 'Bebidas' }, SEDE)).rejects.toThrow('Ya existe una categoría llamada "Bebidas"');
     });
 
     it('crea una subcategoría cuando el parentId es una categoría principal', async () => {
       mockPrisma.categoria.findFirst.mockResolvedValue(null);
-      mockPrisma.categoria.findUnique.mockResolvedValue({ id: 'cat-bebidas', nombre: 'Bebidas', parentId: null });
+      mockPrisma.categoria.findUnique.mockResolvedValue({ id: 'cat-bebidas', nombre: 'Bebidas', parentId: null, sedeId: SEDE });
       mockPrisma.categoria.create.mockResolvedValue({ id: 'cat-calientes', nombre: 'Calientes', parentId: 'cat-bebidas' });
 
-      const result = await service.crearCategoria({ nombre: 'Calientes', parentId: 'cat-bebidas' });
+      const result = await service.crearCategoria({ nombre: 'Calientes', parentId: 'cat-bebidas' }, SEDE);
 
       expect(result.categoria.parentId).toBe('cat-bebidas');
-      expect(mockPrisma.categoria.create).toHaveBeenCalledWith({ data: { nombre: 'Calientes', descripcion: undefined, parentId: 'cat-bebidas' } });
+      expect(mockPrisma.categoria.create).toHaveBeenCalledWith({ data: { nombre: 'Calientes', sedeId: SEDE, descripcion: undefined, parentId: 'cat-bebidas' } });
     });
 
     it('rechaza si el parentId no corresponde a ninguna categoría', async () => {
       mockPrisma.categoria.findFirst.mockResolvedValue(null);
       mockPrisma.categoria.findUnique.mockResolvedValue(null);
-      await expect(service.crearCategoria({ nombre: 'Calientes', parentId: 'inexistente' })).rejects.toThrow(NotFoundException);
+      await expect(service.crearCategoria({ nombre: 'Calientes', parentId: 'inexistente' }, SEDE)).rejects.toThrow(NotFoundException);
+      expect(mockPrisma.categoria.create).not.toHaveBeenCalled();
+    });
+
+    it('rechaza si el parentId pertenece a otra sede', async () => {
+      mockPrisma.categoria.findFirst.mockResolvedValue(null);
+      mockPrisma.categoria.findUnique.mockResolvedValue({ id: 'cat-bebidas', nombre: 'Bebidas', parentId: null, sedeId: 'otra-sede' });
+      await expect(service.crearCategoria({ nombre: 'Calientes', parentId: 'cat-bebidas' }, SEDE)).rejects.toThrow(NotFoundException);
       expect(mockPrisma.categoria.create).not.toHaveBeenCalled();
     });
 
     it('rechaza anidar una subcategoría bajo otra subcategoría (un solo nivel)', async () => {
       mockPrisma.categoria.findFirst.mockResolvedValue(null);
-      mockPrisma.categoria.findUnique.mockResolvedValue({ id: 'cat-calientes', nombre: 'Calientes', parentId: 'cat-bebidas' });
-      await expect(service.crearCategoria({ nombre: 'Muy calientes', parentId: 'cat-calientes' })).rejects.toThrow(
+      mockPrisma.categoria.findUnique.mockResolvedValue({ id: 'cat-calientes', nombre: 'Calientes', parentId: 'cat-bebidas', sedeId: SEDE });
+      await expect(service.crearCategoria({ nombre: 'Muy calientes', parentId: 'cat-calientes' }, SEDE)).rejects.toThrow(
         'No se permite anidar más de un nivel de subcategorías.',
       );
       expect(mockPrisma.categoria.create).not.toHaveBeenCalled();
@@ -294,28 +308,28 @@ describe('AppService — Inventario (comprehensive)', () => {
         { ...productoBase, id: 'prod-002' },
         { ...productoBase, id: 'prod-003' },
       ]);
-      const result = await service.listarProductos({ limit: 2 });
+      const result = await service.listarProductos({ limit: 2 }, SEDE);
       expect(result.data).toHaveLength(2);
       expect(result.nextCursor).toBe('prod-002');
     });
 
     it('nextCursor es null cuando caben todos los resultados', async () => {
       mockPrisma.producto.findMany.mockResolvedValue([{ ...productoBase, id: 'prod-001' }]);
-      const result = await service.listarProductos({ limit: 10 });
+      const result = await service.listarProductos({ limit: 10 }, SEDE);
       expect(result.nextCursor).toBeNull();
     });
 
     it('aplica filtro por categoría', async () => {
       mockPrisma.producto.findMany.mockResolvedValue([] as any);
-      await service.listarProductos({ categoriaId: 'cat-001' });
+      await service.listarProductos({ categoriaId: 'cat-001' }, SEDE);
       expect(mockPrisma.producto.findMany).toHaveBeenCalledWith(
-        expect.objectContaining({ where: expect.objectContaining({ categoriaId: 'cat-001' }) }),
+        expect.objectContaining({ where: expect.objectContaining({ sedeId: SEDE, categoriaId: 'cat-001' }) }),
       );
     });
 
     it('aplica filtro disponible=false', async () => {
       mockPrisma.producto.findMany.mockResolvedValue([] as any);
-      await service.listarProductos({ disponible: false });
+      await service.listarProductos({ disponible: false }, SEDE);
       expect(mockPrisma.producto.findMany).toHaveBeenCalledWith(
         expect.objectContaining({ where: expect.objectContaining({ disponible: false }) }),
       );
@@ -323,7 +337,7 @@ describe('AppService — Inventario (comprehensive)', () => {
 
     it('aplica filtro conStock=true (stockActual not null)', async () => {
       mockPrisma.producto.findMany.mockResolvedValue([] as any);
-      await service.listarProductos({ conStock: true });
+      await service.listarProductos({ conStock: true }, SEDE);
       expect(mockPrisma.producto.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
           where: expect.objectContaining({ stockActual: { not: null } }),
@@ -333,7 +347,7 @@ describe('AppService — Inventario (comprehensive)', () => {
 
     it('aplica filtro conStock=false (stockActual null)', async () => {
       mockPrisma.producto.findMany.mockResolvedValue([] as any);
-      await service.listarProductos({ conStock: false });
+      await service.listarProductos({ conStock: false }, SEDE);
       expect(mockPrisma.producto.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
           where: expect.objectContaining({ stockActual: null }),
@@ -343,7 +357,7 @@ describe('AppService — Inventario (comprehensive)', () => {
 
     it('aplica búsqueda de texto', async () => {
       mockPrisma.producto.findMany.mockResolvedValue([] as any);
-      await service.listarProductos({ search: 'limon' });
+      await service.listarProductos({ search: 'limon' }, SEDE);
       expect(mockPrisma.producto.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
           where: expect.objectContaining({
@@ -358,7 +372,7 @@ describe('AppService — Inventario (comprehensive)', () => {
 
     it('limita el máximo a 100', async () => {
       mockPrisma.producto.findMany.mockResolvedValue([] as any);
-      await service.listarProductos({ limit: 500 });
+      await service.listarProductos({ limit: 500 }, SEDE);
       expect(mockPrisma.producto.findMany).toHaveBeenCalledWith(
         expect.objectContaining({ take: 101 }),
       );
@@ -366,7 +380,7 @@ describe('AppService — Inventario (comprehensive)', () => {
 
     it('sin parámetros usa defaults (limit 20)', async () => {
       mockPrisma.producto.findMany.mockResolvedValue([] as any);
-      await service.listarProductos();
+      await service.listarProductos({}, SEDE);
       expect(mockPrisma.producto.findMany).toHaveBeenCalledWith(
         expect.objectContaining({ take: 21 }),
       );
@@ -374,7 +388,7 @@ describe('AppService — Inventario (comprehensive)', () => {
 
     it('aplica cursor de paginación', async () => {
       mockPrisma.producto.findMany.mockResolvedValue([] as any);
-      await service.listarProductos({ cursor: 'prod-010' });
+      await service.listarProductos({ cursor: 'prod-010' }, SEDE);
       expect(mockPrisma.producto.findMany).toHaveBeenCalledWith(
         expect.objectContaining({ cursor: { id: 'prod-010' }, skip: 1 }),
       );
@@ -382,7 +396,7 @@ describe('AppService — Inventario (comprehensive)', () => {
 
     it('aplica filtro updatedSince', async () => {
       mockPrisma.producto.findMany.mockResolvedValue([] as any);
-      await service.listarProductos({ updatedSince: '2026-01-01T00:00:00.000Z' });
+      await service.listarProductos({ updatedSince: '2026-01-01T00:00:00.000Z' }, SEDE);
       expect(mockPrisma.producto.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
           where: expect.objectContaining({
@@ -390,6 +404,10 @@ describe('AppService — Inventario (comprehensive)', () => {
           }),
         }),
       );
+    });
+
+    it('T-23: un admin general sin sede fija debe indicar cuál usar', async () => {
+      await expect(service.listarProductos({}, null)).rejects.toThrow('Indica la sede');
     });
   });
 
@@ -432,16 +450,24 @@ describe('AppService — Inventario (comprehensive)', () => {
     it('lanza NotFoundException si la categoría no existe', async () => {
       mockPrisma.categoria.findUnique.mockResolvedValue(null);
       await expect(
-        service.crearProducto({ categoriaId: 'cat-no-existe', nombre: 'Prod', precio: 10 }),
+        service.crearProducto({ categoriaId: 'cat-no-existe', nombre: 'Prod', precio: 10 }, SEDE),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it('lanza NotFoundException si la categoría pertenece a otra sede', async () => {
+      mockPrisma.categoria.findUnique.mockResolvedValue({ id: 'cat-001', nombre: 'Bebidas', sedeId: 'otra-sede' });
+      await expect(
+        service.crearProducto({ categoriaId: 'cat-001', nombre: 'Prod', precio: 10 }, SEDE),
       ).rejects.toThrow(NotFoundException);
     });
 
     it('crea el producto y emite evento en outbox', async () => {
-      const categoria = { id: 'cat-001', nombre: 'Bebidas', descripcion: null };
+      const categoria = { id: 'cat-001', nombre: 'Bebidas', descripcion: null, sedeId: SEDE };
       mockPrisma.categoria.findUnique.mockResolvedValue(categoria);
       const productoCreado = {
         id: 'prod-new',
         categoriaId: 'cat-001',
+        sedeId: SEDE,
         nombre: 'Agua',
         descripcion: null,
         precio: { toNumber: () => 5 },
@@ -455,7 +481,7 @@ describe('AppService — Inventario (comprehensive)', () => {
         categoriaId: 'cat-001',
         nombre: 'Agua',
         precio: 5,
-      });
+      }, SEDE);
 
       expect(result.message).toBe('Producto creado exitosamente');
       expect(result.producto.id).toBe('prod-new');
@@ -465,7 +491,7 @@ describe('AppService — Inventario (comprehensive)', () => {
     });
 
     it('establece disponible=true por defecto', async () => {
-      const categoria = { id: 'cat-001', nombre: 'Bebidas', descripcion: null };
+      const categoria = { id: 'cat-001', nombre: 'Bebidas', descripcion: null, sedeId: SEDE };
       mockPrisma.categoria.findUnique.mockResolvedValue(categoria);
       mockPrisma.producto.create.mockResolvedValue({
         ...productoBase,
@@ -474,7 +500,7 @@ describe('AppService — Inventario (comprehensive)', () => {
       });
       mockPrisma.outboxEvent.create.mockResolvedValue({});
 
-      await service.crearProducto({ categoriaId: 'cat-001', nombre: 'Cerveza', precio: 8.5 });
+      await service.crearProducto({ categoriaId: 'cat-001', nombre: 'Cerveza', precio: 8.5 }, SEDE);
 
       expect(mockPrisma.producto.create).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -484,7 +510,7 @@ describe('AppService — Inventario (comprehensive)', () => {
     });
 
     it('respeta disponible=false si se especifica', async () => {
-      const categoria = { id: 'cat-001', nombre: 'Bebidas', descripcion: null };
+      const categoria = { id: 'cat-001', nombre: 'Bebidas', descripcion: null, sedeId: SEDE };
       mockPrisma.categoria.findUnique.mockResolvedValue(categoria);
       mockPrisma.producto.create.mockResolvedValue({
         ...productoBase,
@@ -494,7 +520,7 @@ describe('AppService — Inventario (comprehensive)', () => {
       });
       mockPrisma.outboxEvent.create.mockResolvedValue({});
 
-      await service.crearProducto({ categoriaId: 'cat-001', nombre: 'Cerveza', precio: 8.5, disponible: false });
+      await service.crearProducto({ categoriaId: 'cat-001', nombre: 'Cerveza', precio: 8.5, disponible: false }, SEDE);
 
       expect(mockPrisma.producto.create).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -756,10 +782,10 @@ describe('AppService — Inventario (comprehensive)', () => {
         { id: 'md-1', fecha: new Date(hoy), productoId: 'prod-001', disponible: true, producto: productoBase },
       ]);
 
-      const result = await service.listarMenuDelDia();
+      const result = await service.listarMenuDelDia(undefined, SEDE);
 
       expect(mockPrisma.menuDiario.findMany).toHaveBeenCalledWith(
-        expect.objectContaining({ where: { fecha: new Date(hoy) } }),
+        expect.objectContaining({ where: { fecha: new Date(hoy), producto: { sedeId: SEDE } } }),
       );
       expect(result.menu).toHaveLength(1);
       expect(result.menu[0].fecha).toBe(hoy);
@@ -768,27 +794,36 @@ describe('AppService — Inventario (comprehensive)', () => {
 
     it('acepta una fecha explícita', async () => {
       mockPrisma.menuDiario.findMany.mockResolvedValue([]);
-      await service.listarMenuDelDia('2026-08-01');
+      await service.listarMenuDelDia('2026-08-01', SEDE);
       expect(mockPrisma.menuDiario.findMany).toHaveBeenCalledWith(
-        expect.objectContaining({ where: { fecha: new Date('2026-08-01') } }),
+        expect.objectContaining({ where: { fecha: new Date('2026-08-01'), producto: { sedeId: SEDE } } }),
       );
+    });
+
+    it('T-23: un admin general sin sede fija debe indicar cuál usar', async () => {
+      await expect(service.listarMenuDelDia(undefined, null)).rejects.toThrow('Indica la sede');
     });
   });
 
   describe('agregarAlMenu', () => {
     it('rechaza si no viene productoId ni producto', async () => {
-      await expect(service.agregarAlMenu({})).rejects.toThrow('Se requiere productoId');
+      await expect(service.agregarAlMenu({}, SEDE)).rejects.toThrow('Se requiere productoId');
     });
 
     it('rechaza si vienen productoId Y producto a la vez', async () => {
       await expect(
-        service.agregarAlMenu({ productoId: 'prod-001', producto: { categoriaId: 'c1', nombre: 'X', precio: 1 } }),
+        service.agregarAlMenu({ productoId: 'prod-001', producto: { categoriaId: 'c1', nombre: 'X', precio: 1 } }, SEDE),
       ).rejects.toThrow('Indica solo uno');
     });
 
     it('rechaza un productoId que no existe', async () => {
       mockPrisma.producto.findUnique.mockResolvedValue(null);
-      await expect(service.agregarAlMenu({ productoId: 'no-existe' })).rejects.toThrow('no encontrado');
+      await expect(service.agregarAlMenu({ productoId: 'no-existe' }, SEDE)).rejects.toThrow('no encontrado');
+    });
+
+    it('rechaza un productoId de otra sede', async () => {
+      mockPrisma.producto.findUnique.mockResolvedValue({ ...productoBase, sedeId: 'otra-sede' });
+      await expect(service.agregarAlMenu({ productoId: 'prod-001' }, SEDE)).rejects.toThrow('no encontrado');
     });
 
     it('agrega un plato existente al menú de hoy (upsert reactiva si ya estuvo)', async () => {
@@ -797,7 +832,7 @@ describe('AppService — Inventario (comprehensive)', () => {
         id: 'md-1', fecha: new Date(), productoId: 'prod-001', disponible: true, producto: productoBase,
       });
 
-      const result = await service.agregarAlMenu({ productoId: 'prod-001' });
+      const result = await service.agregarAlMenu({ productoId: 'prod-001' }, SEDE);
 
       expect(mockPrisma.menuDiario.upsert).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -810,7 +845,7 @@ describe('AppService — Inventario (comprehensive)', () => {
     });
 
     it('crea un plato nuevo y lo agrega al menú del día', async () => {
-      mockPrisma.categoria.findUnique.mockResolvedValue({ id: 'cat-001', nombre: 'Bebidas' });
+      mockPrisma.categoria.findUnique.mockResolvedValue({ id: 'cat-001', nombre: 'Bebidas', sedeId: SEDE });
       mockPrisma.producto.create.mockResolvedValue({ ...productoBase, id: 'prod-nuevo' });
       mockPrisma.menuDiario.upsert.mockResolvedValue({
         id: 'md-2', fecha: new Date(), productoId: 'prod-nuevo', disponible: true, producto: { ...productoBase, id: 'prod-nuevo' },
@@ -818,7 +853,7 @@ describe('AppService — Inventario (comprehensive)', () => {
 
       const result = await service.agregarAlMenu({
         producto: { categoriaId: 'cat-001', nombre: 'Especial del día', precio: 25 },
-      });
+      }, SEDE);
 
       expect(mockPrisma.producto.create).toHaveBeenCalled();
       expect(mockPrisma.menuDiario.upsert).toHaveBeenCalledWith(
@@ -874,21 +909,28 @@ describe('AppService — Inventario (comprehensive)', () => {
     it('rechaza si el producto no existe', async () => {
       mockPrisma.producto.findUnique.mockResolvedValue(null);
       await expect(
-        service.registrarMerma({ productoId: 'no-existe', cantidad: 1, motivo: 'Rota' }),
+        service.registrarMerma({ productoId: 'no-existe', cantidad: 1, motivo: 'Rota' }, null, null, SEDE),
+      ).rejects.toThrow('no encontrado');
+    });
+
+    it('rechaza si el producto pertenece a otra sede', async () => {
+      mockPrisma.producto.findUnique.mockResolvedValue({ ...productoBase, sedeId: 'otra-sede' });
+      await expect(
+        service.registrarMerma({ productoId: 'prod-001', cantidad: 1, motivo: 'Rota' }, null, null, SEDE),
       ).rejects.toThrow('no encontrado');
     });
 
     it('rechaza si el producto no lleva control de stock', async () => {
       mockPrisma.producto.findUnique.mockResolvedValue({ ...productoBase, stockActual: null });
       await expect(
-        service.registrarMerma({ productoId: 'prod-001', cantidad: 1, motivo: 'Rota' }),
+        service.registrarMerma({ productoId: 'prod-001', cantidad: 1, motivo: 'Rota' }, null, null, SEDE),
       ).rejects.toThrow('no lleva control de stock');
     });
 
     it('rechaza mermar más de lo que hay en stock', async () => {
       mockPrisma.producto.findUnique.mockResolvedValue({ ...productoBase, stockActual: 3 });
       await expect(
-        service.registrarMerma({ productoId: 'prod-001', cantidad: 5, motivo: 'Vencidas' }),
+        service.registrarMerma({ productoId: 'prod-001', cantidad: 5, motivo: 'Vencidas' }, null, null, SEDE),
       ).rejects.toThrow('solo hay 3 en stock');
     });
 
@@ -902,7 +944,7 @@ describe('AppService — Inventario (comprehensive)', () => {
 
       const result = await service.registrarMerma(
         { productoId: 'prod-001', cantidad: 3, motivo: 'Botellas rotas' },
-        'u-1', 'Ana',
+        'u-1', 'Ana', SEDE,
       );
 
       expect(mockPrisma.producto.update).toHaveBeenCalledWith(
@@ -931,7 +973,7 @@ describe('AppService — Inventario (comprehensive)', () => {
         usuarioId: null, usuarioNombre: null, createdAt: new Date(),
       });
 
-      await service.registrarMerma({ productoId: 'prod-001', cantidad: 2, motivo: 'Se venció todo' });
+      await service.registrarMerma({ productoId: 'prod-001', cantidad: 2, motivo: 'Se venció todo' }, null, null, SEDE);
 
       expect(mockPrisma.producto.update).toHaveBeenCalledWith(
         expect.objectContaining({ data: expect.objectContaining({ stockActual: 0, disponible: false }) }),
@@ -945,20 +987,24 @@ describe('AppService — Inventario (comprehensive)', () => {
         { id: 'merma-1', productoId: 'prod-001', cantidad: 2, motivo: 'Rotas', usuarioId: null, usuarioNombre: null, createdAt: new Date(), producto: productoBase },
       ]);
 
-      const result = await service.listarMermas();
+      const result = await service.listarMermas({}, SEDE);
 
       expect(mockPrisma.merma.findMany).toHaveBeenCalledWith(
-        expect.objectContaining({ orderBy: { createdAt: 'desc' } }),
+        expect.objectContaining({ orderBy: { createdAt: 'desc' }, where: { producto: { sedeId: SEDE } } }),
       );
       expect(result.mermas).toHaveLength(1);
     });
 
     it('filtra por productoId cuando se indica', async () => {
       mockPrisma.merma.findMany.mockResolvedValue([]);
-      await service.listarMermas({ productoId: 'prod-001' });
+      await service.listarMermas({ productoId: 'prod-001' }, SEDE);
       expect(mockPrisma.merma.findMany).toHaveBeenCalledWith(
-        expect.objectContaining({ where: { productoId: 'prod-001' } }),
+        expect.objectContaining({ where: { producto: { sedeId: SEDE }, productoId: 'prod-001' } }),
       );
+    });
+
+    it('T-23: un admin general sin sede fija debe indicar cuál usar', async () => {
+      await expect(service.listarMermas({}, null)).rejects.toThrow('Indica la sede');
     });
   });
 });

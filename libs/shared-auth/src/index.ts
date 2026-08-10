@@ -11,3 +11,4 @@ export {
   makeJwtSecretOrKeyProvider,
   JWT_VERIFY_ALGORITHMS,
 } from './lib/jwt-keys';
+export { resolveSedeId } from './lib/resolve-sede';

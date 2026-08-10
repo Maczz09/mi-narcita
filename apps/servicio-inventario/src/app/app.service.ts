@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException, Logger, BadRequestException, ConflictException } from '@nestjs/common';
 import { OperableLog } from '@org/observabilidad';
+import { resolveSedeId } from '@org/shared-auth';
 import { PrismaService } from '../prisma/prisma.service';
 import {
   CategoriaDto,
@@ -36,21 +37,24 @@ export class AppService {
 
   // --- CATEGORÍAS ---
 
-  async listarCategorias(): Promise<{ categorias: CategoriaDto[] }> {
+  async listarCategorias(usuarioSedeId?: string | null, sedeIdSolicitado?: string): Promise<{ categorias: CategoriaDto[] }> {
+    const sedeId = resolveSedeId(usuarioSedeId, sedeIdSolicitado);
     const categorias = await this.prisma.categoria.findMany({
+      where: { sedeId },
       orderBy: { nombre: 'asc' }
     });
     return { categorias };
   }
 
-  async crearCategoria(command: CrearCategoriaCommand): Promise<{ message: string; categoria: CategoriaDto }> {
+  async crearCategoria(command: CrearCategoriaCommand, usuarioSedeId?: string | null, sedeIdSolicitado?: string): Promise<{ message: string; categoria: CategoriaDto }> {
+    const sedeId = resolveSedeId(usuarioSedeId, sedeIdSolicitado);
     const nombre = command.nombre.trim();
-    await this.assertNombreDisponible(nombre);
+    await this.assertNombreDisponible(sedeId, nombre);
     if (command.parentId) {
-      await this.assertParentValido(command.parentId);
+      await this.assertParentValido(command.parentId, sedeId);
     }
 
-    const categoria = await this.crearCategoriaSegura(nombre, command.descripcion, command.parentId);
+    const categoria = await this.crearCategoriaSegura(sedeId, nombre, command.descripcion, command.parentId);
     return { message: 'Categoría creada exitosamente', categoria };
   }
 
@@ -66,7 +70,7 @@ export class AppService {
 
     const nombre = command.nombre?.trim();
     if (nombre !== undefined && nombre !== '') {
-      await this.assertNombreDisponible(nombre, id);
+      await this.assertNombreDisponible(existente.sedeId, nombre, id);
     }
 
     if (command.parentId) {
@@ -78,7 +82,7 @@ export class AppService {
           'No se puede convertir en subcategoría: ya tiene sus propias subcategorías. Reasígnalas primero.',
         );
       }
-      await this.assertParentValido(command.parentId);
+      await this.assertParentValido(command.parentId, existente.sedeId);
     }
 
     const categoria = await this.actualizarCategoriaSegura(id, {
@@ -111,19 +115,20 @@ export class AppService {
     return { message: 'Categoría eliminada' };
   }
 
-  /** Una subcategoría no puede a su vez tener padre (un solo nivel de anidación). */
-  private async assertParentValido(parentId: string): Promise<void> {
+  /** Una subcategoría no puede a su vez tener padre (un solo nivel de anidación), y debe ser de la misma sede. */
+  private async assertParentValido(parentId: string, sedeId: string): Promise<void> {
     const parent = await this.prisma.categoria.findUnique({ where: { id: parentId } });
-    if (!parent) throw new NotFoundException(`Categoría padre ${parentId} no encontrada.`);
+    if (!parent || parent.sedeId !== sedeId) throw new NotFoundException(`Categoría padre ${parentId} no encontrada.`);
     if (parent.parentId) {
       throw new BadRequestException('No se permite anidar más de un nivel de subcategorías.');
     }
   }
 
-  /** Rechaza un nombre que ya existe (case-insensitive, sin espacios). `excludeId` permite renombrar una categoría a sí misma. */
-  private async assertNombreDisponible(nombre: string, excludeId?: string): Promise<void> {
+  /** Rechaza un nombre que ya existe EN LA MISMA SEDE (case-insensitive). `excludeId` permite renombrar una categoría a sí misma. */
+  private async assertNombreDisponible(sedeId: string, nombre: string, excludeId?: string): Promise<void> {
     const existente = await this.prisma.categoria.findFirst({
       where: {
+        sedeId,
         nombre: { equals: nombre, mode: 'insensitive' },
         ...(excludeId ? { id: { not: excludeId } } : {}),
       },
@@ -136,9 +141,9 @@ export class AppService {
   // El check de arriba no cierra una carrera entre dos requests simultáneos;
   // la constraint UNIQUE de la BD es la garantía real. P2002 aquí es ese
   // caso raro, traducido al mismo 409 que ya usa assertNombreDisponible.
-  private async crearCategoriaSegura(nombre: string, descripcion?: string, parentId?: string): Promise<CategoriaDto> {
+  private async crearCategoriaSegura(sedeId: string, nombre: string, descripcion?: string, parentId?: string): Promise<CategoriaDto> {
     try {
-      return await this.prisma.categoria.create({ data: { nombre, descripcion, parentId } });
+      return await this.prisma.categoria.create({ data: { nombre, sedeId, descripcion, parentId } });
     } catch (error) {
       if (this.isUniqueConstraintViolation(error)) {
         throw new ConflictException(`Ya existe una categoría llamada "${nombre}"`);
@@ -167,11 +172,13 @@ export class AppService {
 
   // --- PRODUCTOS ---
 
-  async listarProductos(query: ListarProductosQuery = {}): Promise<ProductoListResponse> {
+  async listarProductos(query: ListarProductosQuery = {}, usuarioSedeId?: string | null, sedeIdSolicitado?: string): Promise<ProductoListResponse> {
+    const sedeId = resolveSedeId(usuarioSedeId, sedeIdSolicitado);
     const limit = this.normalizeLimit(query.limit);
     const disponible = this.normalizeBoolean(query.disponible);
     const conStock = this.normalizeBoolean(query.conStock);
     const where: Prisma.ProductoWhereInput = {
+      sedeId,
       ...(query.categoriaId ? { categoriaId: query.categoriaId } : {}),
       ...(disponible == null ? {} : { disponible }),
       ...(conStock === true ? { stockActual: { not: null } } : {}),
@@ -249,9 +256,10 @@ export class AppService {
     return { productos: productos.map((producto) => this.toProductoDto(producto)) };
   }
 
-  async crearProducto(command: CrearProductoCommand): Promise<{ message: string; producto: ProductoDto }> {
+  async crearProducto(command: CrearProductoCommand, usuarioSedeId?: string | null, sedeIdSolicitado?: string): Promise<{ message: string; producto: ProductoDto }> {
+    const sedeId = resolveSedeId(usuarioSedeId, sedeIdSolicitado);
     const categoria = await this.prisma.categoria.findUnique({ where: { id: command.categoriaId } });
-    if (!categoria) {
+    if (!categoria || categoria.sedeId !== sedeId) {
       throw new NotFoundException(`Categoría con ID ${command.categoriaId} no encontrada`);
     }
 
@@ -259,6 +267,7 @@ export class AppService {
       const p = await prisma.producto.create({
         data: {
           categoriaId: command.categoriaId,
+          sedeId,
           nombre: command.nombre,
           descripcion: command.descripcion,
           precio: command.precio,
@@ -291,9 +300,10 @@ export class AppService {
   }
 
   async actualizarProducto(id: string, command: ActualizarProductoCommand): Promise<{ message: string; producto: ProductoDto }> {
+    let categoriaDestino: { id: string; sedeId: string } | null = null;
     if (command.categoriaId) {
-      const categoria = await this.prisma.categoria.findUnique({ where: { id: command.categoriaId } });
-      if (!categoria) {
+      categoriaDestino = await this.prisma.categoria.findUnique({ where: { id: command.categoriaId } });
+      if (!categoriaDestino) {
         throw new NotFoundException(`Categoría con ID ${command.categoriaId} no encontrada`);
       }
     }
@@ -301,6 +311,9 @@ export class AppService {
     const actualizado = await this.prisma.$transaction(async (prisma) => {
       const existente = await prisma.producto.findUnique({ where: { id }, include: { categoria: true } });
       if (!existente) throw new NotFoundException('Producto no encontrado');
+      if (categoriaDestino && categoriaDestino.sedeId !== existente.sedeId) {
+        throw new NotFoundException(`Categoría con ID ${command.categoriaId} no encontrada`);
+      }
 
       const p = await prisma.producto.update({
         where: { id },
@@ -504,16 +517,18 @@ export class AppService {
     };
   }
 
-  async listarMenuDelDia(fecha?: string): Promise<{ menu: MenuDiarioItemDto[] }> {
+  async listarMenuDelDia(fecha?: string, usuarioSedeId?: string | null, sedeIdSolicitado?: string): Promise<{ menu: MenuDiarioItemDto[] }> {
+    const sedeId = resolveSedeId(usuarioSedeId, sedeIdSolicitado);
     const items = await this.prisma.menuDiario.findMany({
-      where: { fecha: new Date(fecha ?? this.hoyISO()) },
+      where: { fecha: new Date(fecha ?? this.hoyISO()), producto: { sedeId } },
       include: { producto: { include: { categoria: true } } },
       orderBy: { createdAt: 'asc' },
     });
     return { menu: items.map((item) => this.toMenuDiarioItemDto(item)) };
   }
 
-  async agregarAlMenu(command: AgregarAlMenuCommand): Promise<{ message: string; item: MenuDiarioItemDto }> {
+  async agregarAlMenu(command: AgregarAlMenuCommand, usuarioSedeId?: string | null, sedeIdSolicitado?: string): Promise<{ message: string; item: MenuDiarioItemDto }> {
+    const sedeId = resolveSedeId(usuarioSedeId, sedeIdSolicitado);
     if (!command.productoId && !command.producto) {
       throw new BadRequestException('Se requiere productoId (plato existente) o producto (plato nuevo).');
     }
@@ -523,11 +538,11 @@ export class AppService {
 
     let productoId = command.productoId;
     if (!productoId && command.producto) {
-      const { producto } = await this.crearProducto(command.producto);
+      const { producto } = await this.crearProducto(command.producto, sedeId);
       productoId = producto.id;
     } else {
       const existe = await this.prisma.producto.findUnique({ where: { id: productoId } });
-      if (!existe) throw new NotFoundException(`Producto con ID ${productoId} no encontrado`);
+      if (!existe || existe.sedeId !== sedeId) throw new NotFoundException(`Producto con ID ${productoId} no encontrado`);
     }
 
     const fecha = new Date(command.fecha ?? this.hoyISO());
@@ -597,13 +612,16 @@ export class AppService {
     command: RegistrarMermaCommand,
     usuarioId?: string | null,
     usuarioNombre?: string | null,
+    usuarioSedeId?: string | null,
+    sedeIdSolicitado?: string,
   ): Promise<{ message: string; merma: MermaDto }> {
+    const sedeId = resolveSedeId(usuarioSedeId, sedeIdSolicitado);
     const merma = await this.prisma.$transaction(async (prisma) => {
       // classid 1234 compartido entre servicios A PROPOSITO: cada servicio tiene su propia BD (database-per-service), el espacio de locks no se cruza.
       await prisma.$executeRaw`SELECT pg_advisory_xact_lock(1234, ('x' || substr(md5(${command.productoId}), 1, 8))::bit(32)::int)`;
 
       const producto = await prisma.producto.findUnique({ where: { id: command.productoId }, include: { categoria: true } });
-      if (!producto) throw new NotFoundException('Producto no encontrado');
+      if (!producto || producto.sedeId !== sedeId) throw new NotFoundException('Producto no encontrado');
       if (producto.stockActual === null) {
         throw new BadRequestException('Este producto no lleva control de stock; no se le puede registrar merma.');
       }
@@ -659,9 +677,10 @@ export class AppService {
     return { message: 'Merma registrada', merma: this.toMermaDto(merma) };
   }
 
-  async listarMermas(query: ListarMermasQuery = {}): Promise<{ mermas: MermaDto[] }> {
+  async listarMermas(query: ListarMermasQuery = {}, usuarioSedeId?: string | null, sedeIdSolicitado?: string): Promise<{ mermas: MermaDto[] }> {
+    const sedeId = resolveSedeId(usuarioSedeId, sedeIdSolicitado);
     const mermas = await this.prisma.merma.findMany({
-      where: query.productoId ? { productoId: query.productoId } : undefined,
+      where: { producto: { sedeId }, ...(query.productoId ? { productoId: query.productoId } : {}) },
       include: { producto: { include: { categoria: true } } },
       orderBy: { createdAt: 'desc' },
       take: this.normalizeLimit(query.limit),

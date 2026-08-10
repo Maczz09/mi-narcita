@@ -1,9 +1,13 @@
-import { Controller, Get, Post, Body, Param, Patch, Delete, ParseUUIDPipe, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, Patch, Delete, ParseUUIDPipe, UseGuards, Query } from '@nestjs/common';
 import { Roles, RolesGuard } from '@org/shared-auth';
+import { UsuarioActual } from '@org/observabilidad';
 import { AppService } from './app.service';
 import { CrearMesaCommand, ActualizarEstadoMesaCommand, CrearUbicacionCommand, ActualizarUbicacionCommand, UnirMesasCommand } from '@org/contracts';
 
 // Salón: lo consultan/operan mesero, cajero y recepción (mapa de roles del PWA).
+// T-23 (multi-sede): las rutas de listado/alta reciben `sedeId` por query —
+// el servicio la resuelve contra `req.user.sedeId` (usuario pineado gana
+// siempre; el admin general debe indicarla).
 @UseGuards(RolesGuard)
 @Roles('ADMIN', 'SISTEMA', 'CAJERO', 'MESERO', 'RECEPCION')
 @Controller()
@@ -11,22 +15,26 @@ export class AppController {
   constructor(private readonly appService: AppService) {}
 
   @Get()
-  listarMesas() {
-    return this.appService.listarMesas();
+  listarMesas(@UsuarioActual('sedeId') usuarioSedeId: string | null, @Query('sedeId') sedeId?: string) {
+    return this.appService.listarMesas(usuarioSedeId, sedeId);
   }
 
   // --- UBICACIONES --- (antes de ':id' para que no lo capture esa ruta)
 
   @Get('ubicaciones')
-  listarUbicaciones() {
-    return this.appService.listarUbicaciones();
+  listarUbicaciones(@UsuarioActual('sedeId') usuarioSedeId: string | null, @Query('sedeId') sedeId?: string) {
+    return this.appService.listarUbicaciones(usuarioSedeId, sedeId);
   }
 
   // Gestión de zonas = configuración del salón, reservada a administración.
   @Roles('ADMIN', 'SISTEMA')
   @Post('ubicaciones')
-  crearUbicacion(@Body() body: CrearUbicacionCommand) {
-    return this.appService.crearUbicacion(body);
+  crearUbicacion(
+    @Body() body: CrearUbicacionCommand,
+    @UsuarioActual('sedeId') usuarioSedeId: string | null,
+    @Query('sedeId') sedeId?: string,
+  ) {
+    return this.appService.crearUbicacion(body, usuarioSedeId, sedeId);
   }
 
   @Roles('ADMIN', 'SISTEMA')
@@ -49,8 +57,12 @@ export class AppController {
   // Alta de mesas = configuración del salón, reservada a administración.
   @Roles('ADMIN', 'SISTEMA')
   @Post()
-  crearMesa(@Body() body: CrearMesaCommand) {
-    return this.appService.crearMesa(body);
+  crearMesa(
+    @Body() body: CrearMesaCommand,
+    @UsuarioActual('sedeId') usuarioSedeId: string | null,
+    @Query('sedeId') sedeId?: string,
+  ) {
+    return this.appService.crearMesa(body, usuarioSedeId, sedeId);
   }
 
   @Patch(':id/estado')

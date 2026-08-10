@@ -31,6 +31,11 @@ export class UsuarioDto {
   @IsBoolean()
   activo: boolean;
 
+  // T-23 (multi-sede): null = admin general (sin sede fija).
+  @IsOptional()
+  @IsString()
+  sedeId?: string | null;
+
   @IsString()
   createdAt: string;
 }
@@ -60,6 +65,10 @@ export class ListarUsuariosQuery {
   @IsOptional()
   @IsDateString()
   updatedSince?: string;
+
+  @IsOptional()
+  @IsString()
+  sedeId?: string;
 }
 
 /* ── Commands ────────────────────────────────────────── */
@@ -87,6 +96,12 @@ export class CrearUsuarioCommand {
 
   @IsEnum(RolUsuario)
   rol: RolUsuario;
+
+  // Requerida salvo rol ADMIN (validado en el servicio: un ADMIN queda sin
+  // sede fija — administra la que elija).
+  @IsOptional()
+  @IsString()
+  sedeId?: string;
 }
 
 export class CambiarRolCommand {
@@ -117,4 +132,52 @@ export class UsuarioListResponse {
   @IsOptional()
   @IsString()
   nextCursor: string | null;
+}
+
+/* ── Sedes (T-23: multi-sede) ────────────────────────── */
+
+export class SedeDto {
+  @IsString()
+  id: string;
+
+  @IsString()
+  nombre: string;
+
+  @IsOptional()
+  @IsString()
+  direccion?: string | null;
+
+  @IsBoolean()
+  activa: boolean;
+}
+
+export class CrearSedeCommand {
+  @IsString()
+  @IsNotEmpty()
+  nombre: string;
+
+  @IsOptional()
+  @IsString()
+  direccion?: string;
+}
+
+export class ActualizarSedeCommand {
+  @IsOptional()
+  @IsString()
+  nombre?: string;
+
+  @IsOptional()
+  @IsString()
+  direccion?: string | null;
+
+  @IsOptional()
+  @IsBoolean()
+  activa?: boolean;
+}
+
+export class SedesResponse {
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => SedeDto)
+  sedes: SedeDto[];
 }

@@ -4,6 +4,7 @@ import {
   Get,
   Body,
   Patch,
+  Delete,
   Param,
   UseGuards,
   Request,
@@ -16,7 +17,7 @@ import {
 import { Request as ExpressRequest, Response } from 'express';
 
 interface AuthenticatedRequest extends ExpressRequest {
-  user: { sub: string; email: string; rol: string; nombre: string };
+  user: { sub: string; email: string; rol: string; nombre: string; sedeId?: string | null };
 }
 import { randomBytes } from 'node:crypto';
 import { AuthService } from './auth.service';
@@ -27,6 +28,8 @@ import {
   CambiarEstadoUsuarioCommand,
   ListarUsuariosQuery,
   UsuarioListResponse,
+  CrearSedeCommand,
+  ActualizarSedeCommand,
 } from '@org/contracts';
 import { JwtAuthGuard, RolesGuard, Roles } from '@org/shared-auth';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
@@ -159,8 +162,11 @@ export class AuthController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('ADMIN', 'SISTEMA', 'GERENCIA')
   @Get('usuarios')
-  async listarUsuarios(@Query() query: ListarUsuariosQuery): Promise<UsuarioListResponse> {
-    return this.authService.listarUsuarios(query);
+  async listarUsuarios(
+    @Query() query: ListarUsuariosQuery,
+    @Request() req: AuthenticatedRequest,
+  ): Promise<UsuarioListResponse> {
+    return this.authService.listarUsuarios(query, req.user.sedeId);
   }
 
   @UseGuards(JwtAuthGuard, RolesGuard)
@@ -183,5 +189,35 @@ export class AuthController {
     @Request() req: AuthenticatedRequest,
   ) {
     return this.authService.cambiarEstado(id, command, req.user.sub);
+  }
+
+  /* ── Sedes (T-23: multi-sede, solo ADMIN) ──────────── */
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMIN')
+  @Get('sedes')
+  async listarSedes() {
+    return this.authService.listarSedes();
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMIN')
+  @Post('sedes')
+  async crearSede(@Body() command: CrearSedeCommand) {
+    return this.authService.crearSede(command);
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMIN')
+  @Patch('sedes/:id')
+  async actualizarSede(@Param('id') id: string, @Body() command: ActualizarSedeCommand) {
+    return this.authService.actualizarSede(id, command);
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMIN')
+  @Delete('sedes/:id')
+  async eliminarSede(@Param('id') id: string) {
+    return this.authService.eliminarSede(id);
   }
 }

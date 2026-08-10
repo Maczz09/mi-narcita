@@ -35,6 +35,7 @@ describe('JwtStrategy de identidad', () => {
       email: 'admin@test.com',
       rol: 'ADMIN',
       nombre: 'Admin',
+      sedeId: null,
     });
 
     process.env.JWT_PUBLIC_KEY = prevPub;

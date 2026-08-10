@@ -116,10 +116,11 @@ describe('AuthController', () => {
     expect(await controller.crearUsuario({ email: 'a@test.com' } as never)).toEqual({
       id: 'new-user',
     });
-    expect(await controller.listarUsuarios({ limit: 10 })).toEqual({
+    expect(await controller.listarUsuarios({ limit: 10 }, { user: { sub: 'admin-1', sedeId: null } } as any)).toEqual({
       items: [],
       total: 0,
     });
+    expect(authService.listarUsuarios).toHaveBeenCalledWith({ limit: 10 }, null);
     expect(
       await controller.cambiarRol('user-1', { rol: 'ADMIN' } as never, { user: { sub: 'admin-1' } } as any),
     ).toEqual({

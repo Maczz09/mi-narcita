@@ -7,6 +7,9 @@ import { CrearCategoriaCommand, ActualizarCategoriaCommand, CrearProductoCommand
 // Lectura del catálogo: la usan inventario/carta (admin, sistema, gerencia) y
 // también el comandero del PWA (cajero, mesero) al armar pedidos. La gestión
 // del catálogo (mutaciones) queda restringida a administración por método.
+// T-23 (multi-sede): listar/crear reciben `sedeId` por query — el servicio la
+// resuelve contra `req.user.sedeId` (usuario pineado gana siempre; el admin
+// general debe indicarla).
 @UseGuards(RolesGuard)
 @Roles('ADMIN', 'SISTEMA', 'GERENCIA', 'CAJERO', 'MESERO')
 @Controller()
@@ -21,14 +24,18 @@ export class AppController {
   // --- CATEGORÍAS ---
 
   @Get('categorias')
-  listarCategorias() {
-    return this.appService.listarCategorias();
+  listarCategorias(@UsuarioActual('sedeId') usuarioSedeId: string | null, @Query('sedeId') sedeId?: string) {
+    return this.appService.listarCategorias(usuarioSedeId, sedeId);
   }
 
   @Roles('ADMIN', 'SISTEMA', 'GERENCIA')
   @Post('categorias')
-  crearCategoria(@Body() body: CrearCategoriaCommand) {
-    return this.appService.crearCategoria(body);
+  crearCategoria(
+    @Body() body: CrearCategoriaCommand,
+    @UsuarioActual('sedeId') usuarioSedeId: string | null,
+    @Query('sedeId') sedeId?: string,
+  ) {
+    return this.appService.crearCategoria(body, usuarioSedeId, sedeId);
   }
 
   @Roles('ADMIN', 'SISTEMA', 'GERENCIA')
@@ -46,8 +53,12 @@ export class AppController {
   // --- PRODUCTOS ---
 
   @Get('productos')
-  listarProductos(@Query() query: ListarProductosQuery) {
-    return this.appService.listarProductos(query);
+  listarProductos(
+    @Query() query: ListarProductosQuery,
+    @UsuarioActual('sedeId') usuarioSedeId: string | null,
+    @Query('sedeId') sedeId?: string,
+  ) {
+    return this.appService.listarProductos(query, usuarioSedeId, sedeId);
   }
 
   @Get('productos/:id')
@@ -63,8 +74,12 @@ export class AppController {
 
   @Roles('ADMIN', 'SISTEMA', 'GERENCIA')
   @Post('productos')
-  crearProducto(@Body() body: CrearProductoCommand) {
-    return this.appService.crearProducto(body);
+  crearProducto(
+    @Body() body: CrearProductoCommand,
+    @UsuarioActual('sedeId') usuarioSedeId: string | null,
+    @Query('sedeId') sedeId?: string,
+  ) {
+    return this.appService.crearProducto(body, usuarioSedeId, sedeId);
   }
 
   @Roles('ADMIN', 'SISTEMA', 'GERENCIA')
@@ -84,14 +99,22 @@ export class AppController {
   // igual que el resto del catálogo.
 
   @Get('menu-diario')
-  listarMenuDelDia(@Query('fecha') fecha?: string) {
-    return this.appService.listarMenuDelDia(fecha);
+  listarMenuDelDia(
+    @Query('fecha') fecha: string | undefined,
+    @UsuarioActual('sedeId') usuarioSedeId: string | null,
+    @Query('sedeId') sedeId?: string,
+  ) {
+    return this.appService.listarMenuDelDia(fecha, usuarioSedeId, sedeId);
   }
 
   @Roles('ADMIN', 'SISTEMA', 'GERENCIA')
   @Post('menu-diario')
-  agregarAlMenu(@Body() body: AgregarAlMenuCommand) {
-    return this.appService.agregarAlMenu(body);
+  agregarAlMenu(
+    @Body() body: AgregarAlMenuCommand,
+    @UsuarioActual('sedeId') usuarioSedeId: string | null,
+    @Query('sedeId') sedeId?: string,
+  ) {
+    return this.appService.agregarAlMenu(body, usuarioSedeId, sedeId);
   }
 
   @Roles('ADMIN', 'SISTEMA', 'GERENCIA')
@@ -109,8 +132,12 @@ export class AppController {
   // --- MERMA DE INVENTARIO ---
 
   @Get('mermas')
-  listarMermas(@Query() query: ListarMermasQuery) {
-    return this.appService.listarMermas(query);
+  listarMermas(
+    @Query() query: ListarMermasQuery,
+    @UsuarioActual('sedeId') usuarioSedeId: string | null,
+    @Query('sedeId') sedeId?: string,
+  ) {
+    return this.appService.listarMermas(query, usuarioSedeId, sedeId);
   }
 
   @Roles('ADMIN', 'SISTEMA', 'GERENCIA')
@@ -119,7 +146,9 @@ export class AppController {
     @Body() body: RegistrarMermaCommand,
     @UsuarioActual() usuarioId: string | null,
     @UsuarioActual('nombre') usuarioNombre: string | null,
+    @UsuarioActual('sedeId') usuarioSedeId: string | null,
+    @Query('sedeId') sedeId?: string,
   ) {
-    return this.appService.registrarMerma(body, usuarioId, usuarioNombre);
+    return this.appService.registrarMerma(body, usuarioId, usuarioNombre, usuarioSedeId, sedeId);
   }
 }

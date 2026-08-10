@@ -36,11 +36,13 @@ describe('AppService — Mesas', () => {
   let service: AppService;
   let mockPrisma: ReturnType<typeof createMockPrismaService>;
 
-  const ubicacionBase = { id: 'u-001', nombre: 'Salon Principal' };
+  const SEDE = 'sede-001';
+  const ubicacionBase = { id: 'u-001', nombre: 'Salon Principal', sedeId: SEDE };
 
   const mesaBase = {
     id: 'm-001',
     numero: 5,
+    sedeId: SEDE,
     capacidad: 4,
     ubicacionId: 'u-001',
     ubicacion: ubicacionBase,
@@ -58,11 +60,12 @@ describe('AppService — Mesas', () => {
   describe('listarMesas', () => {
     it('debe retornar todas las mesas ordenadas por numero, con el nombre de ubicación resuelto', async () => {
       mockPrisma.mesa.findMany.mockResolvedValue([mesaBase]);
-      const result = await service.listarMesas();
+      const result = await service.listarMesas(SEDE);
       expect(result.mesas).toHaveLength(1);
       expect(result.mesas[0].ubicacion).toBe('Salon Principal');
       expect(result.mesas[0].ubicacionId).toBe('u-001');
       expect(mockPrisma.mesa.findMany).toHaveBeenCalledWith({
+        where: { sedeId: SEDE },
         orderBy: { numero: 'asc' },
         include: { ubicacion: true },
         take: 200,
@@ -71,8 +74,12 @@ describe('AppService — Mesas', () => {
 
     it('debe retornar array vacio si no hay mesas', async () => {
       mockPrisma.mesa.findMany.mockResolvedValue([] as any);
-      const result = await service.listarMesas();
+      const result = await service.listarMesas(SEDE);
       expect(result.mesas).toEqual([]);
+    });
+
+    it('T-23: un admin general sin sede fija debe indicar cuál usar', async () => {
+      await expect(service.listarMesas(null)).rejects.toThrow('Indica la sede');
     });
   });
 
@@ -81,21 +88,29 @@ describe('AppService — Mesas', () => {
       mockPrisma.mesa.findUnique.mockResolvedValue(null);
       mockPrisma.ubicacion.findUnique.mockResolvedValue(ubicacionBase);
       mockPrisma.mesa.create.mockResolvedValue(mesaBase);
-      const result = await service.crearMesa({ numero: 5, capacidad: 4, ubicacionId: 'u-001' });
+      const result = await service.crearMesa({ numero: 5, capacidad: 4, ubicacionId: 'u-001' }, SEDE);
       expect(result.message).toBe('Mesa creada exitosamente');
       expect(result.mesa.ubicacion).toBe('Salon Principal');
       expect(mockPrisma.$transaction).toHaveBeenCalled();
+      expect(mockPrisma.mesa.findUnique).toHaveBeenCalledWith({ where: { sedeId_numero: { sedeId: SEDE, numero: 5 } } });
     });
 
     it('debe lanzar ConflictException si el numero ya existe', async () => {
       mockPrisma.mesa.findUnique.mockResolvedValue(mesaBase);
-      await expect(service.crearMesa({ numero: 5, capacidad: 4, ubicacionId: 'u-001' })).rejects.toThrow('ya existe');
+      await expect(service.crearMesa({ numero: 5, capacidad: 4, ubicacionId: 'u-001' }, SEDE)).rejects.toThrow('ya existe');
     });
 
     it('debe lanzar NotFoundException si la ubicación no existe', async () => {
       mockPrisma.mesa.findUnique.mockResolvedValue(null);
       mockPrisma.ubicacion.findUnique.mockResolvedValue(null);
-      await expect(service.crearMesa({ numero: 5, capacidad: 4, ubicacionId: 'inexistente' })).rejects.toThrow(NotFoundException);
+      await expect(service.crearMesa({ numero: 5, capacidad: 4, ubicacionId: 'inexistente' }, SEDE)).rejects.toThrow(NotFoundException);
+      expect(mockPrisma.mesa.create).not.toHaveBeenCalled();
+    });
+
+    it('debe lanzar NotFoundException si la ubicación pertenece a otra sede', async () => {
+      mockPrisma.mesa.findUnique.mockResolvedValue(null);
+      mockPrisma.ubicacion.findUnique.mockResolvedValue({ ...ubicacionBase, sedeId: 'otra-sede' });
+      await expect(service.crearMesa({ numero: 5, capacidad: 4, ubicacionId: 'u-001' }, SEDE)).rejects.toThrow(NotFoundException);
       expect(mockPrisma.mesa.create).not.toHaveBeenCalled();
     });
   });
@@ -156,8 +171,13 @@ describe('AppService — Mesas', () => {
   });
 
   describe('unirMesas', () => {
-    const mesaA = { id: 'm-a', numero: 1, capacidad: 4, grupoId: null, cuentaAsociada: null, estado: MesaEstado.Libre };
-    const mesaB = { id: 'm-b', numero: 2, capacidad: 4, grupoId: null, cuentaAsociada: null, estado: MesaEstado.Libre };
+    const mesaA = { id: 'm-a', numero: 1, sedeId: SEDE, capacidad: 4, grupoId: null, cuentaAsociada: null, estado: MesaEstado.Libre };
+    const mesaB = { id: 'm-b', numero: 2, sedeId: SEDE, capacidad: 4, grupoId: null, cuentaAsociada: null, estado: MesaEstado.Libre };
+
+    it('rechaza unir mesas de sedes distintas', async () => {
+      mockPrisma.mesa.findMany.mockResolvedValue([mesaA, { ...mesaB, sedeId: 'otra-sede' }]);
+      await expect(service.unirMesas(['m-a', 'm-b'])).rejects.toThrow('sedes distintas');
+    });
 
     it('rechaza con menos de 2 mesas distintas', async () => {
       await expect(service.unirMesas(['m-a'])).rejects.toThrow('al menos 2 mesas');
@@ -358,41 +378,45 @@ describe('AppService — Mesas', () => {
   describe('listarUbicaciones', () => {
     it('devuelve todas las ubicaciones ordenadas por nombre', async () => {
       mockPrisma.ubicacion.findMany.mockResolvedValue([ubicacionBase]);
-      const result = await service.listarUbicaciones();
+      const result = await service.listarUbicaciones(SEDE);
       expect(result.ubicaciones).toEqual([ubicacionBase]);
-      expect(mockPrisma.ubicacion.findMany).toHaveBeenCalledWith({ orderBy: { nombre: 'asc' } });
+      expect(mockPrisma.ubicacion.findMany).toHaveBeenCalledWith({ where: { sedeId: SEDE }, orderBy: { nombre: 'asc' } });
     });
   });
 
   describe('crearUbicacion', () => {
     it('crea y devuelve la ubicación', async () => {
       mockPrisma.ubicacion.findFirst.mockResolvedValue(null);
-      mockPrisma.ubicacion.create.mockResolvedValue({ id: 'u-002', nombre: 'Terraza' });
-      const result = await service.crearUbicacion({ nombre: 'Terraza' });
+      mockPrisma.ubicacion.create.mockResolvedValue({ id: 'u-002', nombre: 'Terraza', sedeId: SEDE });
+      const result = await service.crearUbicacion({ nombre: 'Terraza' }, SEDE);
       expect(result.message).toBe('Ubicación creada exitosamente');
       expect(result.ubicacion.id).toBe('u-002');
     });
 
     it('recorta espacios del nombre antes de guardar y validar', async () => {
       mockPrisma.ubicacion.findFirst.mockResolvedValue(null);
-      mockPrisma.ubicacion.create.mockResolvedValue({ id: 'u-003', nombre: 'Azotea' });
-      await service.crearUbicacion({ nombre: '  Azotea  ' });
+      mockPrisma.ubicacion.create.mockResolvedValue({ id: 'u-003', nombre: 'Azotea', sedeId: SEDE });
+      await service.crearUbicacion({ nombre: '  Azotea  ' }, SEDE);
       expect(mockPrisma.ubicacion.findFirst).toHaveBeenCalledWith(
-        expect.objectContaining({ where: expect.objectContaining({ nombre: { equals: 'Azotea', mode: 'insensitive' } }) }),
+        expect.objectContaining({ where: expect.objectContaining({ sedeId: SEDE, nombre: { equals: 'Azotea', mode: 'insensitive' } }) }),
       );
-      expect(mockPrisma.ubicacion.create).toHaveBeenCalledWith({ data: { nombre: 'Azotea' } });
+      expect(mockPrisma.ubicacion.create).toHaveBeenCalledWith({ data: { nombre: 'Azotea', sedeId: SEDE } });
     });
 
     it('rechaza con 409 si ya existe una ubicación con el mismo nombre (case-insensitive) — evita el bug de "Salon Principal" vs "salon principal"', async () => {
       mockPrisma.ubicacion.findFirst.mockResolvedValue({ id: 'u-001', nombre: 'Salon Principal' });
-      await expect(service.crearUbicacion({ nombre: 'salon principal' })).rejects.toThrow('Ya existe una ubicación llamada "Salon Principal"');
+      await expect(service.crearUbicacion({ nombre: 'salon principal' }, SEDE)).rejects.toThrow('Ya existe una ubicación llamada "Salon Principal"');
       expect(mockPrisma.ubicacion.create).not.toHaveBeenCalled();
     });
 
     it('traduce P2002 (carrera entre requests concurrentes) al mismo 409', async () => {
       mockPrisma.ubicacion.findFirst.mockResolvedValue(null);
       mockPrisma.ubicacion.create.mockRejectedValue({ code: 'P2002' });
-      await expect(service.crearUbicacion({ nombre: 'Terraza' })).rejects.toThrow('Ya existe una ubicación llamada "Terraza"');
+      await expect(service.crearUbicacion({ nombre: 'Terraza' }, SEDE)).rejects.toThrow('Ya existe una ubicación llamada "Terraza"');
+    });
+
+    it('rechaza si el admin general no indica sede', async () => {
+      await expect(service.crearUbicacion({ nombre: 'Terraza' }, null)).rejects.toThrow('Indica la sede');
     });
   });
 

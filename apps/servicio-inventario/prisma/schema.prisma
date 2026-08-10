@@ -10,7 +10,10 @@ datasource db {
 
 model Categoria {
   id             String      @id @default(uuid())
-  nombre         String      @unique
+  // T-23 (multi-sede): el nombre es único DENTRO de su sede, no globalmente
+  // (dos locales pueden tener cada uno su "Bebidas").
+  nombre         String
+  sedeId         String
   descripcion    String?
   parentId       String?
   // Un solo nivel de subcategorías a propósito (parent no puede tener su
@@ -21,7 +24,9 @@ model Categoria {
   createdAt      DateTime    @default(now())
   updatedAt      DateTime    @updatedAt
 
+  @@unique([sedeId, nombre])
   @@index([parentId])
+  @@index([sedeId])
   @@map("categorias")
 }
 
@@ -29,6 +34,7 @@ model Producto {
   id          String       @id @default(uuid())
   categoriaId String
   categoria   Categoria    @relation(fields: [categoriaId], references: [id])
+  sedeId      String
   nombre      String
   descripcion String?
   precio      Decimal      @db.Decimal(10, 2)
@@ -40,6 +46,7 @@ model Producto {
   updatedAt   DateTime     @updatedAt
 
   @@index([categoriaId])
+  @@index([sedeId])
   @@map("productos")
 }
 

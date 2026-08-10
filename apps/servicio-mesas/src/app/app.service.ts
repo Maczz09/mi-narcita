@@ -1,5 +1,6 @@
 import { Injectable, ConflictException, NotFoundException, BadRequestException, Logger } from '@nestjs/common';
 import { OperableLog } from '@org/observabilidad';
+import { resolveSedeId } from '@org/shared-auth';
 import { PrismaService } from '../prisma/prisma.service';
 import {
   MesaDto,
@@ -27,8 +28,10 @@ export class AppService {
     return { ...resto, ubicacion: ubicacion.nombre };
   }
 
-  async listarMesas(): Promise<{ mesas: MesaDto[] }> {
+  async listarMesas(usuarioSedeId?: string | null, sedeIdSolicitado?: string): Promise<{ mesas: MesaDto[] }> {
+    const sedeId = resolveSedeId(usuarioSedeId, sedeIdSolicitado);
     const mesas = await this.prisma.mesa.findMany({
+      where: { sedeId },
       orderBy: { numero: 'asc' },
       include: { ubicacion: true },
       // Tope de seguridad (hallazgo pruebas de carga 2026-07-13): sin límite,
@@ -41,13 +44,14 @@ export class AppService {
     return { mesas: mesas.map((m) => this.toMesaDto(m)) };
   }
 
-  async crearMesa(command: CrearMesaCommand): Promise<{ message: string; mesa: MesaDto }> {
-    const existe = await this.prisma.mesa.findUnique({ where: { numero: command.numero } });
+  async crearMesa(command: CrearMesaCommand, usuarioSedeId?: string | null, sedeIdSolicitado?: string): Promise<{ message: string; mesa: MesaDto }> {
+    const sedeId = resolveSedeId(usuarioSedeId, sedeIdSolicitado);
+    const existe = await this.prisma.mesa.findUnique({ where: { sedeId_numero: { sedeId, numero: command.numero } } });
     if (existe) {
       throw new ConflictException(`La mesa número ${command.numero} ya existe.`);
     }
     const ubicacion = await this.prisma.ubicacion.findUnique({ where: { id: command.ubicacionId } });
-    if (!ubicacion) {
+    if (!ubicacion || ubicacion.sedeId !== sedeId) {
       throw new NotFoundException(`Ubicación ${command.ubicacionId} no encontrada.`);
     }
 
@@ -55,6 +59,7 @@ export class AppService {
       const m = await prisma.mesa.create({
         data: {
           numero: command.numero,
+          sedeId,
           capacidad: command.capacidad || 4,
           ubicacionId: command.ubicacionId,
           estado: MesaEstado.Libre,
@@ -153,6 +158,9 @@ export class AppService {
     const seleccionadas = await this.prisma.mesa.findMany({ where: { id: { in: idsUnicos } } });
     if (seleccionadas.length !== idsUnicos.length) {
       throw new NotFoundException('Una o más mesas no existen.');
+    }
+    if (new Set(seleccionadas.map((m) => m.sedeId)).size > 1) {
+      throw new BadRequestException('No se pueden unir mesas de sedes distintas.');
     }
     const virtual = seleccionadas.find((m) => m.numero >= 90);
     if (virtual) {
@@ -279,16 +287,18 @@ export class AppService {
 
   // --- UBICACIONES ---
 
-  async listarUbicaciones(): Promise<{ ubicaciones: UbicacionDto[] }> {
-    const ubicaciones = await this.prisma.ubicacion.findMany({ orderBy: { nombre: 'asc' } });
+  async listarUbicaciones(usuarioSedeId?: string | null, sedeIdSolicitado?: string): Promise<{ ubicaciones: UbicacionDto[] }> {
+    const sedeId = resolveSedeId(usuarioSedeId, sedeIdSolicitado);
+    const ubicaciones = await this.prisma.ubicacion.findMany({ where: { sedeId }, orderBy: { nombre: 'asc' } });
     return { ubicaciones };
   }
 
-  async crearUbicacion(command: CrearUbicacionCommand): Promise<{ message: string; ubicacion: UbicacionDto }> {
+  async crearUbicacion(command: CrearUbicacionCommand, usuarioSedeId?: string | null, sedeIdSolicitado?: string): Promise<{ message: string; ubicacion: UbicacionDto }> {
+    const sedeId = resolveSedeId(usuarioSedeId, sedeIdSolicitado);
     const nombre = command.nombre.trim();
-    await this.assertNombreUbicacionDisponible(nombre);
+    await this.assertNombreUbicacionDisponible(sedeId, nombre);
 
-    const ubicacion = await this.crearUbicacionSegura(nombre);
+    const ubicacion = await this.crearUbicacionSegura(sedeId, nombre);
     return { message: 'Ubicación creada exitosamente', ubicacion };
   }
 
@@ -297,7 +307,7 @@ export class AppService {
     if (!existente) throw new NotFoundException('Ubicación no encontrada');
 
     const nombre = command.nombre.trim();
-    await this.assertNombreUbicacionDisponible(nombre, id);
+    await this.assertNombreUbicacionDisponible(existente.sedeId, nombre, id);
 
     const ubicacion = await this.actualizarUbicacionSegura(id, nombre);
     return { message: 'Ubicación actualizada', ubicacion };
@@ -320,10 +330,11 @@ export class AppService {
     return { message: 'Ubicación eliminada' };
   }
 
-  /** Rechaza un nombre que ya existe (case-insensitive, sin espacios). `excludeId` permite renombrar una ubicación a sí misma. */
-  private async assertNombreUbicacionDisponible(nombre: string, excludeId?: string): Promise<void> {
+  /** Rechaza un nombre que ya existe EN LA MISMA SEDE (case-insensitive). `excludeId` permite renombrar una ubicación a sí misma. */
+  private async assertNombreUbicacionDisponible(sedeId: string, nombre: string, excludeId?: string): Promise<void> {
     const existente = await this.prisma.ubicacion.findFirst({
       where: {
+        sedeId,
         nombre: { equals: nombre, mode: 'insensitive' },
         ...(excludeId ? { id: { not: excludeId } } : {}),
       },
@@ -336,9 +347,9 @@ export class AppService {
   // El check de arriba no cierra una carrera entre dos requests simultáneos;
   // la constraint UNIQUE de la BD es la garantía real. P2002 aquí es ese
   // caso raro, traducido al mismo 409 que ya usa assertNombreUbicacionDisponible.
-  private async crearUbicacionSegura(nombre: string): Promise<UbicacionDto> {
+  private async crearUbicacionSegura(sedeId: string, nombre: string): Promise<UbicacionDto> {
     try {
-      return await this.prisma.ubicacion.create({ data: { nombre } });
+      return await this.prisma.ubicacion.create({ data: { nombre, sedeId } });
     } catch (error) {
       if (this.isUniqueConstraintViolation(error)) {
         throw new ConflictException(`Ya existe una ubicación llamada "${nombre}"`);

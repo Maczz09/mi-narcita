@@ -16,7 +16,10 @@ enum MesaEstado {
 
 model Mesa {
   id             String     @id @default(uuid())
-  numero         Int        @unique
+  // T-23 (multi-sede): el número de mesa es único DENTRO de su sede, no
+  // globalmente — dos locales pueden tener cada uno su "Mesa 01".
+  numero         Int
+  sedeId         String
   capacidad      Int
   ubicacionId    String
   ubicacion      Ubicacion  @relation(fields: [ubicacionId], references: [id])
@@ -30,19 +33,26 @@ model Mesa {
   createdAt      DateTime   @default(now())
   updatedAt      DateTime   @updatedAt
 
+  @@unique([sedeId, numero])
   @@index([estado])
   @@index([ubicacionId])
   @@index([grupoId])
+  @@index([sedeId])
   @@map("mesas")
 }
 
 model Ubicacion {
   id        String   @id @default(uuid())
-  nombre    String   @unique
+  // T-23: el nombre de la zona es único DENTRO de su sede (dos locales
+  // pueden tener cada uno su "Salón Principal").
+  nombre    String
+  sedeId    String
   mesas     Mesa[]
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  @@unique([sedeId, nombre])
+  @@index([sedeId])
   @@map("ubicaciones")
 }
 

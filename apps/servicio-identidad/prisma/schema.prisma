@@ -17,8 +17,28 @@ model Usuario {
   activo              Boolean   @default(true)
   failedLoginAttempts Int       @default(0)
   lockedUntil         DateTime?
+  // T-23 (multi-sede): null = admin general, sin sede fija — opera cualquier
+  // sede que elija en el navbar. No-null = usuario pineado a esa sede única.
+  sedeId              String?
+  sede                Sede?     @relation(fields: [sedeId], references: [id])
   createdAt           DateTime  @default(now())
   updatedAt           DateTime  @updatedAt
+
+  @@index([sedeId])
+}
+
+// T-23: local/sucursal. El admin general las crea y elige en cuál operar;
+// el resto del personal queda pineado a una sola vía Usuario.sedeId.
+model Sede {
+  id        String    @id @default(uuid())
+  nombre    String    @unique
+  direccion String?
+  activa    Boolean   @default(true)
+  usuarios  Usuario[]
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@map("sedes")
 }
 
 // Refresh tokens (plan 1.4): tokens opacos guardados HASHEADOS. Rotación con

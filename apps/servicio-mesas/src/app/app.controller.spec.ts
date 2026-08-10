@@ -91,7 +91,7 @@ describe('AppController — Mesas', () => {
       const result = await controller.crearMesa(command);
 
       expect(result).toEqual(expected);
-      expect(appService.crearMesa).toHaveBeenCalledWith(command);
+      expect(appService.crearMesa).toHaveBeenCalledWith(command, undefined, undefined);
     });
 
     it('should propagate ConflictException if mesa number exists', async () => {
@@ -123,7 +123,7 @@ describe('AppController — Mesas', () => {
       (appService.crearUbicacion as unknown as any).mockResolvedValue(expected);
       const result = await controller.crearUbicacion({ nombre: 'Salon Principal' });
       expect(result).toEqual(expected);
-      expect(appService.crearUbicacion).toHaveBeenCalledWith({ nombre: 'Salon Principal' });
+      expect(appService.crearUbicacion).toHaveBeenCalledWith({ nombre: 'Salon Principal' }, undefined, undefined);
     });
 
     it('propagates ConflictException on duplicate name', async () => {

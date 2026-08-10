@@ -4,6 +4,7 @@ import {
   UnauthorizedException,
   ConflictException,
   NotFoundException,
+  BadRequestException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { OperableLog } from '@org/observabilidad';
@@ -18,6 +19,9 @@ import {
   RolUsuario,
   ListarUsuariosQuery,
   UsuarioListResponse,
+  SedeDto,
+  CrearSedeCommand,
+  ActualizarSedeCommand,
 } from '@org/contracts';
 import { PrismaService } from '../prisma/prisma.service';
 import { Prisma } from '../generated/prisma';
@@ -93,6 +97,7 @@ export class AuthService {
       email: usuario.email,
       rol: usuario.rol,
       nombre: usuario.nombre,
+      sedeId: usuario.sedeId,
     };
 
     const access_token = this.jwt.sign(payload);
@@ -133,6 +138,7 @@ export class AuthService {
         nombre: usuario.nombre,
         email: usuario.email,
         rol: usuario.rol as RolUsuario,
+        sedeId: usuario.sedeId,
       },
     };
   }
@@ -153,8 +159,8 @@ export class AuthService {
     };
   }
 
-  private signAccessToken(usuario: { id: string; email: string; rol: string; nombre: string }): string {
-    return this.jwt.sign({ sub: usuario.id, email: usuario.email, rol: usuario.rol, nombre: usuario.nombre });
+  private signAccessToken(usuario: { id: string; email: string; rol: string; nombre: string; sedeId: string | null }): string {
+    return this.jwt.sign({ sub: usuario.id, email: usuario.email, rol: usuario.rol, nombre: usuario.nombre, sedeId: usuario.sedeId });
   }
 
   /** Crea un refresh token opaco, guarda su hash y devuelve el valor en claro. */
@@ -188,7 +194,7 @@ export class AuthService {
   async rotateRefreshToken(rawToken: string): Promise<{
     access_token: string;
     refresh: { token: string; expiresAt: Date };
-    usuario: { id: string; nombre: string; email: string; rol: RolUsuario };
+    usuario: { id: string; nombre: string; email: string; rol: RolUsuario; sedeId: string | null };
   }> {
     const tokenHash = this.hashToken(rawToken);
     const existing = await this.prisma.refreshToken.findUnique({ where: { tokenHash } });
@@ -261,7 +267,7 @@ export class AuthService {
     return {
       access_token: this.signAccessToken(usuario),
       refresh: { token: nuevo.token, expiresAt: nuevo.expiresAt },
-      usuario: { id: usuario.id, nombre: usuario.nombre, email: usuario.email, rol: usuario.rol as RolUsuario },
+      usuario: { id: usuario.id, nombre: usuario.nombre, email: usuario.email, rol: usuario.rol as RolUsuario, sedeId: usuario.sedeId },
     };
   }
 
@@ -299,6 +305,20 @@ export class AuthService {
       throw new ConflictException('Ya existe un usuario con ese email');
     }
 
+    // T-23 (multi-sede): un ADMIN queda sin sede fija (administra la que
+    // elija); cualquier otro rol necesita quedar pineado a una sede activa.
+    let sedeId: string | null = null;
+    if (command.rol !== 'ADMIN') {
+      if (!command.sedeId) {
+        throw new BadRequestException('Indica la sede (sedeId) para este rol.');
+      }
+      const sede = await this.prisma.sede.findUnique({ where: { id: command.sedeId } });
+      if (!sede || !sede.activa) {
+        throw new BadRequestException('La sede indicada no existe o está inactiva.');
+      }
+      sedeId = sede.id;
+    }
+
     const hashedPassword = await bcrypt.hash(command.password, SALT_ROUNDS);
 
     const usuario = await this.prisma.usuario.create({
@@ -307,6 +327,7 @@ export class AuthService {
         email: command.email,
         password: hashedPassword,
         rol: command.rol,
+        sedeId,
       },
     });
 
@@ -321,9 +342,13 @@ export class AuthService {
     return toUsuarioDto(usuario);
   }
 
-  async listarUsuarios(query: ListarUsuariosQuery = {}): Promise<UsuarioListResponse> {
+  async listarUsuarios(query: ListarUsuariosQuery = {}, usuarioSedeId?: string | null): Promise<UsuarioListResponse> {
     const limit = this.normalizeLimit(query.limit);
+    // T-23: un usuario pineado a una sede solo ve el equipo de esa sede; el
+    // admin general (sin sede fija) puede filtrar por sedeId o ver todas.
+    const sedeIdEfectiva = usuarioSedeId ?? query.sedeId;
     const where: Prisma.UsuarioWhereInput = {
+      ...(sedeIdEfectiva ? { sedeId: sedeIdEfectiva } : {}),
       ...(query.rol ? { rol: query.rol } : {}),
       ...(query.search
         ? {
@@ -497,5 +522,60 @@ export class AuthService {
     await this.prisma.auditoriaLog.create({
       data: { accion, usuarioId, servicio, ip },
     });
+  }
+
+  /* ── Sedes (T-23: multi-sede, solo ADMIN) ──────────── */
+
+  private toSedeDto(sede: { id: string; nombre: string; direccion: string | null; activa: boolean }): SedeDto {
+    return { id: sede.id, nombre: sede.nombre, direccion: sede.direccion, activa: sede.activa };
+  }
+
+  async listarSedes(): Promise<{ sedes: SedeDto[] }> {
+    const sedes = await this.prisma.sede.findMany({ orderBy: { nombre: 'asc' } });
+    return { sedes: sedes.map((s) => this.toSedeDto(s)) };
+  }
+
+  async crearSede(command: CrearSedeCommand): Promise<{ message: string; sede: SedeDto }> {
+    const existe = await this.prisma.sede.findUnique({ where: { nombre: command.nombre } });
+    if (existe) throw new ConflictException(`Ya existe una sede llamada "${command.nombre}".`);
+
+    const sede = await this.prisma.sede.create({
+      data: { nombre: command.nombre, direccion: command.direccion },
+    });
+
+    this.logger.log({
+      operation: 'crearSede',
+      aggregateId: sede.id,
+      message: `Sede "${sede.nombre}" creada.`,
+    } satisfies OperableLog);
+    return { message: 'Sede creada', sede: this.toSedeDto(sede) };
+  }
+
+  async actualizarSede(id: string, command: ActualizarSedeCommand): Promise<{ message: string; sede: SedeDto }> {
+    const existe = await this.prisma.sede.findUnique({ where: { id } });
+    if (!existe) throw new NotFoundException('Sede no encontrada');
+
+    if (command.nombre && command.nombre !== existe.nombre) {
+      const duplicada = await this.prisma.sede.findUnique({ where: { nombre: command.nombre } });
+      if (duplicada) throw new ConflictException(`Ya existe una sede llamada "${command.nombre}".`);
+    }
+
+    const sede = await this.prisma.sede.update({
+      where: { id },
+      data: { nombre: command.nombre, direccion: command.direccion, activa: command.activa },
+    });
+
+    return { message: 'Sede actualizada', sede: this.toSedeDto(sede) };
+  }
+
+  async eliminarSede(id: string): Promise<{ message: string }> {
+    const existe = await this.prisma.sede.findUnique({ where: { id }, include: { _count: { select: { usuarios: true } } } });
+    if (!existe) throw new NotFoundException('Sede no encontrada');
+    if (existe._count.usuarios > 0) {
+      throw new ConflictException(`No se puede eliminar: ${existe._count.usuarios} usuario(s) siguen asignados a esta sede.`);
+    }
+
+    await this.prisma.sede.delete({ where: { id } });
+    return { message: 'Sede eliminada' };
   }
 }

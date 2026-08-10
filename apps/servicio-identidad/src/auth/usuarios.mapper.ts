@@ -9,6 +9,7 @@ export function toUsuarioDto(usuario: Usuario): UsuarioDto {
     email: usuario.email,
     rol: usuario.rol as RolUsuario,
     activo: usuario.activo,
+    sedeId: usuario.sedeId ?? null,
     createdAt: usuario.createdAt.toISOString(),
   };
 }
