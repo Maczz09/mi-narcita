@@ -57,7 +57,7 @@ export function CartaScreen() {
 
   const kpis = useMemo(() => {
     const activos = productos.filter((p) => p.disponible).length;
-    return { total: productos.length, activos, ochenta: productos.length - activos };
+    return { total: productos.length, activos, agotados: productos.length - activos };
   }, [productos]);
 
   const toggleDisp = async (p: ProductoVM) => {
@@ -104,7 +104,7 @@ export function CartaScreen() {
         <div>
           <h1>Carta / Menú</h1>
           <div className="sub">
-            {modo === 'CARTA' ? 'Platos sin control de stock · precios y disponibilidad (86)' : 'Selección de platos ofrecidos hoy, separada de la carta fija'}
+            {modo === 'CARTA' ? 'Platos sin control de stock · precios y disponibilidad' : 'Selección de platos ofrecidos hoy, separada de la carta fija'}
           </div>
         </div>
         <span className="spacer" />
@@ -129,7 +129,7 @@ export function CartaScreen() {
       <>
       <div className="grid-stats" style={{ marginBottom: 16 }}>
         <MiniStat icon="Pedidos" color="var(--accent)" soft="var(--accent-soft)" k="Platos en carta" v={kpis.total} d={`${kpis.activos} activos`} />
-        <MiniStat icon="Alert" color="var(--danger)" soft="var(--danger-soft)" k="Agotados (86)" v={kpis.ochenta} d="No visibles en comandero" />
+        <MiniStat icon="Alert" color="var(--danger)" soft="var(--danger-soft)" k="Agotados" v={kpis.agotados} d="No visibles en comandero" />
         <MiniStat icon="Check" color="var(--ok)" soft="var(--ok-soft)" k="Disponibles" v={kpis.activos} d="visibles en comandero" />
       </div>
 
@@ -171,7 +171,7 @@ export function CartaScreen() {
                 <td className="col-mobile-hidden"><span className="pill-soft">{nombrePorCategoria.get(p.categoriaId) ?? p.categoriaNombre ?? '—'}</span></td>
                 <td style={{ textAlign: 'right' }}><strong className="mono">{p.precioLabel}</strong></td>
                 <td onClick={(e) => e.stopPropagation()}>
-                  <button className={`toggle ${p.disponible ? 'on' : ''}`} disabled={saving || !online} onClick={() => toggleDisp(p)} title={p.disponible ? 'Disponible' : 'Agotado (86)'}><span className="knob" /></button>
+                  <button className={`toggle ${p.disponible ? 'on' : ''}`} disabled={saving || !online} onClick={() => toggleDisp(p)} title={p.disponible ? 'Disponible' : 'Agotado'}><span className="knob" /></button>
                 </td>
                 <td style={{ textAlign: 'right' }} className="col-mobile-hidden"><span className="muted" style={{ fontSize: 12 }}>Editar</span></td>
               </tr>
