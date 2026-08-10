@@ -156,4 +156,47 @@ describe('AppService — Reportes', () => {
       });
     });
   });
+
+  describe('scoping por sede (T-23 Fase 2) — LENIENTE, no resolveSedeId', () => {
+    it('registrarVenta cae a Sede Principal cuando el evento no trae sedeId (rollout)', async () => {
+      await service.registrarVenta({ cuentaId: 'c-legado', mesaId: 'm-1', total: 30, items: [] });
+      expect(prisma.ventaDiaria.upsert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          create: expect.objectContaining({ sedeId: '00000000-0000-0000-0000-000000000001' }) as unknown,
+        }) as unknown,
+      );
+    });
+
+    it('registrarVenta usa el sedeId del evento cuando viene presente', async () => {
+      await service.registrarVenta({ cuentaId: 'c-1', mesaId: 'm-1', sedeId: 'sede-002', total: 30, items: [] });
+      expect(prisma.ventaDiaria.upsert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          create: expect.objectContaining({ sedeId: 'sede-002' }) as unknown,
+        }) as unknown,
+      );
+    });
+
+    it('usuario pineado: su sede manda, un query.sedeId distinto se ignora', async () => {
+      prisma.ventaDiaria.findMany.mockResolvedValue([]);
+      await service.obtenerResumenDiario({ sedeId: 'sede-otra' }, 'sede-001');
+      expect(prisma.ventaDiaria.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ where: expect.objectContaining({ sedeId: 'sede-001' }) }),
+      );
+    });
+
+    it('admin general sin sedeId → vista combinada (sin filtro de sede)', async () => {
+      prisma.ventaDiaria.findMany.mockResolvedValue([]);
+      await service.obtenerResumenDiario({}, null);
+      const where = prisma.ventaDiaria.findMany.mock.calls.at(-1)[0].where;
+      expect(where).not.toHaveProperty('sedeId');
+    });
+
+    it('admin general con sedeId explícito → filtra por esa sede', async () => {
+      prisma.ventaDiaria.findMany.mockResolvedValue([]);
+      await service.obtenerResumenDiario({ sedeId: 'sede-002' }, null);
+      expect(prisma.ventaDiaria.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ where: expect.objectContaining({ sedeId: 'sede-002' }) }),
+      );
+    });
+  });
 });

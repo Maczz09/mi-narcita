@@ -26,6 +26,8 @@ export class ReservaDto {
   @IsString()
   id: string;
   @IsString()
+  sedeId: string;
+  @IsString()
   clienteId: string;
   @IsString()
   clienteNombre: string;
@@ -63,6 +65,10 @@ export class ListarReservasQuery {
   @IsOptional()
   @IsString()
   cursor?: string;
+
+  @IsOptional()
+  @IsString()
+  sedeId?: string;
 
   @IsOptional()
   @IsEnum(ReservaEstado)
@@ -142,7 +148,8 @@ export class ReservaDisponibilidadResponse {
 }
 
 export class ReservaCreadaPayload {
-  @IsNotEmpty()
+  @ValidateNested()
+  @Type(() => ReservaDto)
   reserva: ReservaDto;
 }
 

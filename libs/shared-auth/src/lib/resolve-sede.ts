@@ -1,5 +1,8 @@
 import { BadRequestException } from '@nestjs/common';
 
+/** "Sede Principal" — el id fijo al que se backfillearon los datos pre-multi-sede. */
+export const SEDE_PRINCIPAL_ID = '00000000-0000-0000-0000-000000000001';
+
 /**
  * T-23 (multi-sede): resuelve la sede efectiva de una request contra
  * `req.user.sedeId` (poblado por el JWT).

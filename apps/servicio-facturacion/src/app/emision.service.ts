@@ -24,7 +24,7 @@ export class EmisionService {
    * deja en estado FIRMADO — el envío real a SUNAT lo hace EnvioProcessor por
    * separado (así un SUNAT caído no bloquea la respuesta de este endpoint).
    */
-  async emitir(cuentaId: string, dto: EmitirComprobanteDto): Promise<{
+  async emitir(cuentaId: string, dto: EmitirComprobanteDto, usuarioSedeId?: string | null): Promise<{
     id: string;
     tipo: string;
     serie: string;
@@ -37,7 +37,7 @@ export class EmisionService {
     }
 
     const comprobantePago = await this.prisma.comprobantePago.findUnique({ where: { cuentaId } });
-    if (!comprobantePago) {
+    if (!comprobantePago || (usuarioSedeId && comprobantePago.sedeId !== usuarioSedeId)) {
       throw new NotFoundException(`No hay comprobante de pago para la cuenta ${cuentaId}`);
     }
     if (comprobantePago.estado !== 'DISPONIBLE') {

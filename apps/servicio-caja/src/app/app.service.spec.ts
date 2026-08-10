@@ -268,7 +268,7 @@ describe('AppService — Caja', () => {
     it('devuelve el turno existente si ya hay uno ABIERTA (sin crear)', async () => {
       mockPrisma.turnoCaja.findFirst.mockResolvedValue(turnoAbierto);
 
-      const result = await service.abrirTurno({ fondoInicial: 300 } as any, 'u-001');
+      const result = await service.abrirTurno({ fondoInicial: 300 } as any, 'u-001', 'sede-001');
 
       expect(result.id).toBe('turno-001');
       expect(mockPrisma.turnoCaja.create).not.toHaveBeenCalled();
@@ -279,7 +279,7 @@ describe('AppService — Caja', () => {
       mockPrisma.turnoCaja.create.mockResolvedValue(turnoAbierto);
       mockPrisma.movimientoCaja.create.mockResolvedValue({});
 
-      const result = await service.abrirTurno({ fondoInicial: 300 } as any, 'u-001');
+      const result = await service.abrirTurno({ fondoInicial: 300 } as any, 'u-001', 'sede-001');
 
       expect(result.id).toBe('turno-001');
       expect(mockPrisma.turnoCaja.create).toHaveBeenCalled();
@@ -293,9 +293,13 @@ describe('AppService — Caja', () => {
         .mockResolvedValueOnce(turnoAbierto);
       mockPrisma.turnoCaja.create.mockRejectedValue({ code: 'P2002' });
 
-      const result = await service.abrirTurno({ fondoInicial: 300 } as any, 'u-002');
+      const result = await service.abrirTurno({ fondoInicial: 300 } as any, 'u-002', 'sede-001');
 
       expect(result.id).toBe('turno-001');
+    });
+
+    it('el admin general sin sede seleccionada recibe BadRequestException', async () => {
+      await expect(service.abrirTurno({ fondoInicial: 300 } as any, 'u-001', null)).rejects.toThrow('Indica la sede');
     });
   });
 
@@ -306,11 +310,15 @@ describe('AppService — Caja', () => {
         { id: 't-002', cuentaId: 'c-002', monto: 80, metodo: 'TARJETA', referencia: 'ref-1', notas: null, createdAt: new Date() },
       ]);
 
-      const result = await service.listarTransacciones();
+      const result = await service.listarTransacciones({}, 'sede-001');
 
       expect(result.data).toHaveLength(2);
       expect(result.data[0].monto).toBe(50);
       expect(result.data[1].monto).toBe(80);
+    });
+
+    it('el admin general sin sede seleccionada recibe BadRequestException', async () => {
+      await expect(service.listarTransacciones({}, null)).rejects.toThrow('Indica la sede');
     });
   });
 

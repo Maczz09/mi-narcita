@@ -151,6 +151,12 @@ export class ListarProductosQuery {
   @IsOptional()
   @IsDateString()
   updatedSince?: string;
+
+  /** T-23 Fase 2: el controller también la extrae por separado (@Query('sedeId'))
+   * para resolveSedeId; declarada acá para que el whitelist del DTO no la rechace. */
+  @IsOptional()
+  @IsString()
+  sedeId?: string;
 }
 
 export class ProductoListResponse {
@@ -289,6 +295,11 @@ export class ListarMermasQuery {
   @Max(100)
   @Type(() => Number)
   limit?: number;
+
+  /** T-23 Fase 2: ver nota en ListarProductosQuery. */
+  @IsOptional()
+  @IsString()
+  sedeId?: string;
 }
 
 export class ObtenerProductosLoteCommand {

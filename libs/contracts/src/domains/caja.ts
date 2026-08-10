@@ -18,6 +18,9 @@ export class TransaccionDto {
   @IsString()
   cuentaId: string;
 
+  @IsString()
+  sedeId: string;
+
   @IsNumber()
   monto: number;
 
@@ -102,6 +105,10 @@ export class ListarTransaccionesQuery {
 
   @IsOptional()
   @IsString()
+  sedeId?: string;
+
+  @IsOptional()
+  @IsString()
   metodo?: string;
 
   @IsOptional()
@@ -120,6 +127,10 @@ export class ListarTurnosQuery {
   @IsOptional()
   @IsString()
   cursor?: string;
+
+  @IsOptional()
+  @IsString()
+  sedeId?: string;
 
   @IsOptional()
   @IsString()
@@ -152,6 +163,8 @@ export class TransaccionListResponse {
 export class TurnoDto {
   @IsString()
   id: string;
+  @IsString()
+  sedeId: string;
   @IsString()
   cajaId: string;
   @IsString()

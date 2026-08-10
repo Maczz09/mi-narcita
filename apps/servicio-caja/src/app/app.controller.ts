@@ -30,63 +30,81 @@ export class AppController {
     @UsuarioActual() usuarioId: string | null,
     @UsuarioActual('nombre') usuarioNombre: string | null,
     @UsuarioActual('email') usuarioEmail: string | null,
+    @UsuarioActual('sedeId') usuarioSedeId: string | null,
   ) {
     return this.appService.registrarPago(
       body,
       usuarioId,
       usuarioNombre ?? usuarioEmail ?? usuarioId,
+      usuarioSedeId,
     );
   }
 
   @Get()
-  listarTransacciones(@Query() query: ListarTransaccionesQuery): Promise<TransaccionListResponse> {
-    return this.appService.listarTransacciones(query);
+  listarTransacciones(
+    @Query() query: ListarTransaccionesQuery,
+    @UsuarioActual('sedeId') usuarioSedeId: string | null,
+  ): Promise<TransaccionListResponse> {
+    return this.appService.listarTransacciones(query, usuarioSedeId);
   }
 
   @Post('turnos/abrir')
-  abrirTurno(@Body() body: AbrirTurnoCajaCommand, @UsuarioActual() usuarioId: string | null) {
-    return this.appService.abrirTurno(body, usuarioId);
+  abrirTurno(
+    @Body() body: AbrirTurnoCajaCommand,
+    @UsuarioActual() usuarioId: string | null,
+    @UsuarioActual('sedeId') usuarioSedeId: string | null,
+    @Query('sedeId') sedeId?: string,
+  ) {
+    return this.appService.abrirTurno(body, usuarioId, usuarioSedeId, sedeId);
   }
 
   // Historial de turnos (p.ej. cierres de caja pasados) — solo admin/sistema.
   @Roles('ADMIN', 'SISTEMA')
   @Get('turnos')
-  listarTurnos(@Query() query: ListarTurnosQuery): Promise<TurnoListResponse> {
-    return this.appService.listarTurnos(query);
+  listarTurnos(
+    @Query() query: ListarTurnosQuery,
+    @UsuarioActual('sedeId') usuarioSedeId: string | null,
+  ): Promise<TurnoListResponse> {
+    return this.appService.listarTurnos(query, usuarioSedeId);
   }
 
   @Get('turnos/activo')
   obtenerTurnoActivo(
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     @UsuarioActual() _usuarioId: string | null,
+    @UsuarioActual('sedeId') usuarioSedeId: string | null,
+    @Query('sedeId') sedeId?: string,
   ) {
-    return this.appService.obtenerTurnoActivo();
+    return this.appService.obtenerTurnoActivo(usuarioSedeId, sedeId);
   }
 
   @Get('turnos/activo/resumen')
   obtenerResumenTurnoActivo(
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     @UsuarioActual() _usuarioId: string | null,
+    @UsuarioActual('sedeId') usuarioSedeId: string | null,
+    @Query('sedeId') sedeId?: string,
   ) {
-    return this.appService.obtenerResumenTurnoActivo();
+    return this.appService.obtenerResumenTurnoActivo(usuarioSedeId, sedeId);
   }
 
   @Get('turnos/:id/resumen')
-  obtenerResumenTurno(@Param('id') id: string) {
-    return this.appService.obtenerResumenTurno(id);
+  obtenerResumenTurno(@Param('id') id: string, @UsuarioActual('sedeId') usuarioSedeId: string | null) {
+    return this.appService.obtenerResumenTurno(id, usuarioSedeId);
   }
 
   @Get('turnos/:id/movimientos')
-  listarMovimientosTurno(@Param('id') id: string) {
-    return this.appService.listarMovimientosTurno(id);
+  listarMovimientosTurno(@Param('id') id: string, @UsuarioActual('sedeId') usuarioSedeId: string | null) {
+    return this.appService.listarMovimientosTurno(id, usuarioSedeId);
   }
 
   @Post('turnos/:id/movimientos')
   crearMovimiento(
     @Param('id') id: string,
     @Body() body: CrearMovimientoCajaCommand,
+    @UsuarioActual('sedeId') usuarioSedeId: string | null,
   ) {
-    return this.appService.crearMovimiento(id, body);
+    return this.appService.crearMovimiento(id, body, usuarioSedeId);
   }
 
   @Post('turnos/:id/arqueo')
@@ -94,8 +112,9 @@ export class AppController {
     @Param('id') id: string,
     @Body() body: RegistrarArqueoCajaCommand,
     @UsuarioActual() usuarioId: string | null,
+    @UsuarioActual('sedeId') usuarioSedeId: string | null,
   ) {
-    return this.appService.registrarArqueo(id, body, usuarioId);
+    return this.appService.registrarArqueo(id, body, usuarioId, usuarioSedeId);
   }
 
   @Post('turnos/:id/cerrar')
@@ -103,19 +122,24 @@ export class AppController {
     @Param('id') id: string,
     @Body() body: CerrarTurnoCajaCommand,
     @UsuarioActual() usuarioId: string | null,
+    @UsuarioActual('sedeId') usuarioSedeId: string | null,
   ) {
-    return this.appService.cerrarTurno(id, body, usuarioId);
+    return this.appService.cerrarTurno(id, body, usuarioId, usuarioSedeId);
   }
 
   // Detalle/edición de una transacción — después de las rutas 'turnos/*'
   // para que ':id' no las capture (mismo orden de ruteo que el resto).
   @Get(':id')
-  obtenerTransaccion(@Param('id') id: string) {
-    return this.appService.obtenerTransaccion(id);
+  obtenerTransaccion(@Param('id') id: string, @UsuarioActual('sedeId') usuarioSedeId: string | null) {
+    return this.appService.obtenerTransaccion(id, usuarioSedeId);
   }
 
   @Patch(':id')
-  actualizarTransaccion(@Param('id') id: string, @Body() body: ActualizarTransaccionCommand) {
-    return this.appService.actualizarTransaccion(id, body);
+  actualizarTransaccion(
+    @Param('id') id: string,
+    @Body() body: ActualizarTransaccionCommand,
+    @UsuarioActual('sedeId') usuarioSedeId: string | null,
+  ) {
+    return this.appService.actualizarTransaccion(id, body, usuarioSedeId);
   }
 }

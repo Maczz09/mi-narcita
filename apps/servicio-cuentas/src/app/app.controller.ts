@@ -1,5 +1,6 @@
-import { Controller, Get, Post, Body, Param, ParseUUIDPipe, HttpCode, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, ParseUUIDPipe, HttpCode, Query, UseGuards } from '@nestjs/common';
 import { Roles, RolesGuard } from '@org/shared-auth';
+import { UsuarioActual } from '@org/observabilidad';
 import { AppService } from './app.service';
 import {
   AbrirCuentaCommand,
@@ -21,8 +22,12 @@ export class AppController {
   }
 
   @Post()
-  abrirCuenta(@Body() command: AbrirCuentaCommand) {
-    return this.appService.abrirCuenta(command);
+  abrirCuenta(
+    @Body() command: AbrirCuentaCommand,
+    @UsuarioActual('sedeId') usuarioSedeId: string | null,
+    @Query('sedeId') sedeId?: string,
+  ) {
+    return this.appService.abrirCuenta(command, usuarioSedeId, sedeId);
   }
 
   @Get('mesa/:mesaId')

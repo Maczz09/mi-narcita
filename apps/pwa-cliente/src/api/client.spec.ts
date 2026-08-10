@@ -287,7 +287,9 @@ describe('client', () => {
 
       setUsuarioSedeId(null);
       setSedeSeleccionada('sede-abc');
-      await client.get('/reservas');
+      // /reportes queda deliberadamente fuera del allowlist (T-23 Fase 2):
+      // usa su propio filtro de sede opcional, no la auto-inyección.
+      await client.get('/reportes/resumen');
 
       expect(lastUrl()).not.toContain('sedeId=');
     });

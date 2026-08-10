@@ -12,6 +12,8 @@ export interface ResumenDto {
 export interface ResumenQuery {
   desde?: string;
   hasta?: string;
+  /** T-23 Fase 2: solo lo usa el admin general. Ausente = todas las sedes combinadas. */
+  sedeId?: string;
 }
 
 export interface ResumenVM {

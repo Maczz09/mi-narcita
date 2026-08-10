@@ -7,6 +7,7 @@ export function getResumen(query: ResumenQuery = {}): Promise<ResumenDto> {
   const params = new URLSearchParams();
   if (query.desde) params.set('desde', query.desde);
   if (query.hasta) params.set('hasta', query.hasta);
+  if (query.sedeId) params.set('sedeId', query.sedeId);
   const qs = params.toString();
   return client.get<ResumenDto>(`/reportes/resumen${qs ? `?${qs}` : ''}`);
 }

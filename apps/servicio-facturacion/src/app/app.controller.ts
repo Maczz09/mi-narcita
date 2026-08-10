@@ -1,8 +1,8 @@
-import { Controller, Get, Logger, UseGuards, UseInterceptors } from '@nestjs/common';
+import { Controller, Get, Logger, Query, UseGuards, UseInterceptors } from '@nestjs/common';
 import { EventPattern, Payload } from '@nestjs/microservices';
 import { Roles, RolesGuard } from '@org/shared-auth';
 import { RabbitMQRetryInterceptor } from '@org/resiliencia';
-import { OperableLog } from '@org/observabilidad';
+import { OperableLog, UsuarioActual } from '@org/observabilidad';
 import { AppService } from './app.service';
 import { CuentaCerradaPayload, RoutingKeys } from '@org/contracts';
 
@@ -25,15 +25,15 @@ export class AppController {
   @UseGuards(RolesGuard)
   @Roles('ADMIN', 'SISTEMA', 'CAJERO')
   @Get('comprobantes-pago')
-  listarDisponibles() {
-    return this.appService.listarDisponibles();
+  listarDisponibles(@UsuarioActual('sedeId') usuarioSedeId: string | null, @Query('sedeId') sedeId?: string) {
+    return this.appService.listarDisponibles(usuarioSedeId, sedeId);
   }
 
   @UseGuards(RolesGuard)
   @Roles('ADMIN', 'SISTEMA', 'CAJERO')
   @Get('comprobantes-pago/todos')
-  listarTodos() {
-    return this.appService.listarTodos();
+  listarTodos(@UsuarioActual('sedeId') usuarioSedeId: string | null, @Query('sedeId') sedeId?: string) {
+    return this.appService.listarTodos(usuarioSedeId, sedeId);
   }
 
   @EventPattern(RoutingKeys.CuentaCerrada)

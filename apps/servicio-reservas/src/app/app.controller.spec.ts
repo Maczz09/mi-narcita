@@ -41,9 +41,9 @@ describe('AppController', () => {
       const expectedResult = { data: [], nextCursor: null };
       mockReservasService.listar.mockResolvedValue(expectedResult);
 
-      const result = await appController.listar(query);
+      const result = await appController.listar(query, 'sede-001');
 
-      expect(reservasService.listar).toHaveBeenCalledWith(query);
+      expect(reservasService.listar).toHaveBeenCalledWith(query, 'sede-001');
       expect(result).toEqual(expectedResult);
     });
   });
@@ -56,9 +56,9 @@ describe('AppController', () => {
       const expectedResult = { disponible: true, mesasReservadas: [], capacidadRestante: 1, fecha, hora, mesaPreferida };
       mockReservasService.consultarDisponibilidad.mockResolvedValue(expectedResult);
 
-      const result = await appController.disponibilidad(fecha, hora, mesaPreferida);
+      const result = await appController.disponibilidad(fecha, hora, mesaPreferida, 'sede-001');
 
-      expect(reservasService.consultarDisponibilidad).toHaveBeenCalledWith(fecha, hora, mesaPreferida);
+      expect(reservasService.consultarDisponibilidad).toHaveBeenCalledWith(fecha, hora, mesaPreferida, 'sede-001', undefined);
       expect(result).toEqual(expectedResult);
     });
   });
@@ -69,9 +69,9 @@ describe('AppController', () => {
       const expectedResult = { message: 'Reserva creada' };
       mockReservasService.crear.mockResolvedValue(expectedResult);
 
-      const result = await appController.crear(command, null, null, null);
+      const result = await appController.crear(command, null, null, null, 'sede-001');
 
-      expect(reservasService.crear).toHaveBeenCalledWith(command, null);
+      expect(reservasService.crear).toHaveBeenCalledWith(command, null, 'sede-001', undefined);
       expect(result).toEqual(expectedResult);
     });
 
@@ -79,20 +79,20 @@ describe('AppController', () => {
       const command: CrearReservaCommand = { fecha: '2026-06-15', hora: '19:00', mesaPreferida: 'mesa-005', clienteNombre: 'Juan' };
       mockReservasService.crear.mockResolvedValue({ message: 'Reserva creada' });
 
-      await appController.crear(command, 'u-recepcion', 'Recepción Uno', null);
+      await appController.crear(command, 'u-recepcion', 'Recepción Uno', null, 'sede-001');
 
-      expect(reservasService.crear).toHaveBeenCalledWith(command, { id: 'u-recepcion', nombre: 'Recepción Uno' });
+      expect(reservasService.crear).toHaveBeenCalledWith(command, { id: 'u-recepcion', nombre: 'Recepción Uno' }, 'sede-001', undefined);
     });
 
     it('debe caer a email y luego a usuarioId si falta el nombre', async () => {
       const command: CrearReservaCommand = { fecha: '2026-06-15', hora: '19:00', mesaPreferida: 'mesa-005', clienteNombre: 'Juan' };
       mockReservasService.crear.mockResolvedValue({ message: 'Reserva creada' });
 
-      await appController.crear(command, 'u-1', null, 'recepcion@nachopps.pe');
-      expect(reservasService.crear).toHaveBeenCalledWith(command, { id: 'u-1', nombre: 'recepcion@nachopps.pe' });
+      await appController.crear(command, 'u-1', null, 'recepcion@nachopps.pe', 'sede-001');
+      expect(reservasService.crear).toHaveBeenCalledWith(command, { id: 'u-1', nombre: 'recepcion@nachopps.pe' }, 'sede-001', undefined);
 
-      await appController.crear(command, 'svc-reservas', null, null);
-      expect(reservasService.crear).toHaveBeenCalledWith(command, { id: 'svc-reservas', nombre: 'svc-reservas' });
+      await appController.crear(command, 'svc-reservas', null, null, null);
+      expect(reservasService.crear).toHaveBeenCalledWith(command, { id: 'svc-reservas', nombre: 'svc-reservas' }, null, undefined);
     });
   });
 
@@ -102,9 +102,9 @@ describe('AppController', () => {
       const expectedResult = { message: 'Reserva confirmada' };
       mockReservasService.confirmar.mockResolvedValue(expectedResult);
 
-      const result = await appController.confirmar(id);
+      const result = await appController.confirmar(id, 'sede-001');
 
-      expect(reservasService.confirmar).toHaveBeenCalledWith(id);
+      expect(reservasService.confirmar).toHaveBeenCalledWith(id, 'sede-001');
       expect(result).toEqual(expectedResult);
     });
   });
@@ -116,9 +116,9 @@ describe('AppController', () => {
       const expectedResult = { message: 'Reserva cancelada' };
       mockReservasService.cancelar.mockResolvedValue(expectedResult);
 
-      const result = await appController.cancelar(id, motivo);
+      const result = await appController.cancelar(id, motivo, 'sede-001');
 
-      expect(reservasService.cancelar).toHaveBeenCalledWith(id, motivo);
+      expect(reservasService.cancelar).toHaveBeenCalledWith(id, motivo, 'sede-001');
       expect(result).toEqual(expectedResult);
     });
 
@@ -127,9 +127,9 @@ describe('AppController', () => {
       const expectedResult = { message: 'Reserva cancelada' };
       mockReservasService.cancelar.mockResolvedValue(expectedResult);
 
-      const result = await appController.cancelar(id);
+      const result = await appController.cancelar(id, undefined, 'sede-001');
 
-      expect(reservasService.cancelar).toHaveBeenCalledWith(id, undefined);
+      expect(reservasService.cancelar).toHaveBeenCalledWith(id, undefined, 'sede-001');
       expect(result).toEqual(expectedResult);
     });
   });

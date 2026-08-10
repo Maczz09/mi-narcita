@@ -3,6 +3,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { EventsController } from './events.controller';
 import { PrismaService } from '../prisma/prisma.service';
+import { SEDE_PRINCIPAL_ID } from '@org/shared-auth';
 
 describe('EventsController (Caja)', () => {
   let eventsController: EventsController;
@@ -44,9 +45,23 @@ describe('EventsController (Caja)', () => {
 
       expect(mockPrisma.cuentaAbierta.upsert).toHaveBeenCalledWith({
         where: { cuentaId: 'c-1' },
-        create: { cuentaId: 'c-1', mesaId: 'm-1', total: 0, estado: 'ABIERTA' },
-        update: { estado: 'ABIERTA', mesaId: 'm-1' },
+        create: { cuentaId: 'c-1', mesaId: 'm-1', sedeId: SEDE_PRINCIPAL_ID, total: 0, estado: 'ABIERTA' },
+        update: { estado: 'ABIERTA', mesaId: 'm-1', sedeId: SEDE_PRINCIPAL_ID },
       });
+    });
+
+    it('un evento legado sin sedeId cae a Sede Principal', async () => {
+      await eventsController.handleCuentaAbierta({ cuentaId: 'c-2', mesaId: 'm-2' });
+      expect(mockPrisma.cuentaAbierta.upsert).toHaveBeenCalledWith(
+        expect.objectContaining({ create: expect.objectContaining({ sedeId: SEDE_PRINCIPAL_ID }) }),
+      );
+    });
+
+    it('propaga el sedeId del evento cuando viene presente', async () => {
+      await eventsController.handleCuentaAbierta({ cuentaId: 'c-3', mesaId: 'm-3', sedeId: 'sede-002' });
+      expect(mockPrisma.cuentaAbierta.upsert).toHaveBeenCalledWith(
+        expect.objectContaining({ create: expect.objectContaining({ sedeId: 'sede-002' }) }),
+      );
     });
 
     it('debe llamar con cuentaId y mesaId correctos', async () => {

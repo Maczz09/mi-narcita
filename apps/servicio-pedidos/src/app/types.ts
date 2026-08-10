@@ -11,6 +11,7 @@ export interface PedidoItemMapeado {
 
 export interface MesaLocalEntity {
   id: string;
+  sedeId: string | null;
   numero: number;
   updatedAt: Date;
 }
@@ -18,6 +19,7 @@ export interface MesaLocalEntity {
 export interface PedidoEntity {
   id: string;
   mesaId: string;
+  sedeId: string;
   numeroMesa: number | null;
   estado: string;
   total: unknown;

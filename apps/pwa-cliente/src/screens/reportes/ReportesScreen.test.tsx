@@ -3,10 +3,20 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { ReportesScreen } from './ReportesScreen';
 import * as reportesQueryHook from '../../hooks/queries/useReportesQuery';
+import { useSedesQuery } from '../../hooks/queries/useSedesQuery';
+import { useAuthStore } from '../../store/auth.store';
 
 const mockExportarResumenPdf = vi.fn();
 vi.mock('../../utils/reportePdf', () => ({
   exportarResumenPdf: (...args: unknown[]) => mockExportarResumenPdf(...args),
+}));
+
+vi.mock('../../hooks/queries/useSedesQuery', () => ({
+  useSedesQuery: vi.fn(),
+}));
+
+vi.mock('../../store/auth.store', () => ({
+  useAuthStore: vi.fn(),
 }));
 
 describe('ReportesScreen', () => {
@@ -21,6 +31,12 @@ describe('ReportesScreen', () => {
       error: null,
       fetch: mockFetch
     } as any);
+    // Usuario pineado por defecto (p.ej. Gerencia de una sede): el selector
+    // de sede no debe verse.
+    vi.mocked(useAuthStore).mockImplementation((selector: any) =>
+      selector({ user: { rol: 'GERENCIA', sedeId: 'sede-001' } }),
+    );
+    vi.mocked(useSedesQuery).mockReturnValue({ sedes: [] } as any);
   });
 
   it('renders loading skeletons', () => {
@@ -125,6 +141,7 @@ describe('ReportesScreen', () => {
     expect(reportesQueryHook.useReportesQuery).toHaveBeenLastCalledWith({
       desde: '2026-06-01',
       hasta: '2026-06-30',
+      sedeId: undefined,
     });
   });
 
@@ -136,6 +153,30 @@ describe('ReportesScreen', () => {
     expect(reportesQueryHook.useReportesQuery).toHaveBeenLastCalledWith({
       desde: undefined,
       hasta: undefined,
+      sedeId: undefined,
+    });
+  });
+
+  it('un usuario pineado no ve el selector de sede', () => {
+    render(<ReportesScreen />);
+    expect(screen.queryByLabelText('Sede')).not.toBeInTheDocument();
+  });
+
+  it('el admin general ve el selector de sede y lo pasa al hook', () => {
+    vi.mocked(useAuthStore).mockImplementation((selector: any) =>
+      selector({ user: { rol: 'ADMIN', sedeId: null } }),
+    );
+    vi.mocked(useSedesQuery).mockReturnValue({
+      sedes: [{ id: 'sede-001', nombre: 'Sede Principal', activa: true }],
+    } as any);
+
+    render(<ReportesScreen />);
+    fireEvent.change(screen.getByLabelText('Sede'), { target: { value: 'sede-001' } });
+
+    expect(reportesQueryHook.useReportesQuery).toHaveBeenLastCalledWith({
+      desde: undefined,
+      hasta: undefined,
+      sedeId: 'sede-001',
     });
   });
 

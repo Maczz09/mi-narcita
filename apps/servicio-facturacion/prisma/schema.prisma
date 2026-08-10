@@ -57,6 +57,7 @@ model Empresa {
 model ComprobantePago {
   id           String                @id @default(uuid())
   cuentaId     String                @unique
+  sedeId       String
   mesaId       String
   total        Decimal               @db.Decimal(10, 2)
   items        Json?
@@ -68,6 +69,7 @@ model ComprobantePago {
   comprobante Comprobante?
 
   @@index([estado, fecha])
+  @@index([sedeId, estado, fecha])
   @@map("comprobantes_pago")
 }
 

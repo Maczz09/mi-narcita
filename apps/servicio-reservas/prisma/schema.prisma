@@ -9,6 +9,7 @@ datasource db {
 
 model Reserva {
   id              String   @id @default(uuid())
+  sedeId          String
   clienteId       String?
   clienteNombre   String
   clienteTelefono String?
@@ -25,6 +26,7 @@ model Reserva {
   @@index([fecha, hora])
   @@index([estado])
   @@index([usuarioId])
+  @@index([sedeId, fecha])
 }
 
 model OutboxEvent {

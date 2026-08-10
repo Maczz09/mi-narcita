@@ -44,6 +44,10 @@ const SEDE_SCOPED_PATH_PREFIXES = [
   '/inventario/menu-diario',
   '/inventario/mermas',
   '/identidad/usuarios',
+  '/pedidos',
+  '/cuentas',
+  '/caja',
+  '/reservas',
 ];
 
 let usuarioSedeId: string | null = null;

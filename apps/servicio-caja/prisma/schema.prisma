@@ -11,6 +11,7 @@ datasource db {
 model Transaccion {
   id            String   @id @default(uuid())
   cuentaId      String
+  sedeId        String
   turnoId       String?
   mesaId        String?
   monto         Decimal  @db.Decimal(10, 2)
@@ -27,6 +28,7 @@ model Transaccion {
   @@index([cuentaId])
   @@index([turnoId])
   @@index([usuarioId])
+  @@index([sedeId, createdAt])
   @@map("transacciones")
 }
 
@@ -80,6 +82,7 @@ model CierreCaja {
 model CuentaAbierta {
   cuentaId String   @id
   mesaId   String
+  sedeId   String
   total    Decimal  @db.Decimal(10, 2)
   estado   String
 
@@ -88,6 +91,7 @@ model CuentaAbierta {
 
 model TurnoCaja {
   id            String   @id @default(uuid())
+  sedeId        String
   cajaId        String
   cajaNombre    String
   usuarioId     String
@@ -106,6 +110,7 @@ model TurnoCaja {
 
   @@index([estado, abiertoAt])
   @@index([usuarioId, estado])
+  @@index([sedeId, estado])
   @@map("turnos_caja")
 }
 

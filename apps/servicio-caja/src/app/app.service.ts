@@ -1,11 +1,13 @@
 import {
   BadRequestException,
+  ForbiddenException,
   Injectable,
   Logger,
   NotFoundException,
   ServiceUnavailableException,
 } from '@nestjs/common';
 import { getOrCreateCounter, getOrCreateHistogram, OperableLog } from '@org/observabilidad';
+import { resolveSedeId, SEDE_PRINCIPAL_ID } from '@org/shared-auth';
 import { PrismaService } from '../prisma/prisma.service';
 import {
   ListarTransaccionesQuery,
@@ -64,9 +66,15 @@ export class AppService {
     return new Prisma.Decimal(value);
   }
 
-  async abrirTurno(command: AbrirTurnoCajaCommand, usuarioId?: string | null) {
+  async abrirTurno(
+    command: AbrirTurnoCajaCommand,
+    usuarioId?: string | null,
+    usuarioSedeId?: string | null,
+    sedeIdSolicitado?: string,
+  ) {
+    const sedeId = resolveSedeId(usuarioSedeId, sedeIdSolicitado);
     const abierto = await this.prisma.turnoCaja.findFirst({
-      where: { estado: 'ABIERTA' },
+      where: { estado: 'ABIERTA', sedeId },
       orderBy: { abiertoAt: 'desc' },
     });
 
@@ -78,6 +86,7 @@ export class AppService {
       turno = await this.prisma.$transaction(async (prisma: import('../generated/prisma').Prisma.TransactionClient) => {
         const creado = await prisma.turnoCaja.create({
           data: {
+            sedeId,
             cajaId: command.cajaId ?? 'T01',
             cajaNombre: command.cajaNombre ?? 'Terminal 01',
             usuarioId: this.usuario(usuarioId),
@@ -101,11 +110,13 @@ export class AppService {
       });
     } catch (error) {
       // T-25: carrera con otra apertura concurrente — el índice único parcial
-      // `turnos_caja_un_abierto` rechaza el segundo INSERT con P2002. Devolver el
-      // turno ya abierto (misma semántica que "si ya hay uno, devolverlo").
+      // `turnos_caja_un_abierto_por_sede` rechaza el segundo INSERT con P2002.
+      // Devolver el turno ya abierto DE ESTA SEDE (misma semántica que "si ya
+      // hay uno, devolverlo") — sin el filtro por sedeId, la recuperación le
+      // entregaría a esta sede el turno abierto de otra.
       if (this.isUniqueConstraintViolation(error)) {
         const existente = await this.prisma.turnoCaja.findFirst({
-          where: { estado: 'ABIERTA' },
+          where: { estado: 'ABIERTA', sedeId },
           orderBy: { abiertoAt: 'desc' },
         });
         if (existente) return this.mapTurno(existente);
@@ -125,17 +136,19 @@ export class AppService {
     return typeof error === 'object' && error !== null && (error as { code?: string }).code === 'P2002';
   }
 
-  async obtenerTurnoActivo() {
+  async obtenerTurnoActivo(usuarioSedeId?: string | null, sedeIdSolicitado?: string) {
+    const sedeId = resolveSedeId(usuarioSedeId, sedeIdSolicitado);
     const turno = await this.prisma.turnoCaja.findFirst({
-      where: { estado: 'ABIERTA' },
+      where: { estado: 'ABIERTA', sedeId },
       orderBy: { abiertoAt: 'desc' },
     });
     return turno ? this.mapTurno(turno) : null;
   }
 
-  async obtenerResumenTurnoActivo() {
+  async obtenerResumenTurnoActivo(usuarioSedeId?: string | null, sedeIdSolicitado?: string) {
+    const sedeId = resolveSedeId(usuarioSedeId, sedeIdSolicitado);
     const turno = await this.prisma.turnoCaja.findFirst({
-      where: { estado: 'ABIERTA' },
+      where: { estado: 'ABIERTA', sedeId },
       orderBy: { abiertoAt: 'desc' },
     });
 
@@ -171,7 +184,11 @@ export class AppService {
   // ponytail: stopgap; el fix real (SUM en SQL o caché con invalidación) tiene tarea propia.
   private readonly resumenCache = new Map<string, { at: number; promise: Promise<unknown> }>();
 
-  async obtenerResumenTurno(id: string) {
+  async obtenerResumenTurno(id: string, usuarioSedeId?: string | null) {
+    // GUARD antes del caché: una respuesta cacheada no debe servirse cruzando
+    // el chequeo de sede.
+    await this.assertTurnoDeSede(id, usuarioSedeId);
+
     const ttl = Number(process.env.CAJA_RESUMEN_TTL_MS ?? 0);
     if (ttl <= 0) return this.computeResumenTurno(id);
 
@@ -200,7 +217,17 @@ export class AppService {
     return this.buildResumen(turno);
   }
 
-  async listarMovimientosTurno(id: string) {
+  /** GUARD (T-23 Fase 2): 404 si el turno existe pero es de otra sede. */
+  private async assertTurnoDeSede(id: string, usuarioSedeId?: string | null) {
+    if (!usuarioSedeId) return;
+    const turno = await this.prisma.turnoCaja.findUnique({ where: { id }, select: { sedeId: true } });
+    if (!turno || turno.sedeId !== usuarioSedeId) {
+      throw new NotFoundException(`Turno ${id} no encontrado`);
+    }
+  }
+
+  async listarMovimientosTurno(id: string, usuarioSedeId?: string | null) {
+    await this.assertTurnoDeSede(id, usuarioSedeId);
     const movimientos = await this.prisma.movimientoCaja.findMany({
       where: { turnoId: id },
       orderBy: { createdAt: 'desc' },
@@ -208,9 +235,11 @@ export class AppService {
     return { data: movimientos.map((m) => this.mapMovimiento(m)) };
   }
 
-  async crearMovimiento(id: string, command: CrearMovimientoCajaCommand) {
+  async crearMovimiento(id: string, command: CrearMovimientoCajaCommand, usuarioSedeId?: string | null) {
     const turno = await this.prisma.turnoCaja.findUnique({ where: { id } });
-    if (!turno) throw new NotFoundException(`Turno ${id} no encontrado`);
+    if (!turno || (usuarioSedeId && turno.sedeId !== usuarioSedeId)) {
+      throw new NotFoundException(`Turno ${id} no encontrado`);
+    }
     if (turno.estado !== 'ABIERTA') {
       throw new BadRequestException('El turno ya está cerrado.');
     }
@@ -231,12 +260,19 @@ export class AppService {
     return this.mapMovimiento(movimiento);
   }
 
-  async registrarArqueo(id: string, command: RegistrarArqueoCajaCommand, usuarioId?: string | null) {
+  async registrarArqueo(
+    id: string,
+    command: RegistrarArqueoCajaCommand,
+    usuarioId?: string | null,
+    usuarioSedeId?: string | null,
+  ) {
     const turno = await this.prisma.turnoCaja.findUnique({
       where: { id },
       include: { movimientos: true },
     });
-    if (!turno) throw new NotFoundException(`Turno ${id} no encontrado`);
+    if (!turno || (usuarioSedeId && turno.sedeId !== usuarioSedeId)) {
+      throw new NotFoundException(`Turno ${id} no encontrado`);
+    }
 
     const efectivoEsperado = this.computeEfectivoEsperado(turno.movimientos);
     const efectivoContado = this.sumDenominaciones(command.denominaciones);
@@ -256,7 +292,12 @@ export class AppService {
     return this.mapArqueo(arqueo);
   }
 
-  async cerrarTurno(id: string, command: CerrarTurnoCajaCommand, usuarioId?: string | null) {
+  async cerrarTurno(
+    id: string,
+    command: CerrarTurnoCajaCommand,
+    usuarioId?: string | null,
+    usuarioSedeId?: string | null,
+  ) {
     const cierre = await this.prisma.$transaction(async (prisma: import('../generated/prisma').Prisma.TransactionClient) => {
       const turno = await prisma.turnoCaja.findUnique({
         where: { id },
@@ -267,7 +308,9 @@ export class AppService {
         },
       });
 
-      if (!turno) throw new NotFoundException(`Turno ${id} no encontrado`);
+      if (!turno || (usuarioSedeId && turno.sedeId !== usuarioSedeId)) {
+        throw new NotFoundException(`Turno ${id} no encontrado`);
+      }
       if (turno.estado !== 'ABIERTA') {
         throw new BadRequestException('El turno ya está cerrado.');
       }
@@ -333,15 +376,12 @@ export class AppService {
     command: PagarCuentaCajaCommand,
     usuarioId?: string | null,
     cajeroNombre?: string | null,
+    usuarioSedeId?: string | null,
   ): Promise<{ message?: string; transaccion: TransaccionDto; ticket?: unknown; turno: unknown; pendiente: number }> {
-    const turno = await this.prisma.turnoCaja.findFirst({
-      where: { estado: 'ABIERTA' },
-      orderBy: { abiertoAt: 'desc' },
-    });
-    if (!turno) {
-      throw new BadRequestException('No hay turno de caja abierto.');
-    }
-
+    // T-23 Fase 2: la sede de la operación la determina LA CUENTA, no el
+    // usuario — se necesita para encontrar el turno abierto correcto. Por
+    // eso fetchCuenta va antes del lookup de turno (orden invertido respecto
+    // a la versión pre-multi-sede).
     let cuentaRemota: CuentaRemota;
     try {
       cuentaRemota = await this.cuentasHttp.fetchCuenta(command.cuentaId);
@@ -351,6 +391,19 @@ export class AppService {
         throw new NotFoundException(`Cuenta ${command.cuentaId} no encontrada.`);
       }
       throw new ServiceUnavailableException('No se pudo obtener la cuenta. Reintente.');
+    }
+
+    const sedeId = cuentaRemota.sedeId ?? SEDE_PRINCIPAL_ID;
+    if (usuarioSedeId && usuarioSedeId !== sedeId) {
+      throw new ForbiddenException('La cuenta pertenece a otra sede.');
+    }
+
+    const turno = await this.prisma.turnoCaja.findFirst({
+      where: { estado: 'ABIERTA', sedeId },
+      orderBy: { abiertoAt: 'desc' },
+    });
+    if (!turno) {
+      throw new BadRequestException('No hay turno de caja abierto en esta sede.');
     }
 
     const descuento = this.money(command.descuento ?? 0);
@@ -375,6 +428,7 @@ export class AppService {
         create: {
           cuentaId: cuentaRemota.id,
           mesaId: cuentaRemota.mesaId,
+          sedeId,
           total: cuentaRemota.total,
           estado: cuentaRemota.estado,
         },
@@ -382,6 +436,7 @@ export class AppService {
           total: cuentaRemota.total,
           estado: cuentaRemota.estado,
           mesaId: cuentaRemota.mesaId,
+          sedeId,
         },
       });
 
@@ -408,6 +463,7 @@ export class AppService {
       const tx = await prisma.transaccion.create({
         data: {
           cuentaId: command.cuentaId,
+          sedeId,
           turnoId: turno.id,
           mesaId: cuenta.mesaId,
           monto: montoRecibido,
@@ -506,9 +562,11 @@ export class AppService {
     };
   }
 
-  async listarTransacciones(query: ListarTransaccionesQuery = {}): Promise<TransaccionListResponse> {
+  async listarTransacciones(query: ListarTransaccionesQuery = {}, usuarioSedeId?: string | null): Promise<TransaccionListResponse> {
+    const sedeId = resolveSedeId(usuarioSedeId, query.sedeId);
     const limit = this.normalizeLimit(query.limit);
     const where: Prisma.TransaccionWhereInput = {
+      sedeId,
       ...(query.metodo ? { metodo: query.metodo } : {}),
       ...(query.updatedSince
         ? { createdAt: { gte: new Date(query.updatedSince) } }
@@ -531,9 +589,9 @@ export class AppService {
     };
   }
 
-  async obtenerTransaccion(id: string): Promise<TransaccionDto> {
+  async obtenerTransaccion(id: string, usuarioSedeId?: string | null): Promise<TransaccionDto> {
     const transaccion = await this.prisma.transaccion.findUnique({ where: { id } });
-    if (!transaccion) {
+    if (!transaccion || (usuarioSedeId && transaccion.sedeId !== usuarioSedeId)) {
       throw new NotFoundException(`Transacción ${id} no encontrada.`);
     }
     return this.mapTransaccion(transaccion);
@@ -550,9 +608,10 @@ export class AppService {
   async actualizarTransaccion(
     id: string,
     command: ActualizarTransaccionCommand,
+    usuarioSedeId?: string | null,
   ): Promise<{ message: string; transaccion: TransaccionDto }> {
     const existente = await this.prisma.transaccion.findUnique({ where: { id } });
-    if (!existente) {
+    if (!existente || (usuarioSedeId && existente.sedeId !== usuarioSedeId)) {
       throw new NotFoundException(`Transacción ${id} no encontrada.`);
     }
 
@@ -581,9 +640,11 @@ export class AppService {
   }
 
   /** Historial de turnos (p.ej. cierres de caja pasados). Sin filtro de estado, lista todos. */
-  async listarTurnos(query: ListarTurnosQuery = {}): Promise<TurnoListResponse> {
+  async listarTurnos(query: ListarTurnosQuery = {}, usuarioSedeId?: string | null): Promise<TurnoListResponse> {
+    const sedeId = resolveSedeId(usuarioSedeId, query.sedeId);
     const limit = this.normalizeLimit(query.limit);
     const where: Prisma.TurnoCajaWhereInput = {
+      sedeId,
       ...(query.estado ? { estado: query.estado } : {}),
       ...(query.desde || query.hasta
         ? {
@@ -685,6 +746,7 @@ export class AppService {
     return {
       id: t.id,
       cuentaId: t.cuentaId,
+      sedeId: t.sedeId,
       monto: this.n(t.monto),
       descuento: this.n(t.descuento),
       metodo: t.metodo,
@@ -699,6 +761,7 @@ export class AppService {
   private mapTurno(t: import('../generated/prisma').TurnoCaja) {
     return {
       id: t.id,
+      sedeId: t.sedeId,
       cajaId: t.cajaId,
       cajaNombre: t.cajaNombre,
       usuarioId: t.usuarioId,

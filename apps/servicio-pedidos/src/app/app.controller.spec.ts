@@ -66,9 +66,9 @@ describe('AppController', () => {
   describe('listarPedidos', () => {
     it('should list orders', async () => {
       appService.listarPedidos.mockResolvedValue(['p1'] as any);
-      const result = await controller.listarPedidos({});
+      const result = await controller.listarPedidos({}, 'sede-001');
       expect(result).toEqual(['p1']);
-      expect(appService.listarPedidos).toHaveBeenCalledWith({});
+      expect(appService.listarPedidos).toHaveBeenCalledWith({}, 'sede-001');
     });
   });
 

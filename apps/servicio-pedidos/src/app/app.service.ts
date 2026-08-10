@@ -16,6 +16,7 @@ import {
   StockInsuficientePayload,
 } from '@org/contracts';
 import { Prisma } from '../generated/prisma';
+import { resolveSedeId } from '@org/shared-auth';
 import { getOrCreateCounter, OperableLog } from '@org/observabilidad';
 import { MesasHttpClient } from './mesas-http.client';
 import { InventarioHttpClient, ProductoRemotoLote } from './inventario-http.client';
@@ -57,6 +58,10 @@ export class AppService {
     const total = this.calcularTotal(itemsProcesados);
     const pedido = await this.persistirPedido({
       mesaId: command.mesaId,
+      // T-23 Fase 2: el pedido hereda la sede de SU MESA (fuente de verdad),
+      // no la del usuario que lo crea — validarMesa garantiza que ya está
+      // sincronizada (re-sync si MesaLocal.sedeId venía nulo).
+      sedeId: mesaLocal.sedeId!,
       numeroMesa: mesaLocal.numero,
       items: itemsProcesados,
       total,
@@ -82,7 +87,10 @@ export class AppService {
 
   private async validarMesa(mesaId: string): Promise<MesaLocalEntity> {
     const mesa = await this.prisma.mesaLocal.findUnique({ where: { id: mesaId } });
-    if (mesa) {
+    // T-23 Fase 2: un MesaLocal sin sedeId es una fila pre-multi-sede (nunca
+    // se backfilleó a ciegas — ver migración) o un cold-start incompleto;
+    // en ambos casos hay que re-sincronizar contra servicio-mesas.
+    if (mesa?.sedeId) {
       return mesa;
     }
 
@@ -98,9 +106,11 @@ export class AppService {
       where: { id: data.id },
       create: {
         id: data.id,
+        sedeId: data.sedeId,
         numero: data.numero,
       },
       update: {
+        sedeId: data.sedeId,
         numero: data.numero,
       },
     });
@@ -196,6 +206,7 @@ export class AppService {
 
   private async persistirPedido({
     mesaId,
+    sedeId,
     numeroMesa,
     items,
     total,
@@ -207,6 +218,7 @@ export class AppService {
     mesero,
   }: {
     mesaId: string;
+    sedeId: string;
     numeroMesa: number;
     items: PedidoItemMapeado[];
     total: Prisma.Decimal;
@@ -246,6 +258,7 @@ export class AppService {
       const pedido = await prisma.pedido.create({
         data: {
           mesaId,
+          sedeId,
           numeroMesa,
           estado: PedidoEstado.Pendiente,
           total,
@@ -297,9 +310,11 @@ export class AppService {
   }
 
 
-  async listarPedidos(query: ListarPedidosQuery = {}): Promise<PedidoListResponse> {
+  async listarPedidos(query: ListarPedidosQuery = {}, usuarioSedeId?: string | null): Promise<PedidoListResponse> {
+    const sedeId = resolveSedeId(usuarioSedeId, query.sedeId);
     const limit = this.normalizeLimit(query.limit);
     const where: Prisma.PedidoWhereInput = {
+      sedeId,
       ...(query.mesaId ? { mesaId: query.mesaId } : {}),
       ...(query.estado
         ? { estado: query.estado }
@@ -342,11 +357,11 @@ export class AppService {
     return this.saga.actualizarEstadoItem(itemId, command);
   }
 
-  async upsertMesaLocal(mesa: { id: string; numero: number }): Promise<void> {
+  async upsertMesaLocal(mesa: { id: string; numero: number; sedeId: string }): Promise<void> {
     await this.prisma.mesaLocal.upsert({
       where: { id: mesa.id },
-      update: { numero: mesa.numero },
-      create: { id: mesa.id, numero: mesa.numero }
+      update: { numero: mesa.numero, sedeId: mesa.sedeId },
+      create: { id: mesa.id, numero: mesa.numero, sedeId: mesa.sedeId }
     });
   }
 
@@ -359,7 +374,7 @@ export class AppService {
     disponible: boolean;
     allowStockIncrease?: boolean;
     stockDelta?: number;
-    stockSyncMode?: 'REPOSICION' | 'CONSUMO_PEDIDO';
+    stockSyncMode?: 'REPOSICION' | 'CONSUMO_PEDIDO' | 'MERMA';
   }): Promise<void> {
     await this.upsertProductoLocalConPrisma(this.prisma, producto);
   }
@@ -437,7 +452,7 @@ export class AppService {
     precio: number;
     stockActual: number | null;
     stockDelta?: number;
-    stockSyncMode?: 'REPOSICION' | 'CONSUMO_PEDIDO';
+    stockSyncMode?: 'REPOSICION' | 'CONSUMO_PEDIDO' | 'MERMA';
     categoriaNombre: string;
     disponible: boolean;
     allowStockIncrease?: boolean;

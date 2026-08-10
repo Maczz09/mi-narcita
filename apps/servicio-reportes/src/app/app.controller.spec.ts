@@ -56,7 +56,7 @@ describe('AppController - Reportes', () => {
       const query = { desde: '2026-01-01', hasta: '2026-01-31' };
       const result = await controller.getResumen(query);
 
-      expect(appService.obtenerResumenDiario).toHaveBeenCalledWith(query);
+      expect(appService.obtenerResumenDiario).toHaveBeenCalledWith(query, undefined);
       expect(result).toEqual(mockResumen);
     });
   });
@@ -70,7 +70,7 @@ describe('AppController - Reportes', () => {
       const result = await controller.porProducto(query);
 
       expect(result).toEqual(mockResult);
-      expect(appService.obtenerPorProducto).toHaveBeenCalledWith(query);
+      expect(appService.obtenerPorProducto).toHaveBeenCalledWith(query, undefined);
     });
 
     it('returns por-producto report without date range', async () => {
@@ -80,7 +80,7 @@ describe('AppController - Reportes', () => {
       const result = await controller.porProducto({});
 
       expect(result).toEqual(mockResult);
-      expect(appService.obtenerPorProducto).toHaveBeenCalledWith({});
+      expect(appService.obtenerPorProducto).toHaveBeenCalledWith({}, undefined);
     });
   });
 
@@ -97,7 +97,7 @@ describe('AppController - Reportes', () => {
       const result = await controller.porTurno(query);
 
       expect(result).toEqual(mockResult);
-      expect(appService.obtenerPorTurno).toHaveBeenCalledWith(query);
+      expect(appService.obtenerPorTurno).toHaveBeenCalledWith(query, undefined);
     });
 
     it('returns empty turnos if no ventas', async () => {
@@ -120,7 +120,7 @@ describe('AppController - Reportes', () => {
       const result = await controller.porMesero(query);
 
       expect(result).toEqual(mockResult);
-      expect(appService.obtenerPorMesero).toHaveBeenCalledWith(query);
+      expect(appService.obtenerPorMesero).toHaveBeenCalledWith(query, undefined);
     });
   });
 

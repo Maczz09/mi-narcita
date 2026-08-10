@@ -6,10 +6,14 @@ import type { SedeDto, CrearSedePayload, ActualizarSedePayload } from '../../typ
 
 export const SEDES_QUERY_KEY = ['sedes'];
 
-export function useSedesQuery() {
+export function useSedesQuery(options: { enabled?: boolean } = {}) {
   const sedesQuery = useQuery({
     queryKey: SEDES_QUERY_KEY,
     queryFn: () => sedesApi.getAll(),
+    // GET /identidad/sedes es ADMIN-only en el backend; un caller que sabe de
+    // antemano que el usuario no es admin general (p. ej. ReportesScreen)
+    // pasa enabled:false para no disparar un 403 innecesario.
+    enabled: options.enabled ?? true,
     retry: retrySalvo404,
     refetchInterval: refetchSiError,
   });

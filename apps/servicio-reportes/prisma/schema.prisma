@@ -11,6 +11,7 @@ datasource db {
 model VentaDiaria {
   id           String   @id @default(uuid())
   cuentaId     String   @unique
+  sedeId       String
   mesaId       String
   total        Decimal  @db.Decimal(10, 2)
   items        Json?
@@ -20,6 +21,7 @@ model VentaDiaria {
 
   @@index([fecha])
   @@index([meseroId])
+  @@index([sedeId, fecha])
   @@map("ventas_diarias")
 }
 

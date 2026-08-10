@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { OperableLog } from '@org/observabilidad';
+import { SEDE_PRINCIPAL_ID } from '@org/shared-auth';
 import { PrismaService } from '../prisma/prisma.service';
 import { CuentaCerradaPayload, PedidoSnapshotItem } from '@org/contracts';
 
@@ -16,16 +17,31 @@ export class AppService {
       message: `Registrando venta para mesa ${data.mesaId} por total S/ ${data.total}.`,
     } satisfies OperableLog);
 
+    // T-23 Fase 2: los eventos RMQ no pasan por el ValidationPipe global — un
+    // productor legado (rollout en curso) puede publicar sin sedeId.
+    if (!data.sedeId) {
+      this.logger.warn({
+        operation: 'registrarVenta',
+        aggregateId: data.cuentaId,
+        errorCode: 'EVENTO_SIN_SEDE',
+        message: 'Evento CuentaCerrada sin sedeId; se asigna Sede Principal.',
+      } satisfies OperableLog);
+    }
+    const sedeId = data.sedeId ?? SEDE_PRINCIPAL_ID;
+
     await this.prisma.ventaDiaria.upsert({
       where: { cuentaId: data.cuentaId },
       create: {
         cuentaId: data.cuentaId,
+        sedeId,
         mesaId: data.mesaId,
         total: data.total,
         items: data.items ? structuredClone(data.items) : [],
         meseroId: data.meseroId ?? null,
         meseroNombre: data.meseroNombre ?? null,
       },
+      // No se rescribe sedeId en el update: una re-entrega no debe reasignar
+      // la sede de una venta ya registrada.
       update: {
         total: data.total,
         items: data.items ? structuredClone(data.items) : [],
@@ -33,6 +49,17 @@ export class AppService {
         meseroNombre: data.meseroNombre ?? null,
       },
     });
+  }
+
+  /**
+   * T-23 Fase 2 — LENIENTE (mismo criterio que identidad.listarUsuarios):
+   * usuario pineado → siempre su sede; admin general → la que pida, o TODAS
+   * (ausente = combinado). A propósito NO usa resolveSedeId (que exige una
+   * sede sí o sí) — el punto de este módulo es permitir la vista combinada.
+   */
+  private filtroSede(usuarioSedeId?: string | null, sedeIdSolicitado?: string): { sedeId?: string } {
+    const sedeId = usuarioSedeId ?? sedeIdSolicitado;
+    return sedeId ? { sedeId } : {};
   }
 
   /** Rango de fechas: usa desde/hasta si vienen, si no el día de hoy. */
@@ -57,9 +84,11 @@ export class AppService {
   }
 
   /** Reporte por producto en un rango: cantidad e ingresos, ordenado por ingresos. */
-  async obtenerPorProducto(query?: { desde?: string; hasta?: string }) {
+  async obtenerPorProducto(query?: { desde?: string; hasta?: string; sedeId?: string }, usuarioSedeId?: string | null) {
     const { gte, lte } = this.rango(query);
-    const ventas = await this.prisma.ventaDiaria.findMany({ where: { fecha: { gte, lte } } });
+    const ventas = await this.prisma.ventaDiaria.findMany({
+      where: { fecha: { gte, lte }, ...this.filtroSede(usuarioSedeId, query?.sedeId) },
+    });
     const stats = new Map<string, { nombre: string; cantidad: number; ingresos: number }>();
     for (const v of ventas) {
       if (!Array.isArray(v.items)) continue;
@@ -82,9 +111,11 @@ export class AppService {
   }
 
   /** Reporte por turno (ALMUERZO/CENA/OTRO) en un rango. */
-  async obtenerPorTurno(query?: { desde?: string; hasta?: string }) {
+  async obtenerPorTurno(query?: { desde?: string; hasta?: string; sedeId?: string }, usuarioSedeId?: string | null) {
     const { gte, lte } = this.rango(query);
-    const ventas = await this.prisma.ventaDiaria.findMany({ where: { fecha: { gte, lte } } });
+    const ventas = await this.prisma.ventaDiaria.findMany({
+      where: { fecha: { gte, lte }, ...this.filtroSede(usuarioSedeId, query?.sedeId) },
+    });
     const turnos = new Map<string, { totalVentas: number; ingresos: number }>();
     for (const v of ventas) {
       const t = this.turnoDe(new Date(v.fecha));
@@ -101,9 +132,11 @@ export class AppService {
   }
 
   /** Reporte por mesero en un rango (agrupa lo sin asignar aparte). */
-  async obtenerPorMesero(query?: { desde?: string; hasta?: string }) {
+  async obtenerPorMesero(query?: { desde?: string; hasta?: string; sedeId?: string }, usuarioSedeId?: string | null) {
     const { gte, lte } = this.rango(query);
-    const ventas = await this.prisma.ventaDiaria.findMany({ where: { fecha: { gte, lte } } });
+    const ventas = await this.prisma.ventaDiaria.findMany({
+      where: { fecha: { gte, lte }, ...this.filtroSede(usuarioSedeId, query?.sedeId) },
+    });
     const meseros = new Map<string, { meseroNombre: string; totalVentas: number; ingresos: number }>();
     for (const v of ventas) {
       const key = v.meseroId ?? '(sin asignar)';
@@ -125,12 +158,13 @@ export class AppService {
     };
   }
 
-  async obtenerResumenDiario(query?: { desde?: string; hasta?: string }) {
+  async obtenerResumenDiario(query?: { desde?: string; hasta?: string; sedeId?: string }, usuarioSedeId?: string | null) {
     const { gte, lte } = this.rango(query);
 
     const ventas = await this.prisma.ventaDiaria.findMany({
       where: {
         fecha: { gte, lte },
+        ...this.filtroSede(usuarioSedeId, query?.sedeId),
       },
     });
 

@@ -102,9 +102,20 @@ export function MesasScreen() {
     ));
   }, [siguienteNumero]);
 
-  // Preselecciona la primera ubicación disponible en cuanto carga el CRUD.
+  // Preselecciona la primera ubicación disponible en cuanto carga el CRUD, y
+  // también re-selecciona si la ubicación elegida deja de existir en la lista
+  // (p. ej. al cambiar de sede: las ubicaciones de la sede anterior ya no
+  // aplican, y el id viejo quedaba "seleccionado" sin corresponder a ninguna
+  // opción visible).
   useEffect(() => {
-    if (!mesaForm.ubicacionId && ubicacionesCrud.length > 0) {
+    if (ubicacionesCrud.length === 0) {
+      if (mesaForm.ubicacionId !== '') {
+        setMesaForm((current) => ({ ...current, ubicacionId: '' }));
+      }
+      return;
+    }
+    const sigueValida = ubicacionesCrud.some((u) => u.id === mesaForm.ubicacionId);
+    if (!sigueValida) {
       setMesaForm((current) => ({ ...current, ubicacionId: ubicacionesCrud[0].id }));
     }
   }, [ubicacionesCrud, mesaForm.ubicacionId]);

@@ -37,8 +37,8 @@ export class AppController {
   @UseGuards(RolesGuard)
   @Roles('ADMIN', 'SISTEMA', 'CAJERO', 'MESERO', 'COCINA')
   @Get()
-  listarPedidos(@Query() query: ListarPedidosQuery) {
-    return this.appService.listarPedidos(query);
+  listarPedidos(@Query() query: ListarPedidosQuery, @UsuarioActual('sedeId') usuarioSedeId: string | null) {
+    return this.appService.listarPedidos(query, usuarioSedeId);
   }
 
   // Cocina (KDS) actualiza el estado de pedidos e ítems.

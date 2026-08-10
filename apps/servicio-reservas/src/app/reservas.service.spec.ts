@@ -23,6 +23,9 @@ function createMockPrismaService(overrides: Record<string, unknown> = {}) {
   return { ...overrides } as unknown as MockPrismaService;
 }
 
+const SEDE = 'sede-001';
+const OTRA_SEDE = 'sede-002';
+
 describe('ReservasService — Reservas', () => {
   let service: ReservasService;
   let mockPrisma: ReturnType<typeof createMockPrismaService>;
@@ -35,6 +38,7 @@ describe('ReservasService — Reservas', () => {
 
   const reservaBase = {
     id: 'r-001',
+    sedeId: SEDE,
     clienteId: 'c-001',
     clienteNombre: 'Juan Perez',
     clienteTelefono: '999888777',
@@ -67,7 +71,7 @@ describe('ReservasService — Reservas', () => {
   describe('listar', () => {
     it('debe listar reservas', async () => {
       mockPrisma.reserva.findMany.mockResolvedValue([reservaBase]);
-      const result = await service.listar();
+      const result = await service.listar({}, SEDE);
       expect(result.data).toHaveLength(1);
       expect(result.nextCursor).toBeNull();
       expect(mockPrisma.reserva.findMany).toHaveBeenCalledWith(expect.objectContaining({
@@ -78,7 +82,7 @@ describe('ReservasService — Reservas', () => {
 
     it('debe retornar array vacio si no hay reservas', async () => {
       mockPrisma.reserva.findMany.mockResolvedValue([] as any);
-      const result = await service.listar();
+      const result = await service.listar({}, SEDE);
       expect(result.data).toEqual([]);
     });
 
@@ -89,7 +93,7 @@ describe('ReservasService — Reservas', () => {
         { ...reservaBase, id: 'r-003' },
       ]);
 
-      const result = await service.listar({ limit: 2 });
+      const result = await service.listar({ limit: 2 }, SEDE);
 
       expect(result.data.map((reserva) => reserva.id)).toEqual(['r-001', 'r-002']);
       expect(result.nextCursor).toBe('r-002');
@@ -107,10 +111,11 @@ describe('ReservasService — Reservas', () => {
         fecha: '2026-06-15',
         updatedSince: '2026-01-01T00:00:00.000Z',
         limit: 500,
-      });
+      }, SEDE);
 
       expect(mockPrisma.reserva.findMany).toHaveBeenCalledWith(expect.objectContaining({
         where: {
+          sedeId: SEDE,
           estado: ReservaEstado.Confirmada,
           fecha: new Date('2026-06-15'),
           updatedAt: { gte: new Date('2026-01-01T00:00:00.000Z') },
@@ -119,6 +124,26 @@ describe('ReservasService — Reservas', () => {
         skip: 1,
         take: 101,
       }));
+    });
+
+    it('un usuario pineado ignora el sedeId del query', async () => {
+      mockPrisma.reserva.findMany.mockResolvedValue([] as any);
+      await service.listar({ sedeId: OTRA_SEDE }, SEDE);
+      expect(mockPrisma.reserva.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ where: expect.objectContaining({ sedeId: SEDE }) }),
+      );
+    });
+
+    it('el admin general sin sede seleccionada recibe BadRequestException', async () => {
+      await expect(service.listar({}, null)).rejects.toThrow('Indica la sede');
+    });
+
+    it('el admin general con sede en el query queda scopeado a esa sede', async () => {
+      mockPrisma.reserva.findMany.mockResolvedValue([] as any);
+      await service.listar({ sedeId: OTRA_SEDE }, null);
+      expect(mockPrisma.reserva.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ where: expect.objectContaining({ sedeId: OTRA_SEDE }) }),
+      );
     });
   });
 
@@ -135,7 +160,7 @@ describe('ReservasService — Reservas', () => {
         hora: '19:00',
         mesaPreferida: 'mesa-005',
         numComensales: 4,
-      });
+      }, null, SEDE);
 
       expect(result.message).toBe('Reserva creada');
       expect(mockPrisma.outboxEvent.create).toHaveBeenCalledWith({
@@ -165,11 +190,13 @@ describe('ReservasService — Reservas', () => {
           numComensales: 4,
         },
         { id: 'u-recepcion', nombre: 'Recepción Uno' },
+        SEDE,
       );
 
       expect(mockPrisma.reserva.create).toHaveBeenCalledWith(
         expect.objectContaining({
           data: expect.objectContaining({
+            sedeId: SEDE,
             usuarioId: 'u-recepcion',
             usuarioNombre: 'Recepción Uno',
           }),
@@ -189,7 +216,7 @@ describe('ReservasService — Reservas', () => {
         hora: '19:00',
         mesaPreferida: 'mesa-005',
         numComensales: 4,
-      });
+      }, null, SEDE);
 
       expect(mockPrisma.reserva.create).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -213,7 +240,7 @@ describe('ReservasService — Reservas', () => {
         hora: '19:00',
         mesaPreferida: 'mesa-005',
         numComensales: 4,
-      });
+      }, null, SEDE);
 
       expect(result.message).toBe('Reserva creada');
     });
@@ -228,7 +255,7 @@ describe('ReservasService — Reservas', () => {
         hora: '19:00',
         mesaPreferida: 'mesa-005',
         numComensales: 4,
-      })).rejects.toThrow('La mesa ya está reservada');
+      }, null, SEDE)).rejects.toThrow('La mesa ya está reservada');
     });
 
     it('debe lanzar BadRequestException si la fecha ya pasó', async () => {
@@ -240,7 +267,7 @@ describe('ReservasService — Reservas', () => {
         hora: '19:00',
         mesaPreferida: 'mesa-005',
         numComensales: 4,
-      })).rejects.toThrow('ya pasó');
+      }, null, SEDE)).rejects.toThrow('ya pasó');
     });
 
     it('debe lanzar BadRequestException si no se selecciona mesa', async () => {
@@ -252,7 +279,7 @@ describe('ReservasService — Reservas', () => {
         hora: '19:00',
         mesaPreferida: ' ',
         numComensales: 4,
-      })).rejects.toThrow('Selecciona una mesa');
+      }, null, SEDE)).rejects.toThrow('Selecciona una mesa');
     });
 
     it('debe traducir la carrera de unicidad a ConflictException', async () => {
@@ -267,7 +294,7 @@ describe('ReservasService — Reservas', () => {
         hora: '19:00',
         mesaPreferida: 'mesa-005',
         numComensales: 4,
-      })).rejects.toThrow('La mesa ya está reservada');
+      }, null, SEDE)).rejects.toThrow('La mesa ya está reservada');
     });
 
     it('re-lanza errores que no son de unicidad', async () => {
@@ -282,7 +309,19 @@ describe('ReservasService — Reservas', () => {
         hora: '19:00',
         mesaPreferida: 'mesa-005',
         numComensales: 4,
-      })).rejects.toThrow('db timeout');
+      }, null, SEDE)).rejects.toThrow('db timeout');
+    });
+
+    it('el admin general sin sede seleccionada recibe BadRequestException', async () => {
+      await expect(service.crear({
+        clienteId: 'c-001',
+        clienteNombre: 'Juan',
+        clienteTelefono: '999',
+        fecha: fechaFutura,
+        hora: '19:00',
+        mesaPreferida: 'mesa-005',
+        numComensales: 4,
+      }, null, null)).rejects.toThrow('Indica la sede');
     });
   });
 
@@ -290,7 +329,7 @@ describe('ReservasService — Reservas', () => {
     it('retorna disponibilidad para una mesa concreta', async () => {
       mockPrisma.reserva.findMany.mockResolvedValue([{ ...reservaBase, mesaPreferida: 'mesa-004' }]);
 
-      const result = await service.consultarDisponibilidad('2026-06-15', '19:00', 'mesa-005');
+      const result = await service.consultarDisponibilidad('2026-06-15', '19:00', 'mesa-005', SEDE);
 
       expect(result).toEqual({
         fecha: '2026-06-15',
@@ -305,10 +344,15 @@ describe('ReservasService — Reservas', () => {
     it('marca la mesa como no disponible cuando ya esta reservada', async () => {
       mockPrisma.reserva.findMany.mockResolvedValue([{ ...reservaBase, mesaPreferida: 'mesa-005' }]);
 
-      const result = await service.consultarDisponibilidad('2026-06-15', '19:00', 'mesa-005');
+      const result = await service.consultarDisponibilidad('2026-06-15', '19:00', 'mesa-005', SEDE);
 
       expect(result.disponible).toBe(false);
       expect(result.capacidadRestante).toBe(0);
+    });
+
+    it('el admin general sin sede seleccionada recibe BadRequestException', async () => {
+      await expect(service.consultarDisponibilidad('2026-06-15', '19:00', 'mesa-005', null))
+        .rejects.toThrow('Indica la sede');
     });
   });
 
@@ -317,13 +361,18 @@ describe('ReservasService — Reservas', () => {
       mockPrisma.reserva.findUnique.mockResolvedValue(reservaBase);
       mockPrisma.reserva.update.mockResolvedValue({ ...reservaBase, estado: ReservaEstado.Confirmada });
 
-      const result = await service.confirmar('r-001');
+      const result = await service.confirmar('r-001', SEDE);
       expect(result.reserva.estado).toBe(ReservaEstado.Confirmada);
     });
 
     it('debe lanzar ConflictException si ya esta confirmada', async () => {
       mockPrisma.reserva.findUnique.mockResolvedValue({ ...reservaBase, estado: ReservaEstado.Confirmada });
-      await expect(service.confirmar('r-001')).rejects.toThrow('Solo se pueden confirmar reservas pendientes');
+      await expect(service.confirmar('r-001', SEDE)).rejects.toThrow('Solo se pueden confirmar reservas pendientes');
+    });
+
+    it('un usuario pineado no puede confirmar una reserva de otra sede', async () => {
+      mockPrisma.reserva.findUnique.mockResolvedValue(reservaBase);
+      await expect(service.confirmar('r-001', OTRA_SEDE)).rejects.toThrow('no encontrada');
     });
   });
 
@@ -332,7 +381,7 @@ describe('ReservasService — Reservas', () => {
       mockPrisma.reserva.findUnique.mockResolvedValue(reservaBase);
       mockPrisma.reserva.update.mockResolvedValue({ ...reservaBase, estado: ReservaEstado.Cancelada });
 
-      const result = await service.cancelar('r-001', 'Cliente cancelo');
+      const result = await service.cancelar('r-001', 'Cliente cancelo', SEDE);
       expect(result.reserva.estado).toBe(ReservaEstado.Cancelada);
       expect(mockPrisma.outboxEvent.create).toHaveBeenCalledWith({
         data: expect.objectContaining({
@@ -345,7 +394,12 @@ describe('ReservasService — Reservas', () => {
 
     it('debe lanzar NotFoundException si no existe', async () => {
       mockPrisma.reserva.findUnique.mockResolvedValue(null);
-      await expect(service.cancelar('inexistente')).rejects.toThrow('no encontrada');
+      await expect(service.cancelar('inexistente', undefined, SEDE)).rejects.toThrow('no encontrada');
+    });
+
+    it('un usuario pineado no puede cancelar una reserva de otra sede', async () => {
+      mockPrisma.reserva.findUnique.mockResolvedValue(reservaBase);
+      await expect(service.cancelar('r-001', undefined, OTRA_SEDE)).rejects.toThrow('no encontrada');
     });
   });
 });

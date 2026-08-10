@@ -6,6 +6,7 @@ export function mapPedidoToDto(p: PedidoEntity): PedidoDto {
   return {
     id: p.id,
     mesaId: p.mesaId,
+    sedeId: p.sedeId,
     numeroMesa: p.numeroMesa ?? undefined,
     estado: p.estado as PedidoEstado,
     total: Number(p.total),

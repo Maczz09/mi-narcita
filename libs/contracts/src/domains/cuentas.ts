@@ -14,6 +14,8 @@ export class CuentaAbiertaPayload {
   cuentaId: string;
   @IsString()
   mesaId: string;
+  @IsString()
+  sedeId: string;
 }
 
 export class CuentaCerradaPayload {
@@ -21,6 +23,8 @@ export class CuentaCerradaPayload {
   cuentaId: string;
   @IsString()
   mesaId: string;
+  @IsString()
+  sedeId: string;
   @IsNumber()
   total: number;
   @IsOptional()
@@ -48,6 +52,8 @@ export class CuentaDto {
   id: string;
   @IsString()
   mesaId: string;
+  @IsString()
+  sedeId: string;
   @IsArray()
   pedidos: PedidoSnapshot[];
   @IsNumber()

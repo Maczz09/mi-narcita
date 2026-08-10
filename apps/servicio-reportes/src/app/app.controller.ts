@@ -4,7 +4,7 @@ import { Roles, RolesGuard } from '@org/shared-auth';
 import { AppService } from './app.service';
 import { CuentaCerradaPayload, RoutingKeys } from '@org/contracts';
 import { RabbitMQRetryInterceptor } from '@org/resiliencia';
-import { OperableLog } from '@org/observabilidad';
+import { OperableLog, UsuarioActual } from '@org/observabilidad';
 import { ReporteRangoQuery } from './reporte.dto';
 
 // RBAC por método: el controller también atiende eventos RMQ (@EventPattern),
@@ -25,30 +25,30 @@ export class AppController {
   @UseGuards(RolesGuard)
   @Roles('ADMIN', 'SISTEMA', 'GERENCIA')
   @Get('resumen')
-  async getResumen(@Query() query: ReporteRangoQuery) {
-    return this.appService.obtenerResumenDiario(query);
+  async getResumen(@Query() query: ReporteRangoQuery, @UsuarioActual('sedeId') usuarioSedeId: string | null) {
+    return this.appService.obtenerResumenDiario(query, usuarioSedeId);
   }
 
   // Reportes ricos (plan 6.3): por producto / turno / mesero, con rango opcional.
   @UseGuards(RolesGuard)
   @Roles('ADMIN', 'SISTEMA', 'GERENCIA')
   @Get('por-producto')
-  async porProducto(@Query() query: ReporteRangoQuery) {
-    return this.appService.obtenerPorProducto(query);
+  async porProducto(@Query() query: ReporteRangoQuery, @UsuarioActual('sedeId') usuarioSedeId: string | null) {
+    return this.appService.obtenerPorProducto(query, usuarioSedeId);
   }
 
   @UseGuards(RolesGuard)
   @Roles('ADMIN', 'SISTEMA', 'GERENCIA')
   @Get('por-turno')
-  async porTurno(@Query() query: ReporteRangoQuery) {
-    return this.appService.obtenerPorTurno(query);
+  async porTurno(@Query() query: ReporteRangoQuery, @UsuarioActual('sedeId') usuarioSedeId: string | null) {
+    return this.appService.obtenerPorTurno(query, usuarioSedeId);
   }
 
   @UseGuards(RolesGuard)
   @Roles('ADMIN', 'SISTEMA', 'GERENCIA')
   @Get('por-mesero')
-  async porMesero(@Query() query: ReporteRangoQuery) {
-    return this.appService.obtenerPorMesero(query);
+  async porMesero(@Query() query: ReporteRangoQuery, @UsuarioActual('sedeId') usuarioSedeId: string | null) {
+    return this.appService.obtenerPorMesero(query, usuarioSedeId);
   }
 
   @EventPattern(RoutingKeys.CuentaCerrada)

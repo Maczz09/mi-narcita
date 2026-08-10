@@ -19,6 +19,7 @@ import {
   PedidoEstado,
 } from '@org/contracts';
 import { Prisma } from '../generated/prisma';
+import { resolveSedeId, SEDE_PRINCIPAL_ID } from '@org/shared-auth';
 import { v4 as uuidv4 } from 'uuid';
 
 const ESTADOS_NO_COBRABLES = new Set<PedidoEstado>([
@@ -29,6 +30,7 @@ const ESTADOS_NO_COBRABLES = new Set<PedidoEstado>([
 type CuentaRecord = {
   id: string;
   mesaId: string;
+  sedeId: string;
   pedidos: unknown;
   total: Prisma.Decimal | number | string;
   estado: CuentaEstado;
@@ -61,6 +63,7 @@ export class AppService {
       cuentas: cuentas.map(c => ({
         id: c.id,
         mesaId: c.mesaId,
+        sedeId: c.sedeId,
         pedidos: this.parsePedidosSnapshot(c.pedidos),
         total: Number(c.total),
         estado: c.estado,
@@ -71,7 +74,13 @@ export class AppService {
     };
   }
 
-  async abrirCuenta(command: AbrirCuentaCommand, origen: 'manual' | 'fallback' = 'manual'): Promise<{ message: string; cuenta: CuentaDto }> {
+  async abrirCuenta(
+    command: AbrirCuentaCommand,
+    usuarioSedeId?: string | null,
+    sedeIdSolicitado?: string,
+    origen: 'manual' | 'fallback' = 'manual',
+  ): Promise<{ message: string; cuenta: CuentaDto }> {
+    const sedeId = resolveSedeId(usuarioSedeId, sedeIdSolicitado);
     const cuenta = await this.prisma.$transaction(async (prisma) => {
       await prisma.$executeRaw`SELECT pg_advisory_xact_lock(1234, ('x' || substr(md5(${command.mesaId}), 1, 8))::bit(32)::int)`;
       const cuentaExistente = await prisma.cuenta.findFirst({
@@ -86,6 +95,7 @@ export class AppService {
       const c = await prisma.cuenta.create({
         data: {
           mesaId: command.mesaId,
+          sedeId,
           estado: CuentaEstado.Abierta,
           pedidos: [],
           total: 0
@@ -98,6 +108,7 @@ export class AppService {
           payload: JSON.stringify({
             cuentaId: c.id,
             mesaId: c.mesaId,
+            sedeId: c.sedeId,
             origen,
           }),
           status: 'PENDING',
@@ -140,10 +151,33 @@ export class AppService {
 
       const origenCuentaAbierta = cuenta ? 'reconciliacion-pedido' : 'fallback';
 
-      // Fallback INLINE (misma tx): crea cuenta + reemite CuentaAbierta
-      cuenta ??= await prisma.cuenta.create({
-        data: { mesaId: pedidoDto.mesaId, estado: CuentaEstado.Abierta, pedidos: [], total: 0 },
-      });
+      if (cuenta && pedidoDto.sedeId && cuenta.sedeId !== pedidoDto.sedeId) {
+        this.logger.warn({
+          operation: 'procesarPedidoCreado',
+          aggregateId: cuenta.id,
+          errorCode: 'SEDE_INCONSISTENTE',
+          message: `La cuenta ${cuenta.id} (sede ${cuenta.sedeId}) recibió un pedido de la sede ${pedidoDto.sedeId}.`,
+        } satisfies OperableLog);
+      }
+
+      // Fallback INLINE (misma tx): crea cuenta + reemite CuentaAbierta.
+      // T-23 Fase 2: sedeId viene del pedido (evento) — sin contexto de
+      // usuario aquí. Un pedido de un productor pre-multi-sede (sin sedeId
+      // en el payload) cae a Sede Principal.
+      if (!cuenta) {
+        const sedeId = pedidoDto.sedeId ?? SEDE_PRINCIPAL_ID;
+        if (!pedidoDto.sedeId) {
+          this.logger.warn({
+            operation: 'procesarPedidoCreado',
+            aggregateId: pedidoDto.id,
+            errorCode: 'EVENTO_SIN_SEDE',
+            message: 'Evento PedidoCreado sin sedeId; se asigna Sede Principal.',
+          } satisfies OperableLog);
+        }
+        cuenta = await prisma.cuenta.create({
+          data: { mesaId: pedidoDto.mesaId, sedeId, estado: CuentaEstado.Abierta, pedidos: [], total: 0 },
+        });
+      }
 
       await prisma.outboxEvent.create({
         data: {
@@ -151,6 +185,7 @@ export class AppService {
           payload: JSON.stringify({
             cuentaId: cuenta.id,
             mesaId: cuenta.mesaId,
+            sedeId: cuenta.sedeId,
             origen: origenCuentaAbierta,
           }),
           status: 'PENDING',
@@ -380,6 +415,7 @@ export class AppService {
       const cuentaCerradaPayload: CuentaCerradaPayload = {
         cuentaId: id,
         mesaId: cuenta.mesaId,
+        sedeId: cuenta.sedeId,
         total: total.toNumber(),
         items: mappedItems,
         ...meseroCuenta,
@@ -476,6 +512,7 @@ export class AppService {
     return {
       id: c.id,
       mesaId: c.mesaId,
+      sedeId: c.sedeId,
       pedidos: this.parsePedidosSnapshot(c.pedidos),
       total: Number(c.total),
       estado: c.estado,

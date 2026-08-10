@@ -13,6 +13,7 @@ const CODIGOS_RED_TRANSITORIA = new Set([
 export interface CuentaRemota {
   id: string;
   mesaId: string;
+  sedeId: string;
   total: number;
   estado: string;
 }

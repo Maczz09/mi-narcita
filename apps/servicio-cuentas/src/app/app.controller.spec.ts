@@ -52,8 +52,8 @@ describe('AppController (Cuentas)', () => {
     const expectedResult = { message: 'Cuenta abierta exitosamente', cuenta: { id: 'c-1', mesaId: 'm-1', pedidos: [], total: 0, estado: 'ABIERTA', ticket: null, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() } };
     jest.spyOn(appService, 'abrirCuenta').mockResolvedValue(expectedResult as any);
 
-    const result = await appController.abrirCuenta(command);
-    expect(appService.abrirCuenta).toHaveBeenCalledWith(command);
+    const result = await appController.abrirCuenta(command, 'sede-001');
+    expect(appService.abrirCuenta).toHaveBeenCalledWith(command, 'sede-001', undefined);
     expect(result).toEqual(expectedResult);
   });
 

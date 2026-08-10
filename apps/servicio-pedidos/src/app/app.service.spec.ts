@@ -108,7 +108,7 @@ describe('AppService — Pedidos', () => {
 
   describe('validarMesa', () => {
     it('usa la proyección local cuando la mesa ya está sincronizada', async () => {
-      const mesaLocal = { id: 'mesa-1', numero: 1, updatedAt: new Date() };
+      const mesaLocal = { id: 'mesa-1', sedeId: 'sede-001', numero: 1, updatedAt: new Date() };
       mockPrisma.mesaLocal.findUnique.mockResolvedValue(mesaLocal);
       const getSpy = jest.spyOn(axios, 'get');
 
@@ -116,11 +116,22 @@ describe('AppService — Pedidos', () => {
       expect(getSpy).not.toHaveBeenCalled();
     });
 
+    it('re-sincroniza contra servicio-mesas cuando la proyección local no tiene sedeId (legado)', async () => {
+      const mesaLocalSinSede = { id: 'mesa-1', sedeId: null, numero: 1, updatedAt: new Date() };
+      const mesaLocalConSede = { id: 'mesa-1', sedeId: 'sede-001', numero: 1, updatedAt: new Date() };
+      mockPrisma.mesaLocal.findUnique.mockResolvedValue(mesaLocalSinSede);
+      mockPrisma.mesaLocal.upsert.mockResolvedValue(mesaLocalConSede);
+      jest.spyOn(axios, 'get').mockResolvedValue({ data: { id: 'mesa-1', numero: 1, sedeId: 'sede-001' } });
+
+      await expect((service as any).validarMesa('mesa-1')).resolves.toBe(mesaLocalConSede);
+      expect(axios.get).toHaveBeenCalled();
+    });
+
     it('sincroniza la mesa desde servicio-mesas cuando falta en pedidos', async () => {
-      const mesaLocal = { id: 'mesa-1', numero: 1, updatedAt: new Date() };
+      const mesaLocal = { id: 'mesa-1', sedeId: 'sede-001', numero: 1, updatedAt: new Date() };
       mockPrisma.mesaLocal.findUnique.mockResolvedValue(null);
       mockPrisma.mesaLocal.upsert.mockResolvedValue(mesaLocal);
-      jest.spyOn(axios, 'get').mockResolvedValue({ data: { id: 'mesa-1', numero: 1 } });
+      jest.spyOn(axios, 'get').mockResolvedValue({ data: { id: 'mesa-1', numero: 1, sedeId: 'sede-001' } });
 
       await expect((service as any).validarMesa('mesa-1')).resolves.toBe(mesaLocal);
       expect(axios.get).toHaveBeenCalledWith(
@@ -131,8 +142,8 @@ describe('AppService — Pedidos', () => {
       );
       expect(mockPrisma.mesaLocal.upsert).toHaveBeenCalledWith({
         where: { id: 'mesa-1' },
-        create: { id: 'mesa-1', numero: 1 },
-        update: { numero: 1 },
+        create: { id: 'mesa-1', sedeId: 'sede-001', numero: 1 },
+        update: { sedeId: 'sede-001', numero: 1 },
       });
     });
   });
@@ -200,13 +211,16 @@ describe('AppService — Pedidos', () => {
   // pedidos-saga.service.spec.ts, junto a la clase extraída.
 
   describe('listarPedidos', () => {
+    const SEDE = 'sede-001';
+
     it('debe listar solo pedidos activos por mesa', async () => {
       jest.spyOn(mockPrisma.pedido, 'findMany').mockResolvedValue([] as any);
 
-      await service.listarPedidos({ mesaId: 'mesa-1' });
+      await service.listarPedidos({ mesaId: 'mesa-1' }, SEDE);
 
       expect(mockPrisma.pedido.findMany).toHaveBeenCalledWith(expect.objectContaining({
         where: {
+          sedeId: SEDE,
           mesaId: 'mesa-1',
           estado: { notIn: [PedidoEstado.Pagado, PedidoEstado.Cancelado] },
         },
@@ -222,7 +236,7 @@ describe('AppService — Pedidos', () => {
         { ...basePedido, id: 'p-003' },
       ] as never);
 
-      const result = await service.listarPedidos({ limit: 2 });
+      const result = await service.listarPedidos({ limit: 2 }, SEDE);
 
       expect(result.data.map((pedido) => pedido.id)).toEqual(['p-001', 'p-002']);
       expect(result.nextCursor).toBe('p-002');
@@ -239,10 +253,11 @@ describe('AppService — Pedidos', () => {
         estado: PedidoEstado.Listo,
         updatedSince: '2026-01-01T00:00:00.000Z',
         limit: 500,
-      });
+      }, SEDE);
 
       expect(mockPrisma.pedido.findMany).toHaveBeenCalledWith(expect.objectContaining({
         where: {
+          sedeId: SEDE,
           estado: PedidoEstado.Listo,
           updatedAt: { gte: new Date('2026-01-01T00:00:00.000Z') },
         },
@@ -250,6 +265,10 @@ describe('AppService — Pedidos', () => {
         skip: 1,
         take: 101,
       }));
+    });
+
+    it('el admin general sin sede seleccionada recibe BadRequestException', async () => {
+      await expect(service.listarPedidos({}, null)).rejects.toThrow('Indica la sede');
     });
   });
 
@@ -569,11 +588,11 @@ describe('AppService — Pedidos', () => {
 
   describe('upsertMesaLocal', () => {
     it('upserts mesa correctly', async () => {
-      await service.upsertMesaLocal({ id: 'm1', numero: 5 });
+      await service.upsertMesaLocal({ id: 'm1', numero: 5, sedeId: 'sede-001' });
       expect(mockPrisma.mesaLocal.upsert).toHaveBeenCalledWith({
         where: { id: 'm1' },
-        update: { numero: 5 },
-        create: { id: 'm1', numero: 5 },
+        update: { numero: 5, sedeId: 'sede-001' },
+        create: { id: 'm1', numero: 5, sedeId: 'sede-001' },
       });
     });
   });

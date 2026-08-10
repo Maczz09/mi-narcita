@@ -93,17 +93,23 @@ describe('AppService — Caja (turnos, movimientos, arqueo, cierre)', () => {
     );
   });
 
+  const SEDE = 'sede-001';
+
   describe('obtenerTurnoActivo', () => {
     it('devuelve null cuando no hay turno abierto', async () => {
       prisma.turnoCaja.findFirst.mockResolvedValue(null);
-      expect(await service.obtenerTurnoActivo()).toBeNull();
+      expect(await service.obtenerTurnoActivo(SEDE)).toBeNull();
     });
 
     it('mapea el turno abierto cuando existe', async () => {
       prisma.turnoCaja.findFirst.mockResolvedValue({ ...baseTurno });
-      const turno = await service.obtenerTurnoActivo();
+      const turno = await service.obtenerTurnoActivo(SEDE);
       expect(turno?.id).toBe('turno-001');
       expect(turno?.estado).toBe('ABIERTA');
+    });
+
+    it('el admin general sin sede seleccionada recibe BadRequestException', async () => {
+      await expect(service.obtenerTurnoActivo(null)).rejects.toThrow('Indica la sede');
     });
   });
 
@@ -111,10 +117,10 @@ describe('AppService — Caja (turnos, movimientos, arqueo, cierre)', () => {
     it('lista turnos sin filtro (todos los estados)', async () => {
       prisma.turnoCaja.findMany.mockResolvedValue([{ ...baseTurno, estado: 'CERRADA' }]);
 
-      const result = await service.listarTurnos();
+      const result = await service.listarTurnos({}, SEDE);
 
       expect(prisma.turnoCaja.findMany).toHaveBeenCalledWith(
-        expect.objectContaining({ where: {}, orderBy: [{ abiertoAt: 'desc' }, { id: 'desc' }] }),
+        expect.objectContaining({ where: { sedeId: SEDE }, orderBy: [{ abiertoAt: 'desc' }, { id: 'desc' }] }),
       );
       expect(result.data).toHaveLength(1);
       expect(result.data[0].estado).toBe('CERRADA');
@@ -123,18 +129,18 @@ describe('AppService — Caja (turnos, movimientos, arqueo, cierre)', () => {
 
     it('filtra por estado', async () => {
       prisma.turnoCaja.findMany.mockResolvedValue([]);
-      await service.listarTurnos({ estado: 'CERRADA' });
+      await service.listarTurnos({ estado: 'CERRADA' }, SEDE);
       expect(prisma.turnoCaja.findMany).toHaveBeenCalledWith(
-        expect.objectContaining({ where: { estado: 'CERRADA' } }),
+        expect.objectContaining({ where: { sedeId: SEDE, estado: 'CERRADA' } }),
       );
     });
 
     it('filtra por rango de cerradoAt (desde/hasta)', async () => {
       prisma.turnoCaja.findMany.mockResolvedValue([]);
-      await service.listarTurnos({ desde: '2026-06-01', hasta: '2026-06-30' });
+      await service.listarTurnos({ desde: '2026-06-01', hasta: '2026-06-30' }, SEDE);
       expect(prisma.turnoCaja.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
-          where: { cerradoAt: { gte: new Date('2026-06-01'), lte: new Date('2026-06-30') } },
+          where: { sedeId: SEDE, cerradoAt: { gte: new Date('2026-06-01'), lte: new Date('2026-06-30') } },
         }),
       );
     });
@@ -143,7 +149,7 @@ describe('AppService — Caja (turnos, movimientos, arqueo, cierre)', () => {
       const turnos = Array.from({ length: 3 }, (_, i) => ({ ...baseTurno, id: `t-${i}` }));
       prisma.turnoCaja.findMany.mockResolvedValue(turnos);
 
-      const result = await service.listarTurnos({ limit: 2, cursor: 't-0' });
+      const result = await service.listarTurnos({ limit: 2, cursor: 't-0' }, SEDE);
 
       expect(prisma.turnoCaja.findMany).toHaveBeenCalledWith(
         expect.objectContaining({ take: 3, cursor: { id: 't-0' }, skip: 1 }),
@@ -156,7 +162,7 @@ describe('AppService — Caja (turnos, movimientos, arqueo, cierre)', () => {
   describe('obtenerResumenTurnoActivo', () => {
     it('devuelve un resumen vacío si no hay turno', async () => {
       prisma.turnoCaja.findFirst.mockResolvedValue(null);
-      const resumen = await service.obtenerResumenTurnoActivo();
+      const resumen = await service.obtenerResumenTurnoActivo(SEDE);
       expect(resumen.turno).toBeNull();
       expect(resumen.totalVentas).toBe(0);
       expect(resumen.porMetodo).toMatchObject({ EFECTIVO: 0, TARJETA: 0 });
@@ -170,7 +176,7 @@ describe('AppService — Caja (turnos, movimientos, arqueo, cierre)', () => {
         arqueos: [],
         cierre: null,
       });
-      const resumen = await service.obtenerResumenTurnoActivo();
+      const resumen = await service.obtenerResumenTurnoActivo(SEDE);
       expect(resumen.turno?.id).toBe('turno-001');
       expect(resumen.totalVentas).toBe(50);
     });
@@ -307,6 +313,9 @@ describe('AppService — Caja (turnos, movimientos, arqueo, cierre)', () => {
 
   describe('registrarPago — caminos de error', () => {
     it('rechaza si no hay turno de caja abierto', async () => {
+      // T-23 Fase 2: registrarPago ahora consulta la cuenta remota ANTES de
+      // buscar el turno (necesita su sedeId para saber en qué sede buscar).
+      jest.mocked(axios.get).mockResolvedValue({ data: { id: 'c-001', mesaId: 'm-001', sedeId: SEDE, total: 50, estado: 'ABIERTA' } });
       prisma.turnoCaja.findFirst.mockResolvedValue(null);
       await expect(
         service.registrarPago({ cuentaId: 'c-001', montoRecibido: 50, metodo: 'EFECTIVO' } as any),
@@ -360,6 +369,14 @@ describe('AppService — Caja (turnos, movimientos, arqueo, cierre)', () => {
       await expect(
         service.registrarPago({ cuentaId: 'c-001', montoRecibido: 50, metodo: 'EFECTIVO' } as any),
       ).rejects.toThrow('ya está cerrada');
+    });
+
+    it('rechaza cobrar una cuenta de otra sede (cajero pineado)', async () => {
+      jest.mocked(axios.get).mockResolvedValue({ data: { id: 'c-001', mesaId: 'm-001', sedeId: 'sede-002', total: 50, estado: 'ABIERTA' } });
+
+      await expect(
+        service.registrarPago({ cuentaId: 'c-001', montoRecibido: 50, metodo: 'EFECTIVO' } as any, undefined, undefined, SEDE),
+      ).rejects.toThrow('otra sede');
     });
   });
 });

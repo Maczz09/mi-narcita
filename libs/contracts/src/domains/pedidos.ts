@@ -82,6 +82,8 @@ export class PedidoDto {
   id: string;
   @IsString()
   mesaId: string;
+  @IsString()
+  sedeId: string;
   @IsOptional()
   @IsNumber()
   numeroMesa?: number;
@@ -156,6 +158,9 @@ export class ListarPedidosQuery {
   @IsOptional()
   @IsString()
   mesaId?: string;
+  @IsOptional()
+  @IsString()
+  sedeId?: string;
   @IsOptional()
   @IsInt()
   @Min(1)

@@ -4,6 +4,7 @@ import { Reserva } from '../generated/prisma';
 export function toReservaDto(reserva: Reserva): ReservaDto {
   return {
     id: reserva.id,
+    sedeId: reserva.sedeId,
     clienteId: reserva.clienteId ?? '',
     clienteNombre: reserva.clienteNombre,
     clienteTelefono: reserva.clienteTelefono ?? '',

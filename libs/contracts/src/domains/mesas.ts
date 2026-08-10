@@ -1,4 +1,5 @@
-import { IsString, IsNumber, IsOptional, IsEnum, IsArray, ArrayMinSize } from 'class-validator';
+import { IsString, IsNumber, IsOptional, IsEnum, IsArray, ArrayMinSize, ValidateNested } from 'class-validator';
+import { Type } from 'class-transformer';
 
 export const MesaEstado = {
   Libre: 'LIBRE',
@@ -11,6 +12,8 @@ export type MesaEstado = (typeof MesaEstado)[keyof typeof MesaEstado];
 export class MesaDto {
   @IsString()
   id: string;
+  @IsString()
+  sedeId: string;
   @IsNumber()
   numero: number;
   @IsNumber()
@@ -59,10 +62,14 @@ export class MesaLiberadaPayload {
 }
 
 export class MesaCreadaPayload {
+  @ValidateNested()
+  @Type(() => MesaDto)
   mesa: MesaDto;
 }
 
 export class MesaActualizadaPayload {
+  @ValidateNested()
+  @Type(() => MesaDto)
   mesa: MesaDto;
 }
 

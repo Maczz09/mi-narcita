@@ -13,6 +13,7 @@ import axios from 'axios';
 export interface MesaRemota {
   id: string;
   numero: number;
+  sedeId: string;
 }
 
 /**

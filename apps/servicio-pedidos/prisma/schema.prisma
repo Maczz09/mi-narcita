@@ -21,6 +21,7 @@ enum PedidoEstado {
 model Pedido {
   id             String       @id @default(uuid())
   mesaId         String
+  sedeId         String
   numeroMesa     Int?
   estado         PedidoEstado @default(PENDIENTE)
   total          Decimal      @default(0) @db.Decimal(10, 2)
@@ -39,6 +40,7 @@ model Pedido {
   @@index([mesaId])
   @@index([estado])
   @@index([meseroId])
+  @@index([sedeId])
   @@map("pedidos")
 }
 
@@ -64,6 +66,7 @@ model PedidoItem {
 
 model MesaLocal {
   id        String   @id
+  sedeId    String?
   numero    Int
   updatedAt DateTime @updatedAt
 

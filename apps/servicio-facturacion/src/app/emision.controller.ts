@@ -1,5 +1,6 @@
 import { Body, Controller, Param, Post, UseGuards } from '@nestjs/common';
 import { Roles, RolesGuard } from '@org/shared-auth';
+import { UsuarioActual } from '@org/observabilidad';
 import { EmisionService } from './emision.service';
 import { EmitirComprobanteDto } from './dto/emitir-comprobante.dto';
 
@@ -12,7 +13,11 @@ export class EmisionController {
   constructor(private readonly emisionService: EmisionService) {}
 
   @Post(':cuentaId/emitir')
-  emitir(@Param('cuentaId') cuentaId: string, @Body() dto: EmitirComprobanteDto) {
-    return this.emisionService.emitir(cuentaId, dto);
+  emitir(
+    @Param('cuentaId') cuentaId: string,
+    @Body() dto: EmitirComprobanteDto,
+    @UsuarioActual('sedeId') usuarioSedeId: string | null,
+  ) {
+    return this.emisionService.emitir(cuentaId, dto, usuarioSedeId);
   }
 }

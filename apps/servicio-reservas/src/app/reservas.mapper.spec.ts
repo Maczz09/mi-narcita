@@ -6,6 +6,7 @@ describe('toReservaDto', () => {
   it('should map Reserva to ReservaDto', () => {
     const reserva: Reserva = {
       id: 'r-001',
+      sedeId: 'sede-001',
       clienteId: 'c-001',
       clienteNombre: 'Juan',
       clienteTelefono: '999',
@@ -22,6 +23,7 @@ describe('toReservaDto', () => {
 
     expect(dto).toEqual({
       id: 'r-001',
+      sedeId: 'sede-001',
       clienteId: 'c-001',
       clienteNombre: 'Juan',
       clienteTelefono: '999',
@@ -37,6 +39,7 @@ describe('toReservaDto', () => {
   it('should map Reserva to ReservaDto with missing nullable fields', () => {
     const reserva: Reserva = {
       id: 'r-002',
+      sedeId: 'sede-001',
       clienteId: null,
       clienteNombre: 'Maria',
       clienteTelefono: null,

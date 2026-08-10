@@ -12,17 +12,19 @@ export class AppController {
   constructor(private readonly reservas: ReservasService) {}
 
   @Get()
-  listar(@Query() query: ListarReservasQuery) {
-    return this.reservas.listar(query);
+  listar(@Query() query: ListarReservasQuery, @UsuarioActual('sedeId') usuarioSedeId: string | null) {
+    return this.reservas.listar(query, usuarioSedeId);
   }
 
   @Get('disponibilidad')
   disponibilidad(
     @Query('fecha') fecha: string,
     @Query('hora') hora: string,
-    @Query('mesaPreferida') mesaPreferida?: string,
+    @Query('mesaPreferida') mesaPreferida: string | undefined,
+    @UsuarioActual('sedeId') usuarioSedeId: string | null,
+    @Query('sedeId') sedeId?: string,
   ) {
-    return this.reservas.consultarDisponibilidad(fecha, hora, mesaPreferida);
+    return this.reservas.consultarDisponibilidad(fecha, hora, mesaPreferida, usuarioSedeId, sedeId);
   }
 
   @Post()
@@ -31,20 +33,28 @@ export class AppController {
     @UsuarioActual() usuarioId: string | null,
     @UsuarioActual('nombre') usuarioNombre: string | null,
     @UsuarioActual('email') usuarioEmail: string | null,
+    @UsuarioActual('sedeId') usuarioSedeId: string | null,
+    @Query('sedeId') sedeId?: string,
   ) {
     return this.reservas.crear(
       body,
       usuarioId ? { id: usuarioId, nombre: usuarioNombre ?? usuarioEmail ?? usuarioId } : null,
+      usuarioSedeId,
+      sedeId,
     );
   }
 
   @Patch(':id/confirmar')
-  confirmar(@Param('id') id: string) {
-    return this.reservas.confirmar(id);
+  confirmar(@Param('id') id: string, @UsuarioActual('sedeId') usuarioSedeId: string | null) {
+    return this.reservas.confirmar(id, usuarioSedeId);
   }
 
   @Delete(':id')
-  cancelar(@Param('id') id: string, @Query('motivo') motivo?: string) {
-    return this.reservas.cancelar(id, motivo);
+  cancelar(
+    @Param('id') id: string,
+    @Query('motivo') motivo: string | undefined,
+    @UsuarioActual('sedeId') usuarioSedeId: string | null,
+  ) {
+    return this.reservas.cancelar(id, motivo, usuarioSedeId);
   }
 }

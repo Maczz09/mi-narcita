@@ -8,7 +8,7 @@ export const REPORTES_QUERY_KEY = ['reportes', 'resumen'];
 
 export function useReportesQuery(filtro: ResumenQuery = {}) {
   const resumenQuery = useQuery({
-    queryKey: [...REPORTES_QUERY_KEY, filtro.desde, filtro.hasta],
+    queryKey: [...REPORTES_QUERY_KEY, filtro.desde, filtro.hasta, filtro.sedeId],
     queryFn: async () => {
       const dto = await reportesApi.getResumen(filtro);
       return mapResumen(dto);

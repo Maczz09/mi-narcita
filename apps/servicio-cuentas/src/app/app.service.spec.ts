@@ -143,7 +143,7 @@ describe('AppService — Cuentas (comprehensive)', () => {
       });
       mockPrisma.outboxEvent.create.mockResolvedValue({});
 
-      const result = await service.abrirCuenta({ mesaId: 'm-001' });
+      const result = await service.abrirCuenta({ mesaId: 'm-001' }, 'sede-001');
 
       expect(result.cuenta.id).toBe('c-001');
       expect(result.cuenta.estado).toBe(CuentaEstado.Abierta);
@@ -154,8 +154,14 @@ describe('AppService — Cuentas (comprehensive)', () => {
       mockPrisma.cuenta.findFirst.mockResolvedValue({ id: 'c-existing', estado: CuentaEstado.Abierta });
 
       await expect(
-        service.abrirCuenta({ mesaId: 'm-001' }, 'manual'),
+        service.abrirCuenta({ mesaId: 'm-001' }, 'sede-001', undefined, 'manual'),
       ).rejects.toThrow(BadRequestException);
+    });
+
+    it('el admin general sin sede seleccionada recibe BadRequestException', async () => {
+      await expect(
+        service.abrirCuenta({ mesaId: 'm-001' }, null),
+      ).rejects.toThrow('Indica la sede');
     });
 
     it('no rechaza en fallback si la mesa ya tiene una cuenta abierta', async () => {
@@ -169,7 +175,7 @@ describe('AppService — Cuentas (comprehensive)', () => {
         updatedAt: new Date(),
       });
 
-      const result = await service.abrirCuenta({ mesaId: 'm-001' }, 'fallback');
+      const result = await service.abrirCuenta({ mesaId: 'm-001' }, 'sede-001', undefined, 'fallback');
       expect(result.message).toBe('Cuenta abierta exitosamente');
       expect(result.cuenta.id).toBe('c-existing');
     });

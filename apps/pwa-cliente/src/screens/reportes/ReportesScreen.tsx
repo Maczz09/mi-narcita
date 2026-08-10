@@ -3,15 +3,28 @@
 
 import { useState } from 'react';
 import { useReportesQuery } from '../../hooks/queries/useReportesQuery';
+import { useSedesQuery } from '../../hooks/queries/useSedesQuery';
+import { useAuthStore } from '../../store/auth.store';
 
 export function ReportesScreen() {
   const [desde, setDesde] = useState('');
   const [hasta, setHasta] = useState('');
+  const [sedeId, setSedeId] = useState(''); // '' = todas las sedes (combinado)
   const [exportando, setExportando] = useState(false);
   const [exportError, setExportError] = useState<string | null>(null);
+
+  // T-23 Fase 2: el filtro de sede es propio de Reportes (independiente del
+  // switcher del navbar) — solo el admin general (sedeId nulo) lo ve; un
+  // usuario pineado ya queda scopeado a su sede en el backend sin necesidad
+  // de elegir nada.
+  const user = useAuthStore((s) => s.user);
+  const esAdminGeneral = user != null && user.sedeId == null;
+  const { sedes } = useSedesQuery({ enabled: esAdminGeneral });
+
   const { resumen, loading, error, fetch } = useReportesQuery({
     desde: desde || undefined,
     hasta: hasta || undefined,
+    sedeId: sedeId || undefined,
   });
 
   const handleExportar = async () => {
@@ -32,7 +45,7 @@ export function ReportesScreen() {
     }
   };
 
-  const limpiarFiltro = () => { setDesde(''); setHasta(''); };
+  const limpiarFiltro = () => { setDesde(''); setHasta(''); setSedeId(''); };
 
   return (
     <div>
@@ -60,7 +73,18 @@ export function ReportesScreen() {
           <label htmlFor="rep-hasta">Hasta</label>
           <div className="input"><input id="rep-hasta" type="date" value={hasta} onChange={(e) => setHasta(e.target.value)} /></div>
         </div>
-        {(desde || hasta) && (
+        {esAdminGeneral && (
+          <div className="field" style={{ marginBottom: 0 }}>
+            <label htmlFor="rep-sede">Sede</label>
+            <div className="input">
+              <select id="rep-sede" value={sedeId} onChange={(e) => setSedeId(e.target.value)}>
+                <option value="">Todas las sedes</option>
+                {sedes.map((s) => <option key={s.id} value={s.id}>{s.nombre}</option>)}
+              </select>
+            </div>
+          </div>
+        )}
+        {(desde || hasta || sedeId) && (
           <button className="btn btn-ghost btn-sm" onClick={limpiarFiltro}>Limpiar filtro</button>
         )}
       </div>
