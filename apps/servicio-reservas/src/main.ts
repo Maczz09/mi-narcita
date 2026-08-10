@@ -1,4 +1,4 @@
-import { initTracing } from '@org/observabilidad';
+import { initTracing, apiTitle } from '@org/observabilidad';
 initTracing('servicio-reservas');
 
 import { config } from 'dotenv';
@@ -9,5 +9,5 @@ import { AppModule } from './app/app.module';
 
 void bootstrapNachoppsService({
   serviceName: 'servicio-reservas', module: AppModule, defaultPort: 3006,
-  swagger: { title: 'Nachopps Restobar — API Reservas', description: 'Agenda, confirmación y disponibilidad de reservas' },
+  swagger: { title: apiTitle('Reservas'), description: 'Agenda, confirmación y disponibilidad de reservas' },
 });

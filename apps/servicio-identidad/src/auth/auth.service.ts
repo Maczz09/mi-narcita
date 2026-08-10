@@ -535,6 +535,18 @@ export class AuthService {
     return { sedes: sedes.map((s) => this.toSedeDto(s)) };
   }
 
+  // Sede a mostrar en el Sidebar (nombre + dirección bajo el nombre de marca).
+  // A diferencia del resto de endpoints de sede (solo ADMIN), este lo puede
+  // llamar cualquier usuario autenticado — todos necesitan ver su propia
+  // sede, no solo el admin general. LENIENT a propósito (nunca lanza si no
+  // hay sede resuelta): es un dato cosmético, no un recurso protegido.
+  async sedeActual(usuarioSedeId?: string | null, sedeIdSolicitado?: string): Promise<{ sede: SedeDto | null }> {
+    const sedeId = usuarioSedeId ?? sedeIdSolicitado ?? null;
+    if (!sedeId) return { sede: null };
+    const sede = await this.prisma.sede.findUnique({ where: { id: sedeId } });
+    return { sede: sede ? this.toSedeDto(sede) : null };
+  }
+
   async crearSede(command: CrearSedeCommand): Promise<{ message: string; sede: SedeDto }> {
     const existe = await this.prisma.sede.findUnique({ where: { nombre: command.nombre } });
     if (existe) throw new ConflictException(`Ya existe una sede llamada "${command.nombre}".`);

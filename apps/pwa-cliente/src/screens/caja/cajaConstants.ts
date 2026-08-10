@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-misused-promises, @typescript-eslint/no-floating-promises */
 export const RESTO_FISCAL = {
-  nombre: 'NachoPps',
+  nombre: 'RestoApp.pe',
   zona: 'Barranco · Lima',
   ruc: '20554879631',
   dir: 'Av. Saenz Pena 234, Barranco',

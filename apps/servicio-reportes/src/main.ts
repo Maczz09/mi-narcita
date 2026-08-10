@@ -1,4 +1,4 @@
-import { initTracing } from '@org/observabilidad';
+import { initTracing, apiTitle } from '@org/observabilidad';
 initTracing('servicio-reportes');
 
 import { config } from 'dotenv';
@@ -9,5 +9,5 @@ import { AppModule } from './app/app.module';
 
 void bootstrapNachoppsService({
   serviceName: 'servicio-reportes', module: AppModule, queue: 'reportes_queue', defaultPort: 3004,
-  swagger: { title: 'Nachopps Restobar — API Reportes', description: 'Snapshots, ventas diarias y dashboard' },
+  swagger: { title: apiTitle('Reportes'), description: 'Snapshots, ventas diarias y dashboard' },
 });

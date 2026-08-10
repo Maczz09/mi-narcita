@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-misused-promises, @typescript-eslint/no-floating-promises, prefer-const, @typescript-eslint/no-unused-vars, @typescript-eslint/restrict-template-expressions, @typescript-eslint/ban-ts-comment */
-// main.tsx — Bootstrap de la aplicación NachoPps
+// main.tsx — Bootstrap de la aplicación RestoApp.pe
 // 1. Restaurar tema guardado
 // 2. Intentar restaurar sesión (GET /me)
 // 3. Montar React
@@ -20,7 +20,7 @@ import './styles.css';
 // Tema: preferencia guardada, o la del sistema operativo en el primer arranque.
 // Un valor desconocido/legacy en localStorage (versión anterior, storage
 // corrupto) cae al criterio del sistema en vez de dejar la página sin tema.
-const savedTheme = localStorage.getItem('nachopps-theme');
+const savedTheme = localStorage.getItem('restoapp-theme');
 const systemPrefersDark = globalThis.matchMedia?.('(prefers-color-scheme: dark)').matches;
 let initialTheme: Theme;
 if (isTheme(savedTheme)) {
@@ -32,9 +32,9 @@ document.documentElement.dataset['theme'] = initialTheme;
 applyThemeColor(initialTheme);
 
 const VIEW_PREFS: { key: string; attr: string; allowed: string[] }[] = [
-  { key: 'nachopps-density', attr: 'data-density', allowed: ['comfy', 'compact'] },
-  { key: 'nachopps-fontscale', attr: 'data-fontscale', allowed: ['md', 'lg', 'xl'] },
-  { key: 'nachopps-contrast', attr: 'data-contrast', allowed: ['normal', 'high'] },
+  { key: 'restoapp-density', attr: 'data-density', allowed: ['comfy', 'compact'] },
+  { key: 'restoapp-fontscale', attr: 'data-fontscale', allowed: ['md', 'lg', 'xl'] },
+  { key: 'restoapp-contrast', attr: 'data-contrast', allowed: ['normal', 'high'] },
 ];
 for (const pref of VIEW_PREFS) {
   const value = localStorage.getItem(pref.key);

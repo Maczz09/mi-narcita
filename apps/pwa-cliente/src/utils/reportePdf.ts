@@ -3,12 +3,13 @@
 // el bundle principal: solo se descargan cuando el usuario pulsa "Exportar".
 
 import type { ResumenVM } from '../types/reporte.types';
+import { APP_NAME } from '../config';
 
 function formatMoney(value: number): string {
   return new Intl.NumberFormat('es-PE', { style: 'currency', currency: 'PEN' }).format(value);
 }
 
-export async function exportarResumenPdf(resumen: ResumenVM, nombreLocal = 'NachoPps'): Promise<void> {
+export async function exportarResumenPdf(resumen: ResumenVM, nombreLocal = APP_NAME): Promise<void> {
   const [{ default: JsPDF }, { default: autoTable }] = await Promise.all([
     import('jspdf'),
     import('jspdf-autotable'),

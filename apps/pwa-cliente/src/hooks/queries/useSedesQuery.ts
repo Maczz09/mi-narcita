@@ -5,6 +5,26 @@ import { primerMensaje } from '../../utils/feedback';
 import type { SedeDto, CrearSedePayload, ActualizarSedePayload } from '../../types/sede.types';
 
 export const SEDES_QUERY_KEY = ['sedes'];
+export const SEDE_ACTUAL_QUERY_KEY = ['sede-actual'];
+
+// Sede a mostrar bajo el nombre de marca (Sidebar): funciona para admin
+// general (sedeId inyectado por el allowlist de client.ts según la sede
+// elegida) y para usuario pineado (el backend resuelve la suya del JWT).
+// Se invalida junto con todo lo demás cuando SedeSwitcher cambia de sede
+// (invalidateQueries() sin filtro en elegir()).
+export function useSedeActualQuery() {
+  const query = useQuery({
+    queryKey: SEDE_ACTUAL_QUERY_KEY,
+    queryFn: () => sedesApi.obtenerActual(),
+    retry: retrySalvo404,
+    refetchInterval: refetchSiError,
+  });
+
+  return {
+    sede: query.data ?? null,
+    loading: query.isLoading,
+  };
+}
 
 export function useSedesQuery(options: { enabled?: boolean } = {}) {
   const sedesQuery = useQuery({

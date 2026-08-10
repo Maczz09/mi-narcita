@@ -7,7 +7,7 @@ const BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8000';
 // versión siguen activas como fallback durante la transición.
 const API_VERSION_PREFIX = '/v1';
 const LEGACY_AUTH_TOKEN_KEY = ['nachopps', 'access_token'].join('.');
-const CSRF_COOKIE_KEY = 'nachopps.csrf_token';
+const CSRF_COOKIE_KEY = 'restoapp.csrf_token';
 const CSRF_HEADER_KEY = 'X-CSRF-Token';
 const MUTATING_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
 
@@ -36,7 +36,7 @@ export function clearAuthToken() {
 // modos). Solo el admin general (sedeId nulo en su token) debe indicar en
 // cuál sede quiere operar — esa elección vive acá, no en cada api/*.ts, para
 // no tener que enhebrar `sedeId` por todos los hooks/pantallas scopeados.
-const SEDE_SELECCIONADA_KEY = 'nachopps.sede_seleccionada';
+const SEDE_SELECCIONADA_KEY = 'restoapp.sede_seleccionada';
 const SEDE_SCOPED_PATH_PREFIXES = [
   '/mesas',
   '/inventario/categorias',
@@ -49,6 +49,7 @@ const SEDE_SCOPED_PATH_PREFIXES = [
   '/caja',
   '/reservas',
   '/compras',
+  '/identidad/sedes/actual',
 ];
 
 let usuarioSedeId: string | null = null;

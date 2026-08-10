@@ -23,8 +23,13 @@ vi.mock('../../auth/permisos', () => ({
 vi.mock('../../config', () => ({
   APP_CONFIG: {
     nombreLocal: 'TestLocal',
-    ubicacionLocal: 'Test · Ciudad',
+    ubicacionFallback: 'Elige una sede',
   },
+}));
+
+const mockUseSedeActualQuery = vi.fn();
+vi.mock('../../hooks/queries/useSedesQuery', () => ({
+  useSedeActualQuery: () => mockUseSedeActualQuery(),
 }));
 
 vi.mock('../ui/icons', () => {
@@ -42,6 +47,7 @@ vi.mock('../ui/icons', () => {
 describe('Sidebar', () => {
   beforeEach(() => {
     mockNavigate.mockReset();
+    mockUseSedeActualQuery.mockReturnValue({ sede: null, loading: false });
   });
 
   it('renderiza la navegación lateral con aria-label', () => {
@@ -54,9 +60,27 @@ describe('Sidebar', () => {
     expect(screen.getByText('TestLocal')).toBeInTheDocument();
   });
 
-  it('muestra la ubicación del local', () => {
+  it('sin sede resuelta, muestra el subtítulo de fallback', () => {
     render(<Sidebar />);
-    expect(screen.getByText('Test · Ciudad')).toBeInTheDocument();
+    expect(screen.getByText('Elige una sede')).toBeInTheDocument();
+  });
+
+  it('con sede resuelta, muestra su dirección bajo el nombre', () => {
+    mockUseSedeActualQuery.mockReturnValue({
+      sede: { id: 's1', nombre: 'Salitral 1', direccion: 'Av. Salitral 123', activa: true },
+      loading: false,
+    });
+    render(<Sidebar />);
+    expect(screen.getByText('Av. Salitral 123')).toBeInTheDocument();
+  });
+
+  it('con sede resuelta pero sin dirección, muestra el nombre de la sede', () => {
+    mockUseSedeActualQuery.mockReturnValue({
+      sede: { id: 's1', nombre: 'Salitral 1', direccion: null, activa: true },
+      loading: false,
+    });
+    render(<Sidebar />);
+    expect(screen.getByText('Salitral 1')).toBeInTheDocument();
   });
 
   it('renderiza items de navegación', () => {
@@ -114,6 +138,7 @@ describe('Sidebar', () => {
 describe('Sidebar con rol restringido (CAJERO)', () => {
   beforeEach(() => {
     mockNavigate.mockReset();
+    mockUseSedeActualQuery.mockReturnValue({ sede: null, loading: false });
   });
 
   it('solo muestra items permitidos para CAJERO', () => {

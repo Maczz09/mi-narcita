@@ -1,4 +1,4 @@
-import { initTracing } from '@org/observabilidad';
+import { initTracing, apiTitle } from '@org/observabilidad';
 initTracing('servicio-mesas');
 
 import { config } from 'dotenv';
@@ -9,5 +9,5 @@ import { AppModule } from './app/app.module';
 
 void bootstrapNachoppsService({
   serviceName: 'servicio-mesas', module: AppModule, queue: 'mesas_queue', defaultPort: 3002,
-  swagger: { title: 'Nachopps Restobar — API Mesas', description: 'Mapa de mesas, estados y liberación automática' },
+  swagger: { title: apiTitle('Mesas'), description: 'Mapa de mesas, estados y liberación automática' },
 });

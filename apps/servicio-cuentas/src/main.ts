@@ -1,4 +1,4 @@
-import { initTracing } from '@org/observabilidad';
+import { initTracing, apiTitle } from '@org/observabilidad';
 initTracing('servicio-cuentas');
 
 import { config } from 'dotenv';
@@ -9,5 +9,5 @@ import { AppModule } from './app/app.module';
 
 void bootstrapNachoppsService({
   serviceName: 'servicio-cuentas', module: AppModule, queue: 'cuentas_queue', defaultPort: 3005,
-  swagger: { title: 'Nachopps Restobar — API Cuentas', description: 'Gestión de cuentas por mesa, división y cierre' },
+  swagger: { title: apiTitle('Cuentas'), description: 'Gestión de cuentas por mesa, división y cierre' },
 });

@@ -1,5 +1,5 @@
 /* ============================================================
-   NachoPps — Operación · estilos base
+   RestoApp.pe — Operación · estilos base
    Dirección A "Pizarra" (claro) + contraparte oscura "Brasa"
    ============================================================ */
 
@@ -853,7 +853,7 @@ fieldset { border: 0; padding: 0; margin: 0; min-width: 0; }
 }
 
 /* ============================================================
-   NachoPps — Extensiones de propuesta
+   RestoApp.pe — Extensiones de propuesta
    Caja (Arqueo / Cierre Z · SUNAT) + KDS mejorado
    Usa exclusivamente los tokens de styles.css
    ============================================================ */

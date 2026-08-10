@@ -1,4 +1,4 @@
-import { initTracing } from '@org/observabilidad';
+import { initTracing, apiTitle } from '@org/observabilidad';
 initTracing('servicio-notificaciones');
 
 import { config } from 'dotenv';
@@ -9,5 +9,5 @@ import { AppModule } from './app/app.module';
 
 void bootstrapNachoppsService({
   serviceName: 'servicio-notificaciones', module: AppModule, queue: 'notificaciones_queue', defaultPort: 3008,
-  swagger: { title: 'Nachopps Restobar — API Notificaciones', description: 'WebSockets, push notifications y auditoría de eventos' },
+  swagger: { title: apiTitle('Notificaciones'), description: 'WebSockets, push notifications y auditoría de eventos' },
 });

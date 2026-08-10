@@ -1,9 +1,18 @@
 /* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-misused-promises, @typescript-eslint/no-floating-promises, prefer-const, @typescript-eslint/no-unused-vars, @typescript-eslint/restrict-template-expressions, @typescript-eslint/ban-ts-comment */
 // src/config.ts - Configuraciones de UI de la aplicación
 
+// Nombre de marca centralizado: un único lugar para renombrar la suite en
+// vez de tener el string repetido en cada pantalla (Sidebar, Header, Login,
+// boleta interna, exports PDF, index.html, manifest.json).
+export const APP_NAME = 'RestoApp.pe';
+
 export const APP_CONFIG = {
-  nombreLocal: import.meta.env.VITE_APP_NAME || 'NachoPps',
-  ubicacionLocal: import.meta.env.VITE_APP_LOCATION || 'Barranco · Lima',
+  nombreLocal: APP_NAME,
+  // Subtítulo mostrado bajo el nombre en el Sidebar cuando todavía no hay
+  // una sede resuelta (login recién hecho, admin general sin sede elegida).
+  // Con sede resuelta, Sidebar usa useSedeActualQuery() en su lugar — ver
+  // hooks/queries/useSedeActualQuery.ts.
+  ubicacionFallback: 'Elige una sede',
   turnos: [
     { nombre: 'Turno Día', startHour: 6, endHour: 17 },
     { nombre: 'Turno Noche', startHour: 17, endHour: 6 },

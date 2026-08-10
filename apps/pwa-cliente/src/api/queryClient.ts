@@ -30,5 +30,5 @@ export const PERSIST_MAX_AGE_MS = 1000 * 60 * 60 * 24; // 24 horas
 
 export const queryPersister = createAsyncStoragePersister({
   storage: typeof window === 'undefined' ? undefined : window.localStorage,
-  key: 'nachopps-query-cache',
+  key: 'restoapp-query-cache',
 });

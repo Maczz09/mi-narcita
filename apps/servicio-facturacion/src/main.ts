@@ -1,4 +1,4 @@
-import { initTracing } from '@org/observabilidad';
+import { initTracing, apiTitle } from '@org/observabilidad';
 initTracing('servicio-facturacion');
 
 import { config } from 'dotenv';
@@ -9,5 +9,5 @@ import { AppModule } from './app/app.module';
 
 void bootstrapNachoppsService({
   serviceName: 'servicio-facturacion', module: AppModule, queue: 'facturacion_queue', defaultPort: 3011,
-  swagger: { title: 'Nachopps Restobar — API Facturación Electrónica', description: 'Emisión de boletas y facturas SUNAT (XMLDSig)' },
+  swagger: { title: apiTitle('Facturación Electrónica'), description: 'Emisión de boletas y facturas SUNAT (XMLDSig)' },
 });

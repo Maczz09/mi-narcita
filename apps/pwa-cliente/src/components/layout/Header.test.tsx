@@ -51,11 +51,11 @@ describe('Header', () => {
     const btn = screen.getByLabelText(/Tema actual: Claro/);
     fireEvent.click(btn);
     expect(document.documentElement.dataset['theme']).toBe('dark');
-    expect(localStorage.getItem('nachopps-theme')).toBe('dark');
+    expect(localStorage.getItem('restoapp-theme')).toBe('dark');
 
     fireEvent.click(screen.getByLabelText(/Tema actual: Oscuro/));
     expect(document.documentElement.dataset['theme']).toBe('navy');
-    expect(localStorage.getItem('nachopps-theme')).toBe('navy');
+    expect(localStorage.getItem('restoapp-theme')).toBe('navy');
 
     fireEvent.click(screen.getByLabelText(/Tema actual: Navy/));
     expect(document.documentElement.dataset['theme']).toBe('light');
@@ -67,7 +67,7 @@ describe('Header', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Navy' }));
     expect(document.documentElement.dataset['theme']).toBe('navy');
-    expect(localStorage.getItem('nachopps-theme')).toBe('navy');
+    expect(localStorage.getItem('restoapp-theme')).toBe('navy');
 
     fireEvent.click(screen.getByRole('button', { name: 'Claro' }));
     expect(document.documentElement.dataset['theme']).toBe('light');

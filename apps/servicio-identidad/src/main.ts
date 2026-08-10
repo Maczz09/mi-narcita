@@ -1,4 +1,4 @@
-import { initTracing } from '@org/observabilidad';
+import { initTracing, apiTitle } from '@org/observabilidad';
 initTracing('servicio-identidad');
 
 import { config } from 'dotenv';
@@ -9,5 +9,5 @@ import { AppModule } from './app/app.module';
 
 void bootstrapNachoppsService({
   serviceName: 'servicio-identidad', module: AppModule, defaultPort: 3001,
-  swagger: { title: 'Nachopps Restobar — API Identidad', description: 'Autenticación JWT, gestión de usuarios, roles y refresh tokens' },
+  swagger: { title: apiTitle('Identidad'), description: 'Autenticación JWT, gestión de usuarios, roles y refresh tokens' },
 });

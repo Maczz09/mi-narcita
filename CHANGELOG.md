@@ -1,6 +1,6 @@
 # Changelog
 
-Todas las novedades relevantes de NachoPps. El formato sigue
+Todas las novedades relevantes de RestoApp.pe. El formato sigue
 [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y el versionado es
 [SemVer](https://semver.org/lang/es/). Los commits siguen
 [Conventional Commits](https://www.conventionalcommits.org/es/) (ver `CONTRIBUTING.md`).

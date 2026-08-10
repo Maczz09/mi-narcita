@@ -1,4 +1,4 @@
-import { initTracing } from '@org/observabilidad';
+import { initTracing, apiTitle } from '@org/observabilidad';
 initTracing('servicio-compras');
 
 import { config } from 'dotenv';
@@ -9,5 +9,5 @@ import { AppModule } from './app/app.module';
 
 void bootstrapNachoppsService({
   serviceName: 'servicio-compras', module: AppModule, defaultPort: 3012,
-  swagger: { title: 'Nachopps Restobar — API Compras', description: 'Proveedores, órdenes de compra, recepciones y comprobantes' },
+  swagger: { title: apiTitle('Compras'), description: 'Proveedores, órdenes de compra, recepciones y comprobantes' },
 });

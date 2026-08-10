@@ -76,7 +76,7 @@ export class AuthController {
       maxAge: REFRESH_COOKIE_MAX_AGE_MS,
       path: '/',
     });
-    res.cookie('nachopps.csrf_token', csrfToken, {
+    res.cookie('restoapp.csrf_token', csrfToken, {
       httpOnly: false,
       secure: COOKIE_SECURE,
       sameSite: COOKIE_SAME_SITE,
@@ -128,7 +128,7 @@ export class AuthController {
       sameSite: COOKIE_SAME_SITE,
       path: '/',
     });
-    res.clearCookie('nachopps.csrf_token', {
+    res.clearCookie('restoapp.csrf_token', {
       httpOnly: false,
       secure: COOKIE_SECURE,
       sameSite: COOKIE_SAME_SITE,
@@ -189,6 +189,14 @@ export class AuthController {
     @Request() req: AuthenticatedRequest,
   ) {
     return this.authService.cambiarEstado(id, command, req.user.sub);
+  }
+
+  /* ── Sede propia (cualquier usuario autenticado) ─────── */
+
+  @UseGuards(JwtAuthGuard)
+  @Get('sedes/actual')
+  async sedeActual(@Req() req: AuthenticatedRequest, @Query('sedeId') sedeId?: string) {
+    return this.authService.sedeActual(req.user.sedeId, sedeId);
   }
 
   /* ── Sedes (T-23: multi-sede, solo ADMIN) ──────────── */

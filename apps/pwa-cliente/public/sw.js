@@ -1,4 +1,4 @@
-const CACHE_NAME = 'nachopps-pos-v4';
+const CACHE_NAME = 'restoapp-pos-v5';
 const ASSETS = [
   '/',
   '/index.html',

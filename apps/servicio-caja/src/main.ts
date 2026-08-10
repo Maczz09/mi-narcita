@@ -1,4 +1,4 @@
-import { initTracing } from '@org/observabilidad';
+import { initTracing, apiTitle } from '@org/observabilidad';
 initTracing('servicio-caja');
 
 import { config } from 'dotenv';
@@ -9,5 +9,5 @@ import { AppModule } from './app/app.module';
 
 void bootstrapNachoppsService({
   serviceName: 'servicio-caja', module: AppModule, queue: 'caja_queue', defaultPort: 3009,
-  swagger: { title: 'Nachopps Restobar — API Caja', description: 'Turnos, pagos mixtos, arqueos y caja chica' },
+  swagger: { title: apiTitle('Caja'), description: 'Turnos, pagos mixtos, arqueos y caja chica' },
 });

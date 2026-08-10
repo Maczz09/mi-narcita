@@ -358,11 +358,11 @@ describe('client', () => {
     it('setSedeSeleccionada persiste en localStorage y getSedeSeleccionada la expone', () => {
       setSedeSeleccionada('sede-persistida');
       expect(getSedeSeleccionada()).toBe('sede-persistida');
-      expect(localStorage.getItem('nachopps.sede_seleccionada')).toBe('sede-persistida');
+      expect(localStorage.getItem('restoapp.sede_seleccionada')).toBe('sede-persistida');
 
       setSedeSeleccionada(null);
       expect(getSedeSeleccionada()).toBeNull();
-      expect(localStorage.getItem('nachopps.sede_seleccionada')).toBeNull();
+      expect(localStorage.getItem('restoapp.sede_seleccionada')).toBeNull();
     });
   });
 });

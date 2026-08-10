@@ -1,4 +1,4 @@
-# NachoPps — Plataforma de gestión para restobar
+# RestoApp.pe — Plataforma de gestión para restobar
 
 Monorepo **Nx** con una arquitectura de **microservicios event-driven** (NestJS) y una **PWA** (React + Vite). Cada servicio es dueño de su base de datos (database-per-service) y se comunica de forma asíncrona vía **RabbitMQ** (topic exchange) y, donde hace falta consistencia inmediata, de forma síncrona vía HTTP con circuit breaker. Todo el tráfico del cliente entra por un único **API Gateway (Kong)**.
 

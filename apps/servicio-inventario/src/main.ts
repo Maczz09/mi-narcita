@@ -1,4 +1,4 @@
-import { initTracing } from '@org/observabilidad';
+import { initTracing, apiTitle } from '@org/observabilidad';
 initTracing('servicio-inventario');
 
 import { config } from 'dotenv';
@@ -9,5 +9,5 @@ import { AppModule } from './app/app.module';
 
 void bootstrapNachoppsService({
   serviceName: 'servicio-inventario', module: AppModule, queue: 'inventario_queue', defaultPort: 3007,
-  swagger: { title: 'Nachopps Restobar — API Inventario', description: 'Productos, categorías, stock y validación por lote' },
+  swagger: { title: apiTitle('Inventario'), description: 'Productos, categorías, stock y validación por lote' },
 });

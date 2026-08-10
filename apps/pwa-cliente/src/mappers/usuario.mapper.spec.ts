@@ -7,7 +7,7 @@ function dto(overrides: Record<string, unknown> = {}): Record<string, unknown> {
   return {
     id: 'user-1',
     nombre: 'Ana Torres',
-    email: 'ana@nachopps.pe',
+    email: 'ana@restoapp.pe',
     rol: 'CAJERO',
     activo: true,
     createdAt: '2026-01-01T00:00:00.000Z',
@@ -20,7 +20,7 @@ describe('mapUsuario', () => {
     const vm = mapUsuario(dto());
     expect(vm.id).toBe('user-1');
     expect(vm.nombre).toBe('Ana Torres');
-    expect(vm.email).toBe('ana@nachopps.pe');
+    expect(vm.email).toBe('ana@restoapp.pe');
     expect(vm.rol).toBe('CAJERO');
     expect(vm.activo).toBe(true);
     expect(vm.createdAt).toBe('2026-01-01T00:00:00.000Z');

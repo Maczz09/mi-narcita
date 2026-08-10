@@ -10,7 +10,7 @@ Personal operativo y administrativo de un restobar: meseros, caja, recepción, c
 
 ## Product Purpose
 
-NachoPps centraliza mesas, pedidos, cocina, cuentas, caja, inventario, reservas y usuarios. El éxito es que el equipo pueda operar el local en vivo con estados claros, acciones directas y datos confiables.
+RestoApp.pe centraliza mesas, pedidos, cocina, cuentas, caja, inventario, reservas y usuarios. El éxito es que el equipo pueda operar el local en vivo con estados claros, acciones directas y datos confiables.
 
 ## Brand Personality
 

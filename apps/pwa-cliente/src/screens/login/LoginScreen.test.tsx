@@ -33,7 +33,7 @@ describe('LoginScreen', () => {
   it('renders login form', () => {
     renderScreen();
     expect(screen.getByText('Iniciar sesión')).toBeInTheDocument();
-    expect(screen.getByPlaceholderText('tu@nachopps.pe')).toBeInTheDocument();
+    expect(screen.getByPlaceholderText('tu@restoapp.pe')).toBeInTheDocument();
     expect(screen.getByPlaceholderText('••••••••')).toBeInTheDocument();
   });
 
@@ -55,7 +55,7 @@ describe('LoginScreen', () => {
     mockLogin.mockResolvedValueOnce(true);
     renderScreen();
     
-    fireEvent.change(screen.getByPlaceholderText('tu@nachopps.pe'), { target: { value: 'test@test.com' } });
+    fireEvent.change(screen.getByPlaceholderText('tu@restoapp.pe'), { target: { value: 'test@test.com' } });
     fireEvent.change(screen.getByPlaceholderText('••••••••'), { target: { value: '123456' } });
     
     fireEvent.click(screen.getByRole('button', { name: /Ingresar/i }));

@@ -22,3 +22,13 @@ export async function actualizar(id: string, payload: ActualizarSedePayload): Pr
 export async function eliminar(id: string): Promise<void> {
   await client.delete(`/identidad/sedes/${id}`);
 }
+
+// Sede a mostrar bajo el nombre de marca (Sidebar): a diferencia del resto
+// de endpoints de este archivo, no requiere ADMIN — cualquier usuario
+// autenticado puede ver su propia sede. `sedeId` se inyecta solo para el
+// admin general vía el allowlist de client.ts; un usuario pineado la ignora
+// (el backend ya resuelve la suya desde el JWT).
+export async function obtenerActual(): Promise<SedeDto | null> {
+  const response = await client.get<{ sede: SedeDto | null }>('/identidad/sedes/actual');
+  return response.sede;
+}

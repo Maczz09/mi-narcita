@@ -90,7 +90,7 @@ async function authenticateBrowser(
       secure: false,
     },
     {
-      name: 'nachopps.csrf_token',
+      name: 'restoapp.csrf_token',
       value: 'pwa-pagination-e2e',
       domain: 'localhost',
       path: '/',

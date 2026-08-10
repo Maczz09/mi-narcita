@@ -9,6 +9,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { APP_CONFIG } from '../../config';
 import { useAuthStore } from '../../store/auth.store';
 import { puedeAcceder } from '../../auth/permisos';
+import { useSedeActualQuery } from '../../hooks/queries/useSedesQuery';
 import { Icons } from '../ui/icons';
 import { NAV_GROUPS } from './navigation';
 
@@ -16,6 +17,8 @@ export function Sidebar() {
   const location = useLocation();
   const navigate = useNavigate();
   const rol = useAuthStore((s) => s.user?.rol);
+  const { sede } = useSedeActualQuery();
+  const ubicacion = sede ? (sede.direccion?.trim() || sede.nombre) : APP_CONFIG.ubicacionFallback;
 
   // Extraer la key activa del pathname: /app/mesas → mesas
   const activeKey = location.pathname.split('/')[2] ?? '';
@@ -34,7 +37,7 @@ export function Sidebar() {
         <div className="brand-logo">{APP_CONFIG.nombreLocal.charAt(0)}</div>
         <div>
           <b>{APP_CONFIG.nombreLocal}</b>
-          <small>{APP_CONFIG.ubicacionLocal}</small>
+          <small>{ubicacion}</small>
         </div>
       </div>
 

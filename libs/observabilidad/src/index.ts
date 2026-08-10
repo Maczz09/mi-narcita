@@ -7,3 +7,4 @@ export * from './lib/operable-log';
 export * from './lib/user.decorator';
 export * from './lib/global-exception.filter';
 export * from './lib/health.controller';
+export * from './lib/brand';

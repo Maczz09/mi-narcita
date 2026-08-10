@@ -72,7 +72,7 @@ export function Header() {
 
   const setThemeTo = (next: Theme) => {
     document.documentElement.dataset['theme'] = next;
-    localStorage.setItem('nachopps-theme', next);
+    localStorage.setItem('restoapp-theme', next);
     applyThemeColor(next);
     setTheme(next);
   };
@@ -174,12 +174,12 @@ export function Header() {
                   <button
                     className={density === 'comfy' ? 'on' : ''}
                     style={{ flex: 1 }}
-                    onClick={() => applyAttr('data-density','nachopps-density','comfy',setDensity)}
+                    onClick={() => applyAttr('data-density','restoapp-density','comfy',setDensity)}
                   >Cómoda</button>
                   <button
                     className={density === 'compact' ? 'on' : ''}
                     style={{ flex: 1 }}
-                    onClick={() => applyAttr('data-density','nachopps-density','compact',setDensity)}
+                    onClick={() => applyAttr('data-density','restoapp-density','compact',setDensity)}
                   >Compacta</button>
                 </div>
               </div>
@@ -187,18 +187,18 @@ export function Header() {
                 <span className="sp-lbl">Tamaño de texto</span>
                 <div className="seg sm" style={{ width: '100%' }}>
                   <button className={fontscale === 'md' ? 'on' : ''} style={{ flex: 1 }}
-                    onClick={() => applyAttr('data-fontscale','nachopps-fontscale','md',setFontscale)}>A</button>
+                    onClick={() => applyAttr('data-fontscale','restoapp-fontscale','md',setFontscale)}>A</button>
                   <button className={fontscale === 'lg' ? 'on' : ''} style={{ flex: 1, fontSize: 15 }}
-                    onClick={() => applyAttr('data-fontscale','nachopps-fontscale','lg',setFontscale)}>A</button>
+                    onClick={() => applyAttr('data-fontscale','restoapp-fontscale','lg',setFontscale)}>A</button>
                   <button className={fontscale === 'xl' ? 'on' : ''} style={{ flex: 1, fontSize: 17 }}
-                    onClick={() => applyAttr('data-fontscale','nachopps-fontscale','xl',setFontscale)}>A</button>
+                    onClick={() => applyAttr('data-fontscale','restoapp-fontscale','xl',setFontscale)}>A</button>
                 </div>
               </div>
               <div className="sp-row" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                 <span className="sp-lbl" style={{ marginBottom: 0 }}>Alto contraste</span>
                 <button
                   className={`toggle ${contrast === 'high' ? 'on' : ''}`}
-                  onClick={() => applyAttr('data-contrast','nachopps-contrast',
+                  onClick={() => applyAttr('data-contrast','restoapp-contrast',
                     contrast === 'high' ? 'normal' : 'high', setContrast)}
                   aria-pressed={contrast === 'high'}
                   aria-label="Alto contraste"

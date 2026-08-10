@@ -48,7 +48,7 @@ describe('AuthController', () => {
       expect.objectContaining({ httpOnly: true, sameSite: 'strict', path: '/' }),
     );
     expect(response.cookie).toHaveBeenCalledWith(
-      'nachopps.csrf_token',
+      'restoapp.csrf_token',
       expect.any(String),
       expect.objectContaining({ httpOnly: false, sameSite: 'strict', path: '/' }),
     );
@@ -99,7 +99,7 @@ describe('AuthController', () => {
     expect(authService.revokeRefreshTokenByRaw).toHaveBeenCalledWith('r1');
     expect(response.clearCookie).toHaveBeenCalledWith('access_token', expect.objectContaining({ httpOnly: true, path: '/' }));
     expect(response.clearCookie).toHaveBeenCalledWith('refresh_token', expect.objectContaining({ httpOnly: true, path: '/' }));
-    expect(response.clearCookie).toHaveBeenCalledWith('nachopps.csrf_token', expect.objectContaining({ httpOnly: false, path: '/' }));
+    expect(response.clearCookie).toHaveBeenCalledWith('restoapp.csrf_token', expect.objectContaining({ httpOnly: false, path: '/' }));
   });
 
   it('delega endpoints protegidos y publicos al servicio', async () => {

@@ -671,4 +671,32 @@ describe('AuthService — Identidad', () => {
       expect(result.message).toMatch(/eliminada/);
     });
   });
+
+  describe('sedeActual', () => {
+    it('un usuario pineado recibe su propia sede, ignorando el query param', async () => {
+      mockPrisma.sede.findUnique.mockResolvedValue({ id: 's1', nombre: 'Salitral 1', direccion: 'Av. X 123', activa: true });
+      const result = await service.sedeActual('s1', 's2');
+      expect(mockPrisma.sede.findUnique).toHaveBeenCalledWith({ where: { id: 's1' } });
+      expect(result.sede?.nombre).toBe('Salitral 1');
+    });
+
+    it('un admin general sin sede fija recibe la sede del query param', async () => {
+      mockPrisma.sede.findUnique.mockResolvedValue({ id: 's2', nombre: 'Sede Principal', direccion: null, activa: true });
+      const result = await service.sedeActual(null, 's2');
+      expect(mockPrisma.sede.findUnique).toHaveBeenCalledWith({ where: { id: 's2' } });
+      expect(result.sede?.nombre).toBe('Sede Principal');
+    });
+
+    it('devuelve sede null (no lanza) si no hay sede pineada ni seleccionada', async () => {
+      const result = await service.sedeActual(null, undefined);
+      expect(result.sede).toBeNull();
+      expect(mockPrisma.sede.findUnique).not.toHaveBeenCalled();
+    });
+
+    it('devuelve sede null si el id resuelto no existe', async () => {
+      mockPrisma.sede.findUnique.mockResolvedValue(null);
+      const result = await service.sedeActual('s-borrada');
+      expect(result.sede).toBeNull();
+    });
+  });
 });
