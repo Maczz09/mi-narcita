@@ -9,6 +9,9 @@ import type {
   ListarProductosQuery,
   ProductoDto as ContractProductoDto,
   ProductoListResponse as ContractProductoListResponse,
+  MenuDiarioItemDto as ContractMenuDiarioItemDto,
+  AgregarAlMenuCommand,
+  ActualizarMenuDiarioCommand,
 } from '@org/contracts';
 
 export type CategoriaDto = ContractCategoriaDto;
@@ -51,4 +54,28 @@ export interface CategoriaResponse {
 
 export interface ProductosResponse {
   productos: ProductoDto[];
+}
+
+// --- Menú del día (T-20) ---
+
+export type MenuDiarioItemDto = ContractMenuDiarioItemDto;
+export type AgregarAlMenuPayload = AgregarAlMenuCommand;
+export type ActualizarMenuDiarioPayload = ActualizarMenuDiarioCommand;
+
+export interface MenuDiarioResponse {
+  menu: MenuDiarioItemDto[];
+}
+
+export interface MenuDiarioItemResponse {
+  message: string;
+  item: MenuDiarioItemDto;
+}
+
+export interface MenuDiarioItemVM {
+  /** id del registro de menú del día (para activar/desactivar/quitar) */
+  id: string;
+  /** disponibilidad EN EL MENÚ de hoy — no confundir con producto.disponible */
+  disponible: boolean;
+  /** producto completo (mismo VM que la carta) — se pasa directo a cmd.addProducto */
+  producto: ProductoVM;
 }

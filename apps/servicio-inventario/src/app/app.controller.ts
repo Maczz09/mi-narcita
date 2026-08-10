@@ -1,7 +1,7 @@
 import { Controller, Get, Post, Body, Param, Patch, Delete, Query, UseGuards } from '@nestjs/common';
 import { Roles, RolesGuard } from '@org/shared-auth';
 import { AppService } from './app.service';
-import { CrearCategoriaCommand, ActualizarCategoriaCommand, CrearProductoCommand, ActualizarProductoCommand, ListarProductosQuery, ObtenerProductosLoteCommand } from '@org/contracts';
+import { CrearCategoriaCommand, ActualizarCategoriaCommand, CrearProductoCommand, ActualizarProductoCommand, ListarProductosQuery, ObtenerProductosLoteCommand, AgregarAlMenuCommand, ActualizarMenuDiarioCommand } from '@org/contracts';
 
 // Lectura del catálogo: la usan inventario/carta (admin, sistema, gerencia) y
 // también el comandero del PWA (cajero, mesero) al armar pedidos. La gestión
@@ -76,5 +76,32 @@ export class AppController {
   @Patch('productos/:id')
   actualizarProducto(@Param('id') id: string, @Body() body: ActualizarProductoCommand) {
     return this.appService.actualizarProducto(id, body);
+  }
+
+  // --- MENÚ DEL DÍA ---
+  // Lectura abierta al comandero (mesero/cajero); gestión restringida a admin,
+  // igual que el resto del catálogo.
+
+  @Get('menu-diario')
+  listarMenuDelDia(@Query('fecha') fecha?: string) {
+    return this.appService.listarMenuDelDia(fecha);
+  }
+
+  @Roles('ADMIN', 'SISTEMA', 'GERENCIA')
+  @Post('menu-diario')
+  agregarAlMenu(@Body() body: AgregarAlMenuCommand) {
+    return this.appService.agregarAlMenu(body);
+  }
+
+  @Roles('ADMIN', 'SISTEMA', 'GERENCIA')
+  @Patch('menu-diario/:id')
+  actualizarMenuDiario(@Param('id') id: string, @Body() body: ActualizarMenuDiarioCommand) {
+    return this.appService.actualizarMenuDiario(id, body);
+  }
+
+  @Roles('ADMIN', 'SISTEMA', 'GERENCIA')
+  @Delete('menu-diario/:id')
+  quitarDelMenu(@Param('id') id: string) {
+    return this.appService.quitarDelMenu(id);
   }
 }

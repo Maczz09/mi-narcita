@@ -1,6 +1,6 @@
 // mappers/inventario.mapper.ts - ProductoDto -> ProductoVM
 
-import type { CategoriaDto, ProductoDto, ProductoVM } from '../types/inventario.types';
+import type { CategoriaDto, MenuDiarioItemDto, MenuDiarioItemVM, ProductoDto, ProductoVM } from '../types/inventario.types';
 
 function formatMoney(value: number): string {
   return new Intl.NumberFormat('es-PE', {
@@ -38,4 +38,17 @@ export function mapProducto(dto: ProductoDto, categorias: CategoriaDto[] = []): 
 
 export function mapProductos(dtos: ProductoDto[], categorias: CategoriaDto[] = []): ProductoVM[] {
   return dtos.map((dto) => mapProducto(dto, categorias));
+}
+
+export function mapMenuDiarioItem(dto: MenuDiarioItemDto): MenuDiarioItemVM | null {
+  if (!dto.producto) return null;
+  return {
+    id: dto.id,
+    disponible: dto.disponible,
+    producto: mapProducto(dto.producto),
+  };
+}
+
+export function mapMenuDiario(dtos: MenuDiarioItemDto[]): MenuDiarioItemVM[] {
+  return dtos.map(mapMenuDiarioItem).filter((item): item is MenuDiarioItemVM => item !== null);
 }

@@ -15,6 +15,11 @@ import type {
   ProductoListResponse,
   ProductoResponse,
   ProductosResponse,
+  AgregarAlMenuPayload,
+  ActualizarMenuDiarioPayload,
+  MenuDiarioItemDto,
+  MenuDiarioItemResponse,
+  MenuDiarioResponse,
 } from '../types/inventario.types';
 
 export async function getCategorias(): Promise<CategoriaDto[]> {
@@ -97,4 +102,26 @@ export async function reponerStock(id: string, cantidad: number): Promise<Produc
     stock: cantidad,
   });
   return unwrapEntity<ProductoDto>(response, 'producto');
+}
+
+// --- Menú del día (T-20) ---
+
+export async function getMenuDelDia(fecha?: string): Promise<MenuDiarioItemDto[]> {
+  const qs = fecha ? `?fecha=${fecha}` : '';
+  const response = await client.get<MenuDiarioResponse | MenuDiarioItemDto[]>(`/inventario/menu-diario${qs}`);
+  return unwrapArray<MenuDiarioItemDto>(response, 'menu');
+}
+
+export async function agregarAlMenu(payload: AgregarAlMenuPayload): Promise<MenuDiarioItemDto> {
+  const response = await client.post<MenuDiarioItemResponse | MenuDiarioItemDto>('/inventario/menu-diario', payload);
+  return unwrapEntity<MenuDiarioItemDto>(response, 'item');
+}
+
+export async function actualizarMenuDiario(id: string, payload: ActualizarMenuDiarioPayload): Promise<MenuDiarioItemDto> {
+  const response = await client.patch<MenuDiarioItemResponse | MenuDiarioItemDto>(`/inventario/menu-diario/${id}`, payload);
+  return unwrapEntity<MenuDiarioItemDto>(response, 'item');
+}
+
+export async function quitarDelMenu(id: string): Promise<void> {
+  await client.delete(`/inventario/menu-diario/${id}`);
 }

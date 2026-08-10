@@ -9,6 +9,7 @@ import { Icons, type IconName } from '../ui/icons';
 import { useToast } from '../ui/ToastProvider';
 import { fmt } from '../../utils/format';
 import { useInventarioQuery } from '../../hooks/queries/useInventarioQuery';
+import { useMenuDiarioQuery } from '../../hooks/queries/useMenuDiarioQuery';
 import { useMesasQuery } from '../../hooks/queries/useMesasQuery';
 import { usePedidosQuery } from '../../hooks/queries/usePedidosQuery';
 import { useFocusTrap } from '../../hooks/useFocusTrap';
@@ -50,6 +51,7 @@ export function Comandero({
   const { toast } = useToast();
   const cmdRef = useRef<HTMLDialogElement>(null);
   useFocusTrap(cmdRef, { active: true, onClose });
+  const [vista, setVista] = useState<'CARTA' | 'MENU_DIA'>('CARTA');
   const [cat, setCat] = useState<string>('TODAS');
   const [q, setQ] = useState('');
   const [activeTab, setActiveTab] = useState<'catalog' | 'cart'>('catalog');
@@ -63,6 +65,7 @@ export function Comandero({
     fetchMore,
     error: errorInv,
   } = useInventarioQuery(undefined, { limit: 100, search: search || undefined });
+  const { menu: menuDelDia, loading: loadingMenu } = useMenuDiarioQuery();
   const { mesas } = useMesasQuery();
   const { crear } = usePedidosQuery(mesaId);
 
@@ -84,6 +87,14 @@ export function Comandero({
       return okCat && okQ && p.disponible;
     }),
     [productos, cat, q],
+  );
+
+  // T-20: menú del día separado de la carta — solo platos activos hoy.
+  const productosMenuDelDia = useMemo(
+    () => menuDelDia
+      .filter((m) => m.disponible && (!q || m.producto.nombre.toLowerCase().includes(q.toLowerCase())))
+      .map((m) => m.producto),
+    [menuDelDia, q],
   );
 
   let titulo = 'Nuevo pedido';
@@ -145,29 +156,49 @@ export function Comandero({
         <div className="cmd-body">
           {/* Catálogo */}
           <div className={`cmd-catalog ${activeTab === 'catalog' ? 'active' : 'hidden-mobile'}`}>
+            <div className="row" style={{ gap: 6, padding: '0 0 10px' }}>
+              <button className={`chip ${vista === 'CARTA' ? 'on' : ''}`} onClick={() => setVista('CARTA')}>A la carta</button>
+              <button className={`chip ${vista === 'MENU_DIA' ? 'on' : ''}`} onClick={() => setVista('MENU_DIA')}>
+                Menú del día{menuDelDia.length > 0 && ` (${menuDelDia.filter((m) => m.disponible).length})`}
+              </button>
+            </div>
             <div className="cmd-filters">
-              <div className="cmd-cats">
-                <button className={`chip ${cat === 'TODAS' ? 'on' : ''}`} onClick={() => setCat('TODAS')}>Todos</button>
-                {categorias.map((c) => (
-                  <button key={c.id} className={`chip ${cat === c.nombre ? 'on' : ''}`} onClick={() => setCat(c.nombre)}>{c.nombre}</button>
-                ))}
-              </div>
+              {vista === 'CARTA' && (
+                <div className="cmd-cats">
+                  <button className={`chip ${cat === 'TODAS' ? 'on' : ''}`} onClick={() => setCat('TODAS')}>Todos</button>
+                  {categorias.map((c) => (
+                    <button key={c.id} className={`chip ${cat === c.nombre ? 'on' : ''}`} onClick={() => setCat(c.nombre)}>{c.nombre}</button>
+                  ))}
+                </div>
+              )}
               <div className="input cmd-search"><Icons.Search s={15} /><input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar plato…" /></div>
             </div>
-            {errorInv && productos.length > 0 && (
+            {vista === 'CARTA' && errorInv && productos.length > 0 && (
               <div className="banner err module-feedback" role="alert">
                 <Icons.Alert s={17} />
                 <span>No se pudo actualizar el catálogo. Mostrando los últimos productos guardados.</span>
               </div>
             )}
-            <div className="cmd-grid">
-              {ComanderoEmptyGrid({ loadingInv, errorInv, productosLength: productos.length, productosFiltradosLength: productosFiltrados.length, nextCursor, loadingMoreInv, fetchMore }) ?? (
-                <>
-                  <ComanderoCatalogGrid productos={productosFiltrados} cmd={cmd} />
-                  <ComanderoCargarMas nextCursor={nextCursor} loadingMoreInv={loadingMoreInv} fetchMore={fetchMore} />
-                </>
-              )}
-            </div>
+            {vista === 'CARTA' ? (
+              <div className="cmd-grid">
+                {ComanderoEmptyGrid({ loadingInv, errorInv, productosLength: productos.length, productosFiltradosLength: productosFiltrados.length, nextCursor, loadingMoreInv, fetchMore }) ?? (
+                  <>
+                    <ComanderoCatalogGrid productos={productosFiltrados} cmd={cmd} />
+                    <ComanderoCargarMas nextCursor={nextCursor} loadingMoreInv={loadingMoreInv} fetchMore={fetchMore} />
+                  </>
+                )}
+              </div>
+            ) : (
+              <div className="cmd-grid">
+                {loadingMenu && menuDelDia.length === 0 && (
+                  <div className="cmd-empty" style={{ gridColumn: '1 / -1' }}><b>Cargando menú del día…</b></div>
+                )}
+                {!loadingMenu && productosMenuDelDia.length === 0 && (
+                  <div className="cmd-empty" style={{ gridColumn: '1 / -1' }}><Icons.Search s={26} /><b>Sin platos en el menú de hoy</b><p>Actívalos desde Carta / Menú.</p></div>
+                )}
+                <ComanderoCatalogGrid productos={productosMenuDelDia} cmd={cmd} />
+              </div>
+            )}
           </div>
 
           {/* Comanda */}

@@ -15,6 +15,9 @@ import {
   ProductoActualizadoPayload,
   StockInsuficientePayload,
   PedidoCreadoPayload,
+  MenuDiarioItemDto,
+  AgregarAlMenuCommand,
+  ActualizarMenuDiarioCommand,
 } from '@org/contracts';
 import { Prisma } from '../generated/prisma';
 
@@ -474,6 +477,93 @@ export class AppService {
       resultingState: `stockActual=${productoFinal?.stockActual}`,
       message: `Stock reducido para ${productoFinal?.nombre ?? id}.`,
     } satisfies OperableLog);
+  }
+
+  // --- MENÚ DEL DÍA (T-20) ---
+
+  private hoyISO(): string {
+    return new Date().toISOString().slice(0, 10);
+  }
+
+  private toMenuDiarioItemDto(item: {
+    id: string;
+    fecha: Date;
+    productoId: string;
+    disponible: boolean;
+    producto?: Record<string, unknown>;
+  }): MenuDiarioItemDto {
+    return {
+      id: item.id,
+      fecha: item.fecha.toISOString().slice(0, 10),
+      productoId: item.productoId,
+      producto: item.producto ? this.toProductoDto(item.producto) : undefined,
+      disponible: item.disponible,
+    };
+  }
+
+  async listarMenuDelDia(fecha?: string): Promise<{ menu: MenuDiarioItemDto[] }> {
+    const items = await this.prisma.menuDiario.findMany({
+      where: { fecha: new Date(fecha ?? this.hoyISO()) },
+      include: { producto: { include: { categoria: true } } },
+      orderBy: { createdAt: 'asc' },
+    });
+    return { menu: items.map((item) => this.toMenuDiarioItemDto(item)) };
+  }
+
+  async agregarAlMenu(command: AgregarAlMenuCommand): Promise<{ message: string; item: MenuDiarioItemDto }> {
+    if (!command.productoId && !command.producto) {
+      throw new BadRequestException('Se requiere productoId (plato existente) o producto (plato nuevo).');
+    }
+    if (command.productoId && command.producto) {
+      throw new BadRequestException('Indica solo uno: productoId o producto, no ambos.');
+    }
+
+    let productoId = command.productoId;
+    if (!productoId && command.producto) {
+      const { producto } = await this.crearProducto(command.producto);
+      productoId = producto.id;
+    } else {
+      const existe = await this.prisma.producto.findUnique({ where: { id: productoId } });
+      if (!existe) throw new NotFoundException(`Producto con ID ${productoId} no encontrado`);
+    }
+
+    const fecha = new Date(command.fecha ?? this.hoyISO());
+    // Upsert sobre [fecha, productoId]: agregar un plato que ya estuvo hoy
+    // (y se había quitado) lo reactiva en vez de duplicar la fila.
+    const item = await this.prisma.menuDiario.upsert({
+      where: { fecha_productoId: { fecha, productoId: productoId as string } },
+      create: { fecha, productoId: productoId as string, disponible: true },
+      update: { disponible: true },
+      include: { producto: { include: { categoria: true } } },
+    });
+
+    this.logger.log({
+      operation: 'agregarAlMenu',
+      aggregateId: item.id,
+      message: `Producto ${productoId} agregado al menú del ${item.fecha.toISOString().slice(0, 10)}.`,
+    } satisfies OperableLog);
+
+    return { message: 'Agregado al menú del día', item: this.toMenuDiarioItemDto(item) };
+  }
+
+  async actualizarMenuDiario(id: string, command: ActualizarMenuDiarioCommand): Promise<{ message: string; item: MenuDiarioItemDto }> {
+    const existe = await this.prisma.menuDiario.findUnique({ where: { id } });
+    if (!existe) throw new NotFoundException('Ítem de menú del día no encontrado');
+
+    const item = await this.prisma.menuDiario.update({
+      where: { id },
+      data: { disponible: command.disponible },
+      include: { producto: { include: { categoria: true } } },
+    });
+
+    return { message: command.disponible ? 'Plato activado en el menú' : 'Plato desactivado del menú', item: this.toMenuDiarioItemDto(item) };
+  }
+
+  async quitarDelMenu(id: string): Promise<{ message: string }> {
+    const existe = await this.prisma.menuDiario.findUnique({ where: { id } });
+    if (!existe) throw new NotFoundException('Ítem de menú del día no encontrado');
+    await this.prisma.menuDiario.delete({ where: { id } });
+    return { message: 'Quitado del menú del día' };
   }
 
   // A2: idempotencia por pedido.id — reclama la clave atómicamente

@@ -200,6 +200,47 @@ export class ActualizarProductoCommand {
   disponible?: boolean;
 }
 
+// --- Menú del día (T-20) ---
+// Selección curada de productos ofrecidos en una fecha concreta, separada de
+// la carta fija: el mismo Producto puede estar en la carta y/o en el menú de
+// hoy, cada uno con su propia disponibilidad.
+
+export class MenuDiarioItemDto {
+  @IsString()
+  id: string;
+  @IsString()
+  fecha: string;
+  @IsString()
+  productoId: string;
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => ProductoDto)
+  producto?: ProductoDto | null;
+  @IsBoolean()
+  disponible: boolean;
+}
+
+export class AgregarAlMenuCommand {
+  @IsOptional()
+  @IsString()
+  productoId?: string;
+
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => CrearProductoCommand)
+  producto?: CrearProductoCommand;
+
+  // Fecha del menú (YYYY-MM-DD); por defecto hoy.
+  @IsOptional()
+  @IsDateString()
+  fecha?: string;
+}
+
+export class ActualizarMenuDiarioCommand {
+  @IsBoolean()
+  disponible: boolean;
+}
+
 export class ObtenerProductosLoteCommand {
   @IsArray()
   @ArrayMinSize(1)

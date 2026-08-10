@@ -26,19 +26,39 @@ model Categoria {
 }
 
 model Producto {
-  id          String    @id @default(uuid())
+  id          String       @id @default(uuid())
   categoriaId String
-  categoria   Categoria @relation(fields: [categoriaId], references: [id])
+  categoria   Categoria    @relation(fields: [categoriaId], references: [id])
   nombre      String
   descripcion String?
-  precio      Decimal   @db.Decimal(10, 2)
-  disponible  Boolean   @default(true)
-  stockActual Int?      
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  precio      Decimal      @db.Decimal(10, 2)
+  disponible  Boolean      @default(true)
+  stockActual Int?
+  menuDiario  MenuDiario[]
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
 
   @@index([categoriaId])
   @@map("productos")
+}
+
+// T-20: menú del día — selección de productos ofrecidos en una fecha
+// concreta, independiente de la carta fija. Un mismo Producto puede estar en
+// la carta y/o en el menú de hoy, cada uno con su propia disponibilidad
+// (@@unique evita duplicar el mismo producto el mismo día; reactivar =
+// upsert sobre esa clave en vez de crear una fila nueva).
+model MenuDiario {
+  id          String   @id @default(uuid())
+  fecha       DateTime @db.Date
+  productoId  String
+  producto    Producto @relation(fields: [productoId], references: [id])
+  disponible  Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([fecha, productoId])
+  @@index([fecha])
+  @@map("menu_diario")
 }
 
 model OutboxEvent {

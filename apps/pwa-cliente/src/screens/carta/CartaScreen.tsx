@@ -12,6 +12,7 @@ import { useToast } from '../../components/ui/ToastProvider';
 import { useOnlineStatus } from '../../hooks/useOnlineStatus';
 import { useInventarioQuery } from '../../hooks/queries/useInventarioQuery';
 import type { CategoriaDto, ProductoVM } from '../../types/inventario.types';
+import { MenuDiarioPanel } from './MenuDiarioPanel';
 
 export function CartaScreen() {
   const { toast } = useToast();
@@ -25,6 +26,7 @@ export function CartaScreen() {
     actualizarProducto,
   } = useInventarioQuery(undefined, { conStock: false });
 
+  const [modo, setModo] = useState<'CARTA' | 'MENU_DIA'>('CARTA');
   const [cat, setCat] = useState<string>('TODAS');
   const [q, setQ] = useState('');
   const [edit, setEdit] = useState<ProductoVM | null>(null);
@@ -99,14 +101,27 @@ export function CartaScreen() {
       <div className="page-h">
         <div>
           <h1>Carta / Menú</h1>
-          <div className="sub">Platos sin control de stock · precios y disponibilidad (86)</div>
+          <div className="sub">
+            {modo === 'CARTA' ? 'Platos sin control de stock · precios y disponibilidad (86)' : 'Selección de platos ofrecidos hoy, separada de la carta fija'}
+          </div>
         </div>
         <span className="spacer" />
-        <button className="btn btn-primary" disabled={!online || categorias.length === 0} onClick={() => setNuevo(true)}>
-          <Icons.Plus s={16} /> Nuevo plato
-        </button>
+        {modo === 'CARTA' && (
+          <button className="btn btn-primary" disabled={!online || categorias.length === 0} onClick={() => setNuevo(true)}>
+            <Icons.Plus s={16} /> Nuevo plato
+          </button>
+        )}
       </div>
 
+      <div className="row" style={{ gap: 6, marginBottom: 16 }}>
+        <button className={`chip ${modo === 'CARTA' ? 'on' : ''}`} onClick={() => setModo('CARTA')}>A la carta</button>
+        <button className={`chip ${modo === 'MENU_DIA' ? 'on' : ''}`} onClick={() => setModo('MENU_DIA')}>Menú del día</button>
+      </div>
+
+      {modo === 'MENU_DIA' ? (
+        <MenuDiarioPanel productos={productos} categorias={categorias} />
+      ) : (
+      <>
       <div className="grid-stats" style={{ marginBottom: 16 }}>
         <MiniStat icon="Pedidos" color="var(--accent)" soft="var(--accent-soft)" k="Platos en carta" v={kpis.total} d={`${kpis.activos} activos`} />
         <MiniStat icon="Alert" color="var(--danger)" soft="var(--danger-soft)" k="Agotados (86)" v={kpis.ochenta} d="No visibles en comandero" />
@@ -168,6 +183,8 @@ export function CartaScreen() {
           onClose={() => { setEdit(null); setNuevo(false); }}
           onSave={guardar}
         />
+      )}
+      </>
       )}
     </div>
   );

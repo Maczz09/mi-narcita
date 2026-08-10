@@ -24,6 +24,13 @@ function createMockPrismaService(overrides: Record<string, unknown> = {}): any {
       update: jest.fn(),
       delete: jest.fn(),
     },
+    menuDiario: {
+      findMany: jest.fn(),
+      findUnique: jest.fn(),
+      upsert: jest.fn(),
+      update: jest.fn(),
+      delete: jest.fn(),
+    },
     outboxEvent: {
       create: jest.fn().mockResolvedValue({}),
     },
@@ -733,6 +740,127 @@ describe('AppService — Inventario (comprehensive)', () => {
       };
       await service.procesarPedidoCreado(pedido);
       expect(mockPrisma.producto.updateMany).not.toHaveBeenCalled();
+    });
+  });
+
+  // ─── Menú del día (T-20) ────────────────────────────────────────────────
+
+  describe('listarMenuDelDia', () => {
+    it('lista los ítems del menú de una fecha (por defecto hoy)', async () => {
+      const hoy = new Date().toISOString().slice(0, 10);
+      mockPrisma.menuDiario.findMany.mockResolvedValue([
+        { id: 'md-1', fecha: new Date(hoy), productoId: 'prod-001', disponible: true, producto: productoBase },
+      ]);
+
+      const result = await service.listarMenuDelDia();
+
+      expect(mockPrisma.menuDiario.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { fecha: new Date(hoy) } }),
+      );
+      expect(result.menu).toHaveLength(1);
+      expect(result.menu[0].fecha).toBe(hoy);
+      expect(result.menu[0].producto?.nombre).toBe('Cerveza');
+    });
+
+    it('acepta una fecha explícita', async () => {
+      mockPrisma.menuDiario.findMany.mockResolvedValue([]);
+      await service.listarMenuDelDia('2026-08-01');
+      expect(mockPrisma.menuDiario.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { fecha: new Date('2026-08-01') } }),
+      );
+    });
+  });
+
+  describe('agregarAlMenu', () => {
+    it('rechaza si no viene productoId ni producto', async () => {
+      await expect(service.agregarAlMenu({})).rejects.toThrow('Se requiere productoId');
+    });
+
+    it('rechaza si vienen productoId Y producto a la vez', async () => {
+      await expect(
+        service.agregarAlMenu({ productoId: 'prod-001', producto: { categoriaId: 'c1', nombre: 'X', precio: 1 } }),
+      ).rejects.toThrow('Indica solo uno');
+    });
+
+    it('rechaza un productoId que no existe', async () => {
+      mockPrisma.producto.findUnique.mockResolvedValue(null);
+      await expect(service.agregarAlMenu({ productoId: 'no-existe' })).rejects.toThrow('no encontrado');
+    });
+
+    it('agrega un plato existente al menú de hoy (upsert reactiva si ya estuvo)', async () => {
+      mockPrisma.producto.findUnique.mockResolvedValue(productoBase);
+      mockPrisma.menuDiario.upsert.mockResolvedValue({
+        id: 'md-1', fecha: new Date(), productoId: 'prod-001', disponible: true, producto: productoBase,
+      });
+
+      const result = await service.agregarAlMenu({ productoId: 'prod-001' });
+
+      expect(mockPrisma.menuDiario.upsert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { fecha_productoId: { fecha: new Date(service['hoyISO']()), productoId: 'prod-001' } },
+          create: { fecha: new Date(service['hoyISO']()), productoId: 'prod-001', disponible: true },
+          update: { disponible: true },
+        }),
+      );
+      expect(result.item.productoId).toBe('prod-001');
+    });
+
+    it('crea un plato nuevo y lo agrega al menú del día', async () => {
+      mockPrisma.categoria.findUnique.mockResolvedValue({ id: 'cat-001', nombre: 'Bebidas' });
+      mockPrisma.producto.create.mockResolvedValue({ ...productoBase, id: 'prod-nuevo' });
+      mockPrisma.menuDiario.upsert.mockResolvedValue({
+        id: 'md-2', fecha: new Date(), productoId: 'prod-nuevo', disponible: true, producto: { ...productoBase, id: 'prod-nuevo' },
+      });
+
+      const result = await service.agregarAlMenu({
+        producto: { categoriaId: 'cat-001', nombre: 'Especial del día', precio: 25 },
+      });
+
+      expect(mockPrisma.producto.create).toHaveBeenCalled();
+      expect(mockPrisma.menuDiario.upsert).toHaveBeenCalledWith(
+        expect.objectContaining({ create: expect.objectContaining({ productoId: 'prod-nuevo' }) }),
+      );
+      expect(result.item.productoId).toBe('prod-nuevo');
+    });
+  });
+
+  describe('actualizarMenuDiario', () => {
+    it('rechaza si el ítem no existe', async () => {
+      mockPrisma.menuDiario.findUnique.mockResolvedValue(null);
+      await expect(service.actualizarMenuDiario('no-existe', { disponible: false })).rejects.toThrow('no encontrado');
+    });
+
+    it('activa/desactiva un plato del menú (se acabó el plato)', async () => {
+      mockPrisma.menuDiario.findUnique.mockResolvedValue({ id: 'md-1' });
+      mockPrisma.menuDiario.update.mockResolvedValue({
+        id: 'md-1', fecha: new Date(), productoId: 'prod-001', disponible: false, producto: productoBase,
+      });
+
+      const result = await service.actualizarMenuDiario('md-1', { disponible: false });
+
+      expect(mockPrisma.menuDiario.update).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { id: 'md-1' }, data: { disponible: false } }),
+      );
+      expect(result.item.disponible).toBe(false);
+      expect(result.message).toMatch(/desactivado/);
+    });
+  });
+
+  describe('quitarDelMenu', () => {
+    it('rechaza si el ítem no existe', async () => {
+      mockPrisma.menuDiario.findUnique.mockResolvedValue(null);
+      await expect(service.quitarDelMenu('no-existe')).rejects.toThrow('no encontrado');
+    });
+
+    it('quita un plato del menú del día sin borrar el producto', async () => {
+      mockPrisma.menuDiario.findUnique.mockResolvedValue({ id: 'md-1' });
+      mockPrisma.menuDiario.delete.mockResolvedValue({});
+
+      const result = await service.quitarDelMenu('md-1');
+
+      expect(mockPrisma.menuDiario.delete).toHaveBeenCalledWith({ where: { id: 'md-1' } });
+      expect(mockPrisma.producto.update).not.toHaveBeenCalled();
+      expect(result.message).toMatch(/Quitado/);
     });
   });
 });

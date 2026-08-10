@@ -14,6 +14,21 @@ vi.mock('../../hooks/queries/useInventarioQuery', () => ({
   useInventarioQuery: vi.fn()
 }));
 
+vi.mock('../../hooks/queries/useMenuDiarioQuery', () => ({
+  useMenuDiarioQuery: vi.fn(() => ({
+    menu: [],
+    loading: false,
+    saving: false,
+    error: null,
+    success: null,
+    agregarAlMenu: vi.fn(),
+    actualizarDisponibilidad: vi.fn(),
+    quitarDelMenu: vi.fn(),
+    fetch: vi.fn(),
+    clearFeedback: vi.fn(),
+  }))
+}));
+
 vi.mock('../../components/ui/ToastProvider', () => ({
   useToast: vi.fn()
 }));
@@ -269,5 +284,19 @@ describe('CartaScreen', () => {
     render(<CartaScreen />);
 
     expect(screen.getByText(/Sin platos. Crea uno con "Nuevo plato"./i)).toBeDefined();
+  });
+
+  it('T-20: cambia a la vista de Menú del día y oculta la tabla de la carta', () => {
+    render(<CartaScreen />);
+
+    expect(screen.getByText('Lomo Saltado')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Menú del día' }));
+
+    expect(screen.queryByText('Lomo Saltado')).not.toBeInTheDocument();
+    expect(screen.getByText(/Aún no hay platos en el menú de hoy/)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'A la carta' }));
+    expect(screen.getByText('Lomo Saltado')).toBeInTheDocument();
   });
 });

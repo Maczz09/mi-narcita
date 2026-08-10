@@ -15,6 +15,13 @@ vi.mock('../../hooks/queries/useInventarioQuery', () => ({
   })
 }));
 
+vi.mock('../../hooks/queries/useMenuDiarioQuery', () => ({
+  useMenuDiarioQuery: () => ({
+    menu: [],
+    loading: false,
+  })
+}));
+
 vi.mock('../../hooks/queries/useMesasQuery', () => ({
   useMesasQuery: () => ({
     mesas: []
