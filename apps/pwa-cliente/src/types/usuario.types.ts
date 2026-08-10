@@ -29,4 +29,6 @@ export interface UsuarioVM {
   estadoClass: string;
   createdAt: string;
   createdAtLabel: string;
+  /** null = admin general (sin sede fija). T-23. */
+  sedeId: string | null;
 }

@@ -3,7 +3,7 @@
 import { create } from 'zustand';
 import type { LoginRequest, UserDto } from '../types/auth.types';
 import * as authApi from '../api/auth.api';
-import { clearAuthToken } from '../api/client';
+import { clearAuthToken, setUsuarioSedeId, setSedeSeleccionada } from '../api/client';
 import { socketService } from '../services/socket.service';
 
 interface AuthState {
@@ -28,6 +28,7 @@ export const useAuthStore = create<AuthStore>((set) => ({
 
   login: async (req: LoginRequest) => {
     const user = await authApi.login(req);
+    setUsuarioSedeId(user.sedeId ?? null);
     set({ user, authenticated: true });
     void socketService.connect();
   },
@@ -37,12 +38,16 @@ export const useAuthStore = create<AuthStore>((set) => ({
       // La sesión puede estar expirada o el backend rechazar logout; el estado local igual debe limpiarse.
     });
     clearAuthToken();
+    setUsuarioSedeId(null);
+    setSedeSeleccionada(null);
     socketService.disconnect();
     set({ user: null, authenticated: false });
   },
 
   expireSession: () => {
     clearAuthToken();
+    setUsuarioSedeId(null);
+    setSedeSeleccionada(null);
     socketService.disconnect();
     set({ user: null, authenticated: false });
   },
@@ -51,10 +56,12 @@ export const useAuthStore = create<AuthStore>((set) => ({
     set({ loading: true });
     try {
       const user = await authApi.me();
+      setUsuarioSedeId(user.sedeId ?? null);
       set({ user, authenticated: true, loading: false });
       void socketService.connect();
     } catch {
       clearAuthToken();
+      setUsuarioSedeId(null);
       socketService.disconnect();
       set({ user: null, authenticated: false, loading: false });
     }

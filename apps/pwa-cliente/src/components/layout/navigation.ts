@@ -35,6 +35,7 @@ export const NAV_GROUPS: NavGroup[] = [
       { key: 'reportes', label: 'Reportes', shortLabel: 'Reportes', icon: 'Reportes', priority: 9 },
       { key: 'historial-caja', label: 'Historial de caja', shortLabel: 'Hist. Caja', icon: 'Caja', priority: 9.5 },
       { key: 'usuarios', label: 'Usuarios', shortLabel: 'Usuarios', icon: 'Usuarios', priority: 11 },
+      { key: 'sedes', label: 'Sedes', shortLabel: 'Sedes', icon: 'Sede', priority: 12 },
     ],
   },
 ];

@@ -28,6 +28,10 @@ vi.mock('../../hooks/useOnlineStatus', () => ({
   useOnlineStatus: () => true
 }));
 
+vi.mock('../../hooks/queries/useSedesQuery', () => ({
+  useSedesQuery: () => ({ sedes: [], loading: false }),
+}));
+
 const renderHeader = () => {
   return render(
     <BrowserRouter>

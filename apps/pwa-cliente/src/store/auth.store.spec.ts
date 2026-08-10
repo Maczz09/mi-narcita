@@ -13,6 +13,8 @@ vi.mock('../services/socket.service', () => ({
 }));
 vi.mock('../api/client', () => ({
   clearAuthToken: vi.fn(),
+  setUsuarioSedeId: vi.fn(),
+  setSedeSeleccionada: vi.fn(),
 }));
 
 describe('auth.store', () => {

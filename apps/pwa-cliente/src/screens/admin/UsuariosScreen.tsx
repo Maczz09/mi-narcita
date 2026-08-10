@@ -5,6 +5,7 @@
 import { useMemo, useState, type SubmitEvent } from 'react';
 import { useOnlineStatus } from '../../hooks/useOnlineStatus';
 import { useUsuariosQuery } from '../../hooks/queries/useUsuariosQuery';
+import { useSedesQuery } from '../../hooks/queries/useSedesQuery';
 import { useAuthStore } from '../../store/auth.store';
 import { Icons } from '../../components/ui/icons';
 import { StatKpi } from '../../components/ui/StatKpi';
@@ -35,6 +36,7 @@ const INITIAL_FORM: CrearUsuarioPayload = {
   email: '',
   password: '',
   rol: 'MESERO',
+  sedeId: '',
 };
 
 function iniciales(nombre: string): string {
@@ -73,6 +75,10 @@ export function UsuariosScreen() {
     clearFeedback,
   } = useUsuariosQuery(filters);
 
+  const { sedes } = useSedesQuery();
+  const sedeNombrePorId = useMemo(() => new Map(sedes.map((s) => [s.id, s.nombre])), [sedes]);
+  const sedeRequerida = form.rol !== 'ADMIN';
+
   const handleCambiarEstado = async (id: string, nombre: string, activo: boolean) => {
     if (!activo && !window.confirm(`¿Desactivar a ${nombre}? No podrá iniciar sesión hasta que lo reactives.`)) {
       return;
@@ -94,10 +100,12 @@ export function UsuariosScreen() {
   const handleCrear = async (event: SubmitEvent) => {
     event.preventDefault();
     if (!online) return;
+    if (sedeRequerida && !form.sedeId) return;
     await crear({
       ...form,
       nombre: form.nombre.trim(),
       email: form.email.trim(),
+      sedeId: form.rol === 'ADMIN' ? undefined : form.sedeId,
     });
     setForm(INITIAL_FORM);
   };
@@ -208,6 +216,7 @@ export function UsuariosScreen() {
                     <tr>
                       <th>Usuario</th>
                       <th>Rol</th>
+                      <th className="col-mobile-hidden">Sede</th>
                       <th>Estado</th>
                       <th className="col-mobile-hidden">Creado</th>
                       {puedeGestionar && <th className="cell-action">Cambiar rol</th>}
@@ -230,6 +239,9 @@ export function UsuariosScreen() {
                         </td>
                         <td>
                           <span className={`badge-rol ${ROL_CLASS[usuario.rol] ?? 'rol-sistema'}`}>{usuario.rolLabel}</span>
+                        </td>
+                        <td className="col-mobile-hidden muted">
+                          {usuario.sedeId ? (sedeNombrePorId.get(usuario.sedeId) ?? '—') : 'Todas (admin)'}
                         </td>
                         <td><span className={`badge dot ${usuario.estadoClass}`}>{usuario.estadoLabel}</span></td>
                         <td className="muted col-mobile-hidden">{usuario.createdAtLabel}</td>
@@ -320,7 +332,21 @@ export function UsuariosScreen() {
                     </select>
                   </div>
                 </div>
-                <button className="btn btn-primary btn-block" disabled={saving || !online} type="submit">
+                {sedeRequerida && (
+                  <div className="field">
+                    <label htmlFor="nu-sede">Sede</label>
+                    <div className="input">
+                      <select id="nu-sede" required value={form.sedeId} onChange={(event) => updateForm('sedeId', event.target.value)}>
+                        <option value="">Elige una sede…</option>
+                        {sedes.filter((s) => s.activa).map((sede) => (
+                          <option key={sede.id} value={sede.id}>{sede.nombre}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <span className="hint">Este rol queda fijo a la sede elegida.</span>
+                  </div>
+                )}
+                <button className="btn btn-primary btn-block" disabled={saving || !online || (sedeRequerida && !form.sedeId)} type="submit">
                   {saving ? <span className="spinner" /> : <Icons.Plus s={16} />}
                   Crear usuario
                 </button>

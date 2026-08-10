@@ -18,6 +18,12 @@ vi.mock('../../store/auth.store', () => ({
   useAuthStore: vi.fn()
 }));
 
+vi.mock('../../hooks/queries/useSedesQuery', () => ({
+  useSedesQuery: () => ({
+    sedes: [{ id: 'sede-1', nombre: 'Sede Principal', direccion: null, activa: true }],
+  }),
+}));
+
 vi.mock('../../components/ui/icons', () => ({
   Icons: {
     Search: () => <svg data-testid="icon-search" />,
@@ -111,11 +117,13 @@ describe('UsuariosScreen', () => {
     const emailInput = screen.getByLabelText('Email');
     const passInput = screen.getByLabelText('Contraseña');
     const rolSelect = screen.getByLabelText('Rol');
+    const sedeSelect = screen.getByLabelText('Sede');
 
     fireEvent.change(nameInput, { target: { value: 'Nuevo Mesero ' } });
     fireEvent.change(emailInput, { target: { value: ' nuevo@test.com ' } });
     fireEvent.change(passInput, { target: { value: 'password123' } });
     fireEvent.change(rolSelect, { target: { value: 'COCINA' } });
+    fireEvent.change(sedeSelect, { target: { value: 'sede-1' } });
 
     const submitBtn = screen.getByRole('button', { name: /Crear usuario/i });
     fireEvent.click(submitBtn);
@@ -125,7 +133,8 @@ describe('UsuariosScreen', () => {
         nombre: 'Nuevo Mesero',
         email: 'nuevo@test.com',
         password: 'password123',
-        rol: 'COCINA'
+        rol: 'COCINA',
+        sedeId: 'sede-1',
       });
     });
 

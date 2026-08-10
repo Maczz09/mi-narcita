@@ -18,6 +18,7 @@ const InventarioScreen = lazy(() => import('../screens/inventario/InventarioScre
 const CategoriasScreen = lazy(() => import('../screens/categorias/CategoriasScreen').then(m => ({ default: m.CategoriasScreen })));
 const ReportesScreen = lazy(() => import('../screens/reportes/ReportesScreen').then(m => ({ default: m.ReportesScreen })));
 const UsuariosScreen = lazy(() => import('../screens/admin/UsuariosScreen').then(m => ({ default: m.UsuariosScreen })));
+const SedesScreen = lazy(() => import('../screens/sedes/SedesScreen').then(m => ({ default: m.SedesScreen })));
 const CartaScreen = lazy(() => import('../screens/carta/CartaScreen').then(m => ({ default: m.CartaScreen })));
 const ComprasScreen = lazy(() => import('../screens/compras/ComprasScreen').then(m => ({ default: m.ComprasScreen })));
 import { Shell } from '../components/layout/Shell';
@@ -121,6 +122,7 @@ export function AppRouter() {
           <Route path="categorias" element={<RutaPorRol ruta="categorias"><ScreenBoundary modulo="Categorías"><CategoriasScreen /></ScreenBoundary></RutaPorRol>} />
           <Route path="reportes" element={<RutaPorRol ruta="reportes"><ScreenBoundary modulo="Reportes"><ReportesScreen /></ScreenBoundary></RutaPorRol>} />
           <Route path="usuarios" element={<RutaPorRol ruta="usuarios"><ScreenBoundary modulo="Usuarios"><UsuariosScreen /></ScreenBoundary></RutaPorRol>} />
+          <Route path="sedes" element={<RutaPorRol ruta="sedes"><ScreenBoundary modulo="Sedes"><SedesScreen /></ScreenBoundary></RutaPorRol>} />
           <Route path="carta" element={<RutaPorRol ruta="carta"><ScreenBoundary modulo="Carta"><CartaScreen /></ScreenBoundary></RutaPorRol>} />
           <Route path="compras" element={<RutaPorRol ruta="compras"><ScreenBoundary modulo="Compras"><ComprasScreen /></ScreenBoundary></RutaPorRol>} />
         </Route>

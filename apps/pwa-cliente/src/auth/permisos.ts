@@ -24,6 +24,7 @@ export const TODAS_LAS_RUTAS = [
   'categorias',
   'reportes',
   'usuarios',
+  'sedes',
 ] as const;
 
 export type RutaApp = (typeof TODAS_LAS_RUTAS)[number];

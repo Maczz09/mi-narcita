@@ -1,0 +1,64 @@
+import { useQuery, useMutation } from '@tanstack/react-query';
+import * as sedesApi from '../../api/sedes.api';
+import { queryClient, retrySalvo404, refetchSiError } from '../../api/queryClient';
+import { primerMensaje } from '../../utils/feedback';
+import type { SedeDto, CrearSedePayload, ActualizarSedePayload } from '../../types/sede.types';
+
+export const SEDES_QUERY_KEY = ['sedes'];
+
+export function useSedesQuery() {
+  const sedesQuery = useQuery({
+    queryKey: SEDES_QUERY_KEY,
+    queryFn: () => sedesApi.getAll(),
+    retry: retrySalvo404,
+    refetchInterval: refetchSiError,
+  });
+
+  const invalidate = () => queryClient.invalidateQueries({ queryKey: SEDES_QUERY_KEY, exact: false, refetchType: 'active' });
+
+  const mutationCrear = useMutation({
+    mutationFn: (payload: CrearSedePayload) => sedesApi.crear(payload),
+    onSuccess: invalidate,
+  });
+
+  const mutationActualizar = useMutation({
+    mutationFn: ({ id, payload }: { id: string; payload: ActualizarSedePayload }) => sedesApi.actualizar(id, payload),
+    onSuccess: invalidate,
+  });
+
+  const mutationEliminar = useMutation({
+    mutationFn: (id: string) => sedesApi.eliminar(id),
+    onSuccess: invalidate,
+  });
+
+  const saving = mutationCrear.isPending || mutationActualizar.isPending || mutationEliminar.isPending;
+  const error = sedesQuery.error || mutationCrear.error || mutationActualizar.error || mutationEliminar.error;
+  const success = primerMensaje(
+    [mutationCrear.isSuccess, 'Sede creada.'],
+    [mutationActualizar.isSuccess, 'Sede actualizada.'],
+    [mutationEliminar.isSuccess, 'Sede eliminada.'],
+  );
+
+  return {
+    sedes: sedesQuery.data ?? ([] as SedeDto[]),
+    loading: sedesQuery.isLoading,
+    saving,
+    error: error ? error.message : null,
+    success,
+    fetch: sedesQuery.refetch,
+    crearSede: async (payload: CrearSedePayload) => {
+      await mutationCrear.mutateAsync(payload);
+    },
+    actualizarSede: async (id: string, payload: ActualizarSedePayload) => {
+      await mutationActualizar.mutateAsync({ id, payload });
+    },
+    eliminarSede: async (id: string) => {
+      await mutationEliminar.mutateAsync(id);
+    },
+    clearFeedback: () => {
+      mutationCrear.reset();
+      mutationActualizar.reset();
+      mutationEliminar.reset();
+    },
+  };
+}

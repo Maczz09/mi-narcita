@@ -22,6 +22,7 @@ export function mapUsuario(dto: UsuarioDto): UsuarioVM {
     estadoClass: dto.activo ? 'badge-ok' : 'badge-muted',
     createdAt: dto.createdAt,
     createdAtLabel: new Date(dto.createdAt).toLocaleDateString(),
+    sedeId: dto.sedeId ?? null,
   };
 }
 

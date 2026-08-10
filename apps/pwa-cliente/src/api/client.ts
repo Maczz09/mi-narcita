@@ -30,6 +30,50 @@ export function clearAuthToken() {
   localStorage.removeItem(LEGACY_AUTH_TOKEN_KEY);
 }
 
+// ─── T-23 (multi-sede) ────────────────────────────────────────────
+// Un usuario pineado a una sede no necesita mandar `sedeId`: el backend lo
+// resuelve solo desde su JWT (y un valor del cliente se ignoraría de todos
+// modos). Solo el admin general (sedeId nulo en su token) debe indicar en
+// cuál sede quiere operar — esa elección vive acá, no en cada api/*.ts, para
+// no tener que enhebrar `sedeId` por todos los hooks/pantallas scopeados.
+const SEDE_SELECCIONADA_KEY = 'nachopps.sede_seleccionada';
+const SEDE_SCOPED_PATH_PREFIXES = [
+  '/mesas',
+  '/inventario/categorias',
+  '/inventario/productos',
+  '/inventario/menu-diario',
+  '/inventario/mermas',
+  '/identidad/usuarios',
+];
+
+let usuarioSedeId: string | null = null;
+let sedeSeleccionada: string | null = localStorage.getItem(SEDE_SELECCIONADA_KEY);
+
+/** Sede fija del usuario autenticado (null = admin general sin sede fija). Se fija en cada login/restore. */
+export function setUsuarioSedeId(sedeId: string | null) {
+  usuarioSedeId = sedeId;
+}
+
+/** Sede que el admin general eligió operar (navbar). Persiste entre sesiones. */
+export function setSedeSeleccionada(sedeId: string | null) {
+  sedeSeleccionada = sedeId;
+  if (sedeId) localStorage.setItem(SEDE_SELECCIONADA_KEY, sedeId);
+  else localStorage.removeItem(SEDE_SELECCIONADA_KEY);
+}
+
+export function getSedeSeleccionada(): string | null {
+  return sedeSeleccionada;
+}
+
+function appendSedeParam(path: string): string {
+  if (usuarioSedeId != null) return path; // pineado: el backend ya lo resuelve solo
+  if (!sedeSeleccionada) return path;
+  if (!SEDE_SCOPED_PATH_PREFIXES.some((prefix) => path.startsWith(prefix))) return path;
+  if (/[?&]sedeId=/.test(path)) return path; // ya lo trae explícito (no pisarlo)
+  const sep = path.includes('?') ? '&' : '?';
+  return `${path}${sep}sedeId=${encodeURIComponent(sedeSeleccionada)}`;
+}
+
 function newIdempotencyKey(): string {
   const c = globalThis.crypto;
   if (c?.randomUUID) return c.randomUUID();
@@ -247,7 +291,7 @@ async function handleErrorResponse<T>(
 }
 
 async function request<T>(path: string, init?: RequestInit, retried = false): Promise<T> {
-  const url = buildUrl(path);
+  const url = buildUrl(appendSedeParam(path));
   const headers = new Headers(init?.headers);
   const method = (init?.method ?? 'GET').toUpperCase();
   applyHeaders(headers, method);

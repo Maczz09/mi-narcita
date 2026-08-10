@@ -12,6 +12,8 @@ export interface UserDto {
   rol: string;
   activo?: boolean;
   createdAt?: string;
+  /** null = admin general (opera cualquier sede, debe elegir una). T-23. */
+  sedeId?: string | null;
 }
 
 export interface LoginResponseDto {

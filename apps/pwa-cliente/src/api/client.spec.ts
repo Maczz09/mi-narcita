@@ -2,11 +2,22 @@
 import { vi } from 'vitest';
 // @ts-nocheck
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { client, setAuthToken, getAuthToken, clearAuthToken, ApiError } from './client';
+import {
+  client,
+  setAuthToken,
+  getAuthToken,
+  clearAuthToken,
+  ApiError,
+  setUsuarioSedeId,
+  setSedeSeleccionada,
+  getSedeSeleccionada,
+} from './client';
 
 describe('client', () => {
   beforeEach(() => {
     clearAuthToken();
+    setUsuarioSedeId(null);
+    setSedeSeleccionada(null);
     vi.stubGlobal('fetch', vi.fn());
     vi.stubGlobal('crypto', {
       getRandomValues: (arr: Uint8Array) => arr.fill(0),
@@ -230,6 +241,88 @@ describe('client', () => {
 
       expect(data).toEqual({ id: 2 });
       expect(fetch).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  describe('sede scoping (T-23: multi-sede)', () => {
+    function lastUrl(): string {
+      return vi.mocked(fetch).mock.calls.at(-1)?.[0] as string;
+    }
+
+    it('un usuario pineado a una sede nunca manda sedeId, aunque haya una seleccionada', async () => {
+      const mockRes = { ok: true, status: 200, json: vi.fn().mockResolvedValue([]) };
+      vi.mocked(fetch).mockResolvedValue(mockRes as any);
+
+      setUsuarioSedeId('sede-fija');
+      setSedeSeleccionada('sede-elegida');
+      await client.get('/mesas');
+
+      expect(lastUrl()).not.toContain('sedeId=');
+    });
+
+    it('el admin general sin sede seleccionada no manda sedeId', async () => {
+      const mockRes = { ok: true, status: 200, json: vi.fn().mockResolvedValue([]) };
+      vi.mocked(fetch).mockResolvedValue(mockRes as any);
+
+      setUsuarioSedeId(null);
+      await client.get('/mesas');
+
+      expect(lastUrl()).not.toContain('sedeId=');
+    });
+
+    it('el admin general con sede seleccionada la agrega como query param en rutas scopeadas', async () => {
+      const mockRes = { ok: true, status: 200, json: vi.fn().mockResolvedValue([]) };
+      vi.mocked(fetch).mockResolvedValue(mockRes as any);
+
+      setUsuarioSedeId(null);
+      setSedeSeleccionada('sede-abc');
+      await client.get('/mesas');
+
+      expect(lastUrl()).toContain('sedeId=sede-abc');
+    });
+
+    it('no toca rutas fuera del allowlist scopeado', async () => {
+      const mockRes = { ok: true, status: 200, json: vi.fn().mockResolvedValue([]) };
+      vi.mocked(fetch).mockResolvedValue(mockRes as any);
+
+      setUsuarioSedeId(null);
+      setSedeSeleccionada('sede-abc');
+      await client.get('/reservas');
+
+      expect(lastUrl()).not.toContain('sedeId=');
+    });
+
+    it('agrega el sedeId con & cuando la ruta ya trae otros query params', async () => {
+      const mockRes = { ok: true, status: 200, json: vi.fn().mockResolvedValue([]) };
+      vi.mocked(fetch).mockResolvedValue(mockRes as any);
+
+      setUsuarioSedeId(null);
+      setSedeSeleccionada('sede-abc');
+      await client.get('/inventario/mermas?limit=10');
+
+      expect(lastUrl()).toContain('limit=10&sedeId=sede-abc');
+    });
+
+    it('no pisa un sedeId explícito que ya viene en la ruta', async () => {
+      const mockRes = { ok: true, status: 200, json: vi.fn().mockResolvedValue([]) };
+      vi.mocked(fetch).mockResolvedValue(mockRes as any);
+
+      setUsuarioSedeId(null);
+      setSedeSeleccionada('sede-abc');
+      await client.get('/mesas?sedeId=otra-sede');
+
+      expect(lastUrl()).toContain('sedeId=otra-sede');
+      expect(lastUrl()).not.toContain('sedeId=sede-abc');
+    });
+
+    it('setSedeSeleccionada persiste en localStorage y getSedeSeleccionada la expone', () => {
+      setSedeSeleccionada('sede-persistida');
+      expect(getSedeSeleccionada()).toBe('sede-persistida');
+      expect(localStorage.getItem('nachopps.sede_seleccionada')).toBe('sede-persistida');
+
+      setSedeSeleccionada(null);
+      expect(getSedeSeleccionada()).toBeNull();
+      expect(localStorage.getItem('nachopps.sede_seleccionada')).toBeNull();
     });
   });
 });
