@@ -194,6 +194,23 @@ describe('AppService — Cuentas (comprehensive)', () => {
       mockPrisma.cuenta.findUnique.mockResolvedValue(null);
       await expect(service.obtenerCuenta('no-existe')).rejects.toThrow(NotFoundException);
     });
+
+    it('incluye el mesero dominante (auditoría de caja) cuando los pedidos lo traen', async () => {
+      mockPrisma.cuenta.findUnique.mockResolvedValue({
+        ...cuentaAbierta,
+        pedidos: [{ ...pedidoBase, meseroId: 'mesero-1', meseroNombre: 'Ana Mesa' }],
+      });
+      const result = await service.obtenerCuenta('c-001');
+      expect(result.meseroId).toBe('mesero-1');
+      expect(result.meseroNombre).toBe('Ana Mesa');
+    });
+
+    it('no falla y omite mesero si ningún pedido lo trae', async () => {
+      mockPrisma.cuenta.findUnique.mockResolvedValue(cuentaAbierta);
+      const result = await service.obtenerCuenta('c-001');
+      expect(result.meseroId).toBeUndefined();
+      expect(result.meseroNombre).toBeUndefined();
+    });
   });
 
   // ─── obtenerCuentaPorMesa ─────────────────────────────────────────────────

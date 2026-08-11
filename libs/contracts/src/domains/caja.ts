@@ -46,6 +46,23 @@ export class TransaccionDto {
   @IsString()
   cajeroNombre?: string;
 
+  // Auditoría de cierre (quién atendió vs. quién cobró/generó el comprobante).
+  @IsOptional()
+  @IsString()
+  mesaId?: string;
+
+  @IsOptional()
+  @IsString()
+  turnoId?: string;
+
+  @IsOptional()
+  @IsString()
+  meseroId?: string;
+
+  @IsOptional()
+  @IsString()
+  meseroNombre?: string;
+
   @IsString()
   createdAt: string;
 }

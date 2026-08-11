@@ -223,6 +223,7 @@ export class AppService {
         movimientos: { orderBy: { createdAt: 'desc' } },
         arqueos: { orderBy: { createdAt: 'desc' }, take: 1 },
         cierre: true,
+        transacciones: { orderBy: { createdAt: 'desc' } },
       },
     });
 
@@ -318,6 +319,7 @@ export class AppService {
           movimientos: { orderBy: { createdAt: 'desc' } },
           arqueos: { orderBy: { createdAt: 'desc' }, take: 1 },
           cierre: true,
+          transacciones: { orderBy: { createdAt: 'desc' } },
         },
       });
 
@@ -356,7 +358,10 @@ export class AppService {
           montoReal: efectivoContado,
           diferencia,
           usuarioId: this.usuario(usuarioId),
-          resumen,
+          // El resumen ahora incluye ventasDetalle (TransaccionDto[], una
+          // clase de @org/contracts) — Prisma tipa Json de forma más
+          // estricta para instancias de clase que para objetos planos.
+          resumen: resumen as unknown as Prisma.InputJsonValue,
         },
       });
 
@@ -497,6 +502,11 @@ export class AppService {
           notas: command.notas,
           usuarioId: usuarioId ?? undefined,
           cajeroNombre: cajeroNombre ?? undefined,
+          // Auditoría de caja (quién atendió vs. quién cobró): mesero
+          // dominante de la cuenta al momento del pago, no del cierre —
+          // así también queda en pagos parciales (T-16), no solo el final.
+          meseroId: cuentaRemota.meseroId ?? undefined,
+          meseroNombre: cuentaRemota.meseroNombre ?? undefined,
         },
       });
 
@@ -703,7 +713,7 @@ export class AppService {
   }
 
   /* eslint-disable @typescript-eslint/no-explicit-any */
-  private buildResumen(turno: import('../generated/prisma').TurnoCaja & { movimientos?: import('../generated/prisma').MovimientoCaja[], arqueos?: import('../generated/prisma').ArqueoCaja[], cierre?: import('../generated/prisma').CierreCaja | null }) {
+  private buildResumen(turno: import('../generated/prisma').TurnoCaja & { movimientos?: import('../generated/prisma').MovimientoCaja[], arqueos?: import('../generated/prisma').ArqueoCaja[], cierre?: import('../generated/prisma').CierreCaja | null, transacciones?: import('../generated/prisma').Transaccion[] }) {
     const movimientos = Array.isArray(turno.movimientos) ? turno.movimientos : [];
     const ventas = movimientos.filter((m: import('../generated/prisma').MovimientoCaja) => m.tipo === 'VENTA');
     const ingresos = movimientos.filter((m: import('../generated/prisma').MovimientoCaja) => m.tipo === 'INGRESO');
@@ -722,6 +732,10 @@ export class AppService {
       turno: this.mapTurno(turno),
       movimientos: movimientos.map((m: import('../generated/prisma').MovimientoCaja) => this.mapMovimiento(m)),
       ventas: ventas.map((m: import('../generated/prisma').MovimientoCaja) => this.mapMovimiento(m)),
+      // Auditoría venta-por-venta (quién atendió + quién cobró), a diferencia
+      // de `ventas` (agregado desde movimientos, sin cajero/mesero). Fuente:
+      // Transaccion, que sí lleva usuarioId/cajeroNombre/meseroId/meseroNombre.
+      ventasDetalle: (Array.isArray(turno.transacciones) ? turno.transacciones : []).map((t) => this.mapTransaccion(t)),
       totalVentas: totalVentas.toNumber(),
       totalEgresos: totalEgresos.toNumber(),
       totalIngresos: totalIngresos.toNumber(),
@@ -778,6 +792,10 @@ export class AppService {
       notas: t.notas || undefined,
       usuarioId: t.usuarioId || undefined,
       cajeroNombre: t.cajeroNombre || undefined,
+      mesaId: t.mesaId || undefined,
+      turnoId: t.turnoId || undefined,
+      meseroId: t.meseroId || undefined,
+      meseroNombre: t.meseroNombre || undefined,
       createdAt: t.createdAt.toISOString(),
     };
   }
