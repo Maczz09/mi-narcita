@@ -547,6 +547,25 @@ export class AuthService {
     return { sede: sede ? this.toSedeDto(sede) : null };
   }
 
+  // Consumido desde EventsController (turno.abierto / turno.cerrado): el
+  // personal MESERO de la sede se activa solo al abrir caja y se desactiva
+  // solo al cerrarla, para que no puedan operar fuera de un turno con caja.
+  // updateMany es naturalmente idempotente (repetir el mismo evento no
+  // cambia el resultado), así que no hace falta deduplicar por evento.
+  async activarMeserosPorSede(sedeId: string, activo: boolean): Promise<number> {
+    const { count } = await this.prisma.usuario.updateMany({
+      where: { sedeId, rol: 'MESERO' },
+      data: { activo },
+    });
+    this.logger.log({
+      operation: 'activarMeserosPorSede',
+      aggregateId: sedeId,
+      resultingState: activo ? 'ACTIVOS' : 'INACTIVOS',
+      message: `${count} usuario(s) MESERO ${activo ? 'activados' : 'desactivados'} (sede ${sedeId}).`,
+    } satisfies OperableLog);
+    return count;
+  }
+
   async crearSede(command: CrearSedeCommand): Promise<{ message: string; sede: SedeDto }> {
     const existe = await this.prisma.sede.findUnique({ where: { nombre: command.nombre } });
     if (existe) throw new ConflictException(`Ya existe una sede llamada "${command.nombre}".`);

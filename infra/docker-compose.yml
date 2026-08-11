@@ -253,7 +253,7 @@ services:
   # MICROSERVICIOS
   # ═══════════════════════════════════════════════════
   servicio-identidad:
-    image: infra-servicio-identidad
+    image: mi-narcita-servicio-identidad
     container_name: nachopps-servicio-identidad
     # host 3001 choca con otro stack Docker de este host (medicitas_grafana);
     # Kong sigue enrutando internamente a servicio-identidad:3000, sin cambios.
@@ -326,7 +326,7 @@ services:
         condition: service_healthy
 
   servicio-mesas:
-    image: infra-servicio-mesas
+    image: mi-narcita-servicio-mesas
     container_name: nachopps-servicio-mesas
     ports: ['3002:3000']
     env_file: *jwt_dev_env
@@ -390,7 +390,7 @@ services:
         condition: service_healthy
 
   servicio-pedidos:
-    image: infra-servicio-pedidos
+    image: mi-narcita-servicio-pedidos
     container_name: nachopps-servicio-pedidos
     ports: ['3004:3000']
     env_file: *jwt_dev_env
@@ -456,7 +456,7 @@ services:
         condition: service_healthy
 
   servicio-cuentas:
-    image: infra-servicio-cuentas
+    image: mi-narcita-servicio-cuentas
     container_name: nachopps-servicio-cuentas
     ports: ['3005:3000']
     env_file: *jwt_dev_env
@@ -521,7 +521,7 @@ services:
         condition: service_healthy
 
   servicio-reservas:
-    image: infra-servicio-reservas
+    image: mi-narcita-servicio-reservas
     container_name: nachopps-servicio-reservas
     ports: ['3006:3000']
     env_file: *jwt_dev_env
@@ -585,7 +585,7 @@ services:
         condition: service_healthy
 
   servicio-inventario:
-    image: infra-servicio-inventario
+    image: mi-narcita-servicio-inventario
     container_name: nachopps-servicio-inventario
     ports: ['3007:3000']
     env_file: *jwt_dev_env
@@ -649,7 +649,7 @@ services:
         condition: service_healthy
 
   servicio-notificaciones:
-    image: infra-servicio-notificaciones
+    image: mi-narcita-servicio-notificaciones
     container_name: nachopps-servicio-notificaciones
     ports: ['3008:3000']
     env_file: *jwt_dev_env
@@ -713,7 +713,7 @@ services:
         condition: service_healthy
 
   servicio-caja:
-    image: infra-servicio-caja
+    image: mi-narcita-servicio-caja
     container_name: nachopps-servicio-caja
     ports: ['3009:3000']
     env_file: *jwt_dev_env
@@ -781,7 +781,7 @@ services:
         condition: service_healthy
 
   servicio-reportes:
-    image: infra-servicio-reportes
+    image: mi-narcita-servicio-reportes
     container_name: nachopps-servicio-reportes
     ports: ['3010:3000']
     env_file: *jwt_dev_env
@@ -845,7 +845,7 @@ services:
         condition: service_healthy
 
   servicio-facturacion:
-    image: infra-servicio-facturacion
+    image: mi-narcita-servicio-facturacion
     container_name: nachopps-servicio-facturacion
     ports: ['3011:3000']
     env_file: *jwt_dev_env
@@ -884,7 +884,7 @@ services:
         condition: service_healthy
 
   servicio-compras:
-    image: infra-servicio-compras
+    image: mi-narcita-servicio-compras
     container_name: nachopps-servicio-compras
     ports: ['3012:3000']
     env_file: *jwt_dev_env
@@ -936,7 +936,7 @@ services:
     build:
       context: kong
       dockerfile: Dockerfile
-    image: infra-kong
+    image: mi-narcita-kong
     container_name: nachopps-kong
     env_file: *jwt_dev_env
     environment:
@@ -1120,7 +1120,7 @@ services:
     build:
       context: ../
       dockerfile: apps/pwa-cliente/Dockerfile
-    image: infra-pwa-cliente
+    image: mi-narcita-pwa-cliente
     container_name: nachopps-pwa-cliente
     ports:
       - '4200:8080'

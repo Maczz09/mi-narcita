@@ -16,6 +16,8 @@ import {
   RoutingKeys,
   TransaccionDto,
   TransaccionListResponse,
+  TurnoCajaAbiertoPayload,
+  TurnoCajaCerradoPayload,
   TurnoListResponse,
 } from '@org/contracts';
 import { Prisma } from '../generated/prisma';
@@ -103,6 +105,17 @@ export class AppService {
             donde: 'Fondo inicial',
             metodo: 'EFECTIVO',
             monto: fondoInicial,
+          },
+        });
+
+        // Identidad activa automáticamente al personal MESERO de esta sede
+        // al abrir turno (y los desactiva al cerrar — ver cerrarTurno).
+        const payload: TurnoCajaAbiertoPayload = { turnoId: creado.id, sedeId };
+        await prisma.outboxEvent.create({
+          data: {
+            routingKey: RoutingKeys.TurnoCajaAbierto,
+            payload: JSON.stringify(payload),
+            status: 'PENDING',
           },
         });
 
@@ -350,6 +363,17 @@ export class AppService {
       const turnoCerrado = await prisma.turnoCaja.update({
         where: { id },
         data: { estado: 'CERRADA', cerradoAt: new Date() },
+      });
+
+      // Identidad desactiva automáticamente al personal MESERO de esta sede
+      // al cerrar turno — contraparte de TurnoCajaAbierto en abrirTurno.
+      const payload: TurnoCajaCerradoPayload = { turnoId: id, sedeId: turno.sedeId };
+      await prisma.outboxEvent.create({
+        data: {
+          routingKey: RoutingKeys.TurnoCajaCerrado,
+          payload: JSON.stringify(payload),
+          status: 'PENDING',
+        },
       });
 
       return { turno: turnoCerrado, arqueo, cierre: cierreCreado, resumen };

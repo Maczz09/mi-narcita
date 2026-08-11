@@ -199,3 +199,19 @@ export class TurnoListResponse {
   @IsString()
   nextCursor: string | null;
 }
+
+// Eventos de apertura/cierre de turno (consumidos por identidad para
+// activar/desactivar automáticamente al personal MESERO de esa sede).
+export class TurnoCajaAbiertoPayload {
+  @IsString()
+  turnoId: string;
+  @IsString()
+  sedeId: string;
+}
+
+export class TurnoCajaCerradoPayload {
+  @IsString()
+  turnoId: string;
+  @IsString()
+  sedeId: string;
+}

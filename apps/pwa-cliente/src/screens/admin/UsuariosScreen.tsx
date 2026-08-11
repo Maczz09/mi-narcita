@@ -312,7 +312,7 @@ export function UsuariosScreen() {
                 <div className="field">
                   <label htmlFor="nu-email">Email</label>
                   <div className="input">
-                    <input id="nu-email" required type="email" value={form.email} onChange={(event) => updateForm('email', event.target.value)} placeholder="persona@restoapp.pe" />
+                    <input id="nu-email" required type="email" value={form.email} onChange={(event) => updateForm('email', event.target.value)} placeholder="persona@mi-narcita.pe" />
                   </div>
                 </div>
                 <div className="field">

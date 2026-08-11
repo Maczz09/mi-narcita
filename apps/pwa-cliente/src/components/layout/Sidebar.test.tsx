@@ -25,6 +25,8 @@ vi.mock('../../config', () => ({
     nombreLocal: 'TestLocal',
     ubicacionFallback: 'Elige una sede',
   },
+  APP_LOGO: null,
+  PLATFORM_NAME: 'RestoApp.pe',
 }));
 
 const mockUseSedeActualQuery = vi.fn();

@@ -37,6 +37,7 @@ function createMockPrismaService(overrides: Record<string, unknown> = {}) {
       findUnique: jest.fn(),
       findMany: jest.fn(),
       update: jest.fn(),
+      updateMany: jest.fn(),
       create: jest.fn(),
     },
     sede: {
@@ -697,6 +698,32 @@ describe('AuthService — Identidad', () => {
       mockPrisma.sede.findUnique.mockResolvedValue(null);
       const result = await service.sedeActual('s-borrada');
       expect(result.sede).toBeNull();
+    });
+  });
+
+  describe('activarMeserosPorSede', () => {
+    it('activa solo a los MESERO de la sede indicada', async () => {
+      mockPrisma.usuario.updateMany.mockResolvedValue({ count: 4 });
+
+      const count = await service.activarMeserosPorSede('sede-1', true);
+
+      expect(mockPrisma.usuario.updateMany).toHaveBeenCalledWith({
+        where: { sedeId: 'sede-1', rol: 'MESERO' },
+        data: { activo: true },
+      });
+      expect(count).toBe(4);
+    });
+
+    it('desactiva a los MESERO de la sede indicada', async () => {
+      mockPrisma.usuario.updateMany.mockResolvedValue({ count: 4 });
+
+      const count = await service.activarMeserosPorSede('sede-1', false);
+
+      expect(mockPrisma.usuario.updateMany).toHaveBeenCalledWith({
+        where: { sedeId: 'sede-1', rol: 'MESERO' },
+        data: { activo: false },
+      });
+      expect(count).toBe(4);
     });
   });
 });

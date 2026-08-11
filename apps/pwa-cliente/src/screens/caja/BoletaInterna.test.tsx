@@ -30,7 +30,7 @@ const transaccion: TransaccionDto = {
 describe('BoletaInterna', () => {
   it('muestra el encabezado del local y el disclaimer de "no es SUNAT"', () => {
     render(<BoletaInterna ticket={ticket} transaccion={transaccion} mesaNumero="5" propina={0} onImprimir={vi.fn()} onCerrar={vi.fn()} />);
-    expect(screen.getByText('RESTOAPP.PE')).toBeInTheDocument();
+    expect(screen.getByText('MI NARCITA')).toBeInTheDocument();
     expect(screen.getByText(/no es un comprobante de pago electrónico SUNAT/i)).toBeInTheDocument();
     expect(screen.getByText('Mesa 5')).toBeInTheDocument();
   });

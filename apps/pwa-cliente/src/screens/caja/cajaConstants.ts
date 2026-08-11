@@ -1,6 +1,12 @@
 /* eslint-disable @typescript-eslint/no-misused-promises, @typescript-eslint/no-floating-promises */
+import { APP_NAME } from '../../config';
+
+// TODO(mi-narcita): zona/ruc/dir siguen siendo el placeholder heredado del
+// core — son datos fiscales reales que van impresos en la boleta interna
+// del cliente. Reemplazar con el RUC y dirección reales de Mi Narcita
+// antes de usar esto en un cobro real.
 export const RESTO_FISCAL = {
-  nombre: 'RestoApp.pe',
+  nombre: APP_NAME,
   zona: 'Barranco · Lima',
   ruc: '20554879631',
   dir: 'Av. Saenz Pena 234, Barranco',
