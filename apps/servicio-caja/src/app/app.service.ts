@@ -507,6 +507,11 @@ export class AppService {
           // así también queda en pagos parciales (T-16), no solo el final.
           meseroId: cuentaRemota.meseroId ?? undefined,
           meseroNombre: cuentaRemota.meseroNombre ?? undefined,
+          // Número de mesa legible (y hermanas si estaba unida) al momento
+          // del cobro — mismo dato confiado del cliente que ya se usa para
+          // MovimientoCaja.donde, ahora también en la Transaccion.
+          mesaNumero: command.mesaNumero ?? undefined,
+          mesaUnidaCon: command.mesaUnidaCon ?? undefined,
         },
       });
 
@@ -796,6 +801,8 @@ export class AppService {
       turnoId: t.turnoId || undefined,
       meseroId: t.meseroId || undefined,
       meseroNombre: t.meseroNombre || undefined,
+      mesaNumero: t.mesaNumero || undefined,
+      mesaUnidaCon: t.mesaUnidaCon || undefined,
       createdAt: t.createdAt.toISOString(),
     };
   }
