@@ -7,11 +7,16 @@ const BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8000';
 // versión siguen activas como fallback durante la transición.
 const API_VERSION_PREFIX = '/v1';
 const LEGACY_AUTH_TOKEN_KEY = ['nachopps', 'access_token'].join('.');
+const LEGACY_CSRF_COOKIE_KEY = ['nachopps', 'csrf_token'].join('.');
 const CSRF_COOKIE_KEY = 'restoapp.csrf_token';
 const CSRF_HEADER_KEY = 'X-CSRF-Token';
 const MUTATING_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
 
 localStorage.removeItem(LEGACY_AUTH_TOKEN_KEY);
+// La cookie vieja (httpOnly:false, sobrevive al rebrand porque el navegador
+// no la borra solo) queda huérfana leyéndose junto a la nueva en DevTools.
+// No la usa nadie; se limpia acá en vez de esperar a que expire sola.
+document.cookie = `${LEGACY_CSRF_COOKIE_KEY}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/`;
 
 let authToken: string | null = null;
 let refreshInFlight: Promise<string | null> | null = null;

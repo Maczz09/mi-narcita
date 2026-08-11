@@ -165,8 +165,10 @@ input, select, textarea { font-family: inherit; }
 /* Cliente con logo propio: el logo ES el nombre (trae su propio wordmark),
    así que no se repite el nombre en texto al lado — solo el logo grande,
    centrado, y debajo la ubicación + atribución a la plataforma. */
-.brand.brand-logo-only { flex-direction: column; padding: 16px 14px 14px; gap: 4px; }
-.brand-logo-big { width: 100%; max-width: 168px; height: auto; object-fit: contain; }
+.brand.brand-logo-only { flex-direction: column; padding: 12px 14px 10px; gap: 4px; }
+/* 120px (no 168px): en laptops de 13" el nav se comía ítems antes de hacer
+   scroll con el logo grande. Sigue siendo perfectamente legible. */
+.brand-logo-big { width: 100%; max-width: 120px; height: auto; object-fit: contain; }
 /* Atribución a la plataforma (RestoApp.pe), deliberadamente diminuta: es
    crédito, no marca — no debe competir con el nombre/logo del cliente. */
 .brand-by { font-size: 8px; font-weight: 700; color: var(--faint); letter-spacing: .01em; white-space: nowrap; }
@@ -724,6 +726,9 @@ fieldset { border: 0; padding: 0; margin: 0; min-width: 0; }
 }
 .bottom-nav { display: none; }
 .mobile-only { display: none; }
+/* Logo chico en el header mobile (ver .top-logo abajo): toggleado junto con
+   el resto de .mobile-only en el media query de 920px. */
+.top-logo { height: 26px; width: auto; max-width: 60px; object-fit: contain; flex: none; }
 
 /* ── 920px: Sidebar → BottomNav ─────────────────────────────── */
 @media (max-width: 920px) {
