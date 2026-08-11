@@ -7,6 +7,7 @@ import {
 import { AuthGuard } from '@nestjs/passport';
 import { timingSafeEqual } from 'node:crypto';
 import type { Request } from 'express';
+import { CSRF_COOKIE_NAME } from './csrf';
 
 const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
 
@@ -50,7 +51,7 @@ export class JwtAuthGuard extends AuthGuard('jwt') {
     )
       return;
 
-    const cookieToken = request.cookies?.['nachopps.csrf_token'] as string | undefined;
+    const cookieToken = request.cookies?.[CSRF_COOKIE_NAME] as string | undefined;
     const headerToken = request.headers?.['x-csrf-token'];
     const normalizedHeader = Array.isArray(headerToken)
       ? headerToken[0]

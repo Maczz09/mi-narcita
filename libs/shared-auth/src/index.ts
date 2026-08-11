@@ -12,3 +12,4 @@ export {
   JWT_VERIFY_ALGORITHMS,
 } from './lib/jwt-keys';
 export { resolveSedeId, SEDE_PRINCIPAL_ID } from './lib/resolve-sede';
+export { CSRF_COOKIE_NAME } from './lib/csrf';

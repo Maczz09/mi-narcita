@@ -18,6 +18,10 @@ vi.mock('./BottomNav', () => ({
   BottomNav: () => <div data-testid="bottom-nav">BottomNav</div>,
 }));
 
+vi.mock('./SedeGateModal', () => ({
+  SedeGateModal: () => null,
+}));
+
 vi.mock('../../hooks/useOnlineStatus', () => ({
   useOnlineStatus: vi.fn(() => true),
 }));

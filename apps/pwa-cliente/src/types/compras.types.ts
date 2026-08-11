@@ -4,6 +4,7 @@
 
 import type {
   ActualizarInsumoCommand,
+  ActualizarOrdenCompraCommand,
   ActualizarProveedorCommand,
   ComprobanteCompraDto as ContractComprobanteCompraDto,
   CrearInsumoCommand,
@@ -48,6 +49,7 @@ export type ActualizarProveedorPayload = ActualizarProveedorCommand;
 export type CrearInsumoPayload = CrearInsumoCommand;
 export type ActualizarInsumoPayload = ActualizarInsumoCommand;
 export type CrearOrdenPayload = CrearOrdenCompraCommand;
+export type ActualizarOrdenPayload = ActualizarOrdenCompraCommand;
 export type RegistrarRecepcionPayload = RegistrarRecepcionCommand;
 
 // ── ViewModels (campos derivados para la UI) ──────────────────────

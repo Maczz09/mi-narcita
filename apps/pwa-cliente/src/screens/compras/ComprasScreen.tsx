@@ -6,16 +6,21 @@ import { useState } from 'react';
 import { Icons } from '../../components/ui/icons';
 import { MiniStat } from '../../components/ui/Stat';
 import { useToast } from '../../components/ui/ToastProvider';
+import { useSedeActualQuery } from '../../hooks/queries/useSedesQuery';
 import { formatMoney } from '../../mappers/compras.mapper';
 import { useInsumosQuery, useOrdenesQuery, useProveedoresQuery, useResumenComprasQuery } from '../../hooks/queries/useComprasQuery';
 import { RecepcionDrawer } from './RecepcionDrawer';
-import { NuevaOCDrawer } from './NuevaOCDrawer';
-import { NuevoProveedorDrawer } from './NuevoProveedorDrawer';
-import { NuevoInsumoDrawer } from './NuevoInsumoDrawer';
+import { OrdenCompraDrawer } from './OrdenCompraDrawer';
+import { ProveedorDrawer } from './ProveedorDrawer';
+import { InsumoDrawer } from './InsumoDrawer';
 import { OrdenDetalleModal } from './OrdenDetalleModal';
-import type { OrdenCompraVM } from '../../types/compras.types';
+import type { InsumoVM, OrdenCompraVM, ProveedorVM } from '../../types/compras.types';
 
 type Tab = 'ordenes' | 'insumos' | 'proveedores';
+
+function mensajeError(err: unknown): string {
+  return err instanceof Error ? err.message : 'Inténtalo de nuevo';
+}
 
 function OcAccion({ orden, onRecepcionar, onEnviar }: Readonly<{ orden: OrdenCompraVM; onRecepcionar: () => void; onEnviar: () => void }>) {
   if (orden.puedeRecibir) {
@@ -36,8 +41,12 @@ export function ComprasScreen() {
   const [recibirId, setRecibirId] = useState<string | null>(null);
   const [detalleId, setDetalleId] = useState<string | null>(null);
   const [nueva, setNueva] = useState(false);
-  const [nuevoProveedor, setNuevoProveedor] = useState(false);
-  const [nuevoInsumo, setNuevoInsumo] = useState(false);
+  const [ordenEditando, setOrdenEditando] = useState<OrdenCompraVM | null>(null);
+  const [proveedorEditando, setProveedorEditando] = useState<ProveedorVM | null | undefined>(undefined);
+  const [insumoEditando, setInsumoEditando] = useState<InsumoVM | null | undefined>(undefined);
+
+  const { sede, loading: sedeLoading } = useSedeActualQuery();
+  const sinSede = !sedeLoading && !sede;
 
   const { resumen } = useResumenComprasQuery();
   const proveedoresQuery = useProveedoresQuery();
@@ -47,68 +56,149 @@ export function ComprasScreen() {
   const recibirOrden = recibirId ? ordenesQuery.ordenes.find((o) => o.id === recibirId) ?? null : null;
 
   const enviarOc = async (id: string) => {
-    await ordenesQuery.enviar(id);
-    toast({ title: 'Orden enviada', msg: 'Se marcó como enviada al proveedor', icon: 'Bag' });
+    try {
+      await ordenesQuery.enviar(id);
+      toast({ title: 'Orden enviada', msg: 'Se marcó como enviada al proveedor', icon: 'Bag' });
+    } catch (err) {
+      toast({ title: 'No se pudo enviar la orden', msg: mensajeError(err), icon: 'Alert', kind: 'err' });
+    }
   };
 
   const recibir = async (payload: Parameters<typeof ordenesQuery.recibir>[1]) => {
     if (!recibirOrden) return;
-    const { orden } = await ordenesQuery.recibir(recibirOrden.id, payload);
-    toast({
-      title: orden.estado === 'RECIBIDA' ? 'Mercadería recibida' : 'Recepción parcial registrada',
-      msg: `${orden.codigo} · stock actualizado`,
-      icon: 'Check',
-    });
+    try {
+      const { orden } = await ordenesQuery.recibir(recibirOrden.id, payload);
+      toast({
+        title: orden.estado === 'RECIBIDA' ? 'Mercadería recibida' : 'Recepción parcial registrada',
+        msg: `${orden.codigo} · stock actualizado`,
+        icon: 'Check',
+      });
+    } catch (err) {
+      toast({ title: 'No se pudo registrar la recepción', msg: mensajeError(err), icon: 'Alert', kind: 'err' });
+    }
   };
 
   const cerrarConFaltante = async (motivo?: string) => {
     if (!recibirOrden) return;
-    await ordenesQuery.cerrar(recibirOrden.id, motivo);
-    toast({ title: 'Orden cerrada con faltante', msg: recibirOrden.codigo, icon: 'Alert' });
+    try {
+      await ordenesQuery.cerrar(recibirOrden.id, motivo);
+      toast({ title: 'Orden cerrada con faltante', msg: recibirOrden.codigo, icon: 'Alert' });
+    } catch (err) {
+      toast({ title: 'No se pudo cerrar la orden', msg: mensajeError(err), icon: 'Alert', kind: 'err' });
+    }
   };
 
   const crearOC = async (payload: Parameters<typeof ordenesQuery.crear>[0]) => {
-    const orden = await ordenesQuery.crear(payload);
-    setNueva(false);
-    toast({ title: 'OC creada', msg: `${orden.codigo} · borrador`, icon: 'Bag' });
+    try {
+      const orden = await ordenesQuery.crear(payload);
+      setNueva(false);
+      toast({ title: 'OC creada', msg: `${orden.codigo} · borrador`, icon: 'Bag' });
+    } catch (err) {
+      toast({ title: 'No se pudo crear la orden', msg: mensajeError(err), icon: 'Alert', kind: 'err' });
+    }
+  };
+
+  const actualizarOC = async (id: string, payload: Parameters<typeof ordenesQuery.actualizar>[1]) => {
+    try {
+      const orden = await ordenesQuery.actualizar(id, payload);
+      setOrdenEditando(null);
+      toast({ title: 'Orden actualizada', msg: orden.codigo, icon: 'Check' });
+    } catch (err) {
+      toast({ title: 'No se pudo actualizar la orden', msg: mensajeError(err), icon: 'Alert', kind: 'err' });
+    }
   };
 
   const enviarDesdeModal = async (id: string) => {
-    await ordenesQuery.enviar(id);
-    toast({ title: 'Orden enviada', msg: 'Se marcó como enviada al proveedor', icon: 'Bag' });
+    try {
+      await ordenesQuery.enviar(id);
+      toast({ title: 'Orden enviada', msg: 'Se marcó como enviada al proveedor', icon: 'Bag' });
+    } catch (err) {
+      toast({ title: 'No se pudo enviar la orden', msg: mensajeError(err), icon: 'Alert', kind: 'err' });
+    }
   };
 
   const anularDesdeModal = async (id: string, motivo?: string) => {
-    await ordenesQuery.anular(id, motivo);
-    toast({ title: 'Orden anulada', msg: '', icon: 'Alert' });
-    setDetalleId(null);
+    try {
+      await ordenesQuery.anular(id, motivo);
+      toast({ title: 'Orden anulada', msg: '', icon: 'Alert' });
+      setDetalleId(null);
+    } catch (err) {
+      toast({ title: 'No se pudo anular la orden', msg: mensajeError(err), icon: 'Alert', kind: 'err' });
+    }
   };
 
   const eliminarDesdeModal = async (id: string) => {
-    await ordenesQuery.eliminar(id);
-    toast({ title: 'Borrador eliminado', msg: '', icon: 'Check' });
+    try {
+      await ordenesQuery.eliminar(id);
+      toast({ title: 'Borrador eliminado', msg: '', icon: 'Check' });
+    } catch (err) {
+      toast({ title: 'No se pudo eliminar el borrador', msg: mensajeError(err), icon: 'Alert', kind: 'err' });
+    }
   };
 
-  const crearProveedor = async (payload: Parameters<typeof proveedoresQuery.crear>[0]) => {
-    const { proveedor } = await proveedoresQuery.crear(payload);
-    setNuevoProveedor(false);
-    toast({ title: 'Proveedor creado', msg: proveedor.nombre, icon: 'Bag' });
+  const editarDesdeModal = (id: string) => {
+    const orden = ordenesQuery.ordenes.find((o) => o.id === id) ?? null;
+    if (!orden) return;
+    setDetalleId(null);
+    setOrdenEditando(orden);
+  };
+
+  const guardarProveedor = async (payload: Parameters<typeof proveedoresQuery.crear>[0]) => {
+    try {
+      const { proveedor } = await proveedoresQuery.crear(payload);
+      setProveedorEditando(undefined);
+      toast({ title: 'Proveedor creado', msg: proveedor.nombre, icon: 'Bag' });
+    } catch (err) {
+      toast({ title: 'No se pudo crear el proveedor', msg: mensajeError(err), icon: 'Alert', kind: 'err' });
+    }
+  };
+
+  const actualizarProveedor = async (id: string, payload: Parameters<typeof proveedoresQuery.actualizar>[1]) => {
+    try {
+      const { proveedor } = await proveedoresQuery.actualizar(id, payload);
+      setProveedorEditando(undefined);
+      toast({ title: 'Proveedor actualizado', msg: proveedor.nombre, icon: 'Check' });
+    } catch (err) {
+      toast({ title: 'No se pudo actualizar el proveedor', msg: mensajeError(err), icon: 'Alert', kind: 'err' });
+    }
   };
 
   const eliminarProveedor = async (id: string) => {
-    await proveedoresQuery.eliminar(id);
-    toast({ title: 'Proveedor eliminado', msg: '', icon: 'Check' });
+    try {
+      await proveedoresQuery.eliminar(id);
+      toast({ title: 'Proveedor eliminado', msg: '', icon: 'Check' });
+    } catch (err) {
+      toast({ title: 'No se pudo eliminar el proveedor', msg: mensajeError(err), icon: 'Alert', kind: 'err' });
+    }
   };
 
-  const crearInsumo = async (payload: Parameters<typeof insumosQuery.crear>[0]) => {
-    const { insumo } = await insumosQuery.crear(payload);
-    setNuevoInsumo(false);
-    toast({ title: 'Insumo creado', msg: insumo.nombre, icon: 'Bag' });
+  const guardarInsumo = async (payload: Parameters<typeof insumosQuery.crear>[0]) => {
+    try {
+      const { insumo } = await insumosQuery.crear(payload);
+      setInsumoEditando(undefined);
+      toast({ title: 'Insumo creado', msg: insumo.nombre, icon: 'Bag' });
+    } catch (err) {
+      toast({ title: 'No se pudo crear el insumo', msg: mensajeError(err), icon: 'Alert', kind: 'err' });
+    }
+  };
+
+  const actualizarInsumo = async (id: string, payload: Parameters<typeof insumosQuery.actualizar>[1]) => {
+    try {
+      const { insumo } = await insumosQuery.actualizar(id, payload);
+      setInsumoEditando(undefined);
+      toast({ title: 'Insumo actualizado', msg: insumo.nombre, icon: 'Check' });
+    } catch (err) {
+      toast({ title: 'No se pudo actualizar el insumo', msg: mensajeError(err), icon: 'Alert', kind: 'err' });
+    }
   };
 
   const eliminarInsumo = async (id: string) => {
-    await insumosQuery.eliminar(id);
-    toast({ title: 'Insumo eliminado', msg: '', icon: 'Check' });
+    try {
+      await insumosQuery.eliminar(id);
+      toast({ title: 'Insumo eliminado', msg: '', icon: 'Check' });
+    } catch (err) {
+      toast({ title: 'No se pudo eliminar el insumo', msg: mensajeError(err), icon: 'Alert', kind: 'err' });
+    }
   };
 
   return (
@@ -120,15 +210,22 @@ export function ComprasScreen() {
         </div>
         <span className="spacer" />
         {tab === 'ordenes' && (
-          <button className="btn btn-primary" onClick={() => setNueva(true)}><Icons.Plus s={16} /> Nueva orden</button>
+          <button className="btn btn-primary" disabled={sinSede} onClick={() => setNueva(true)}><Icons.Plus s={16} /> Nueva orden</button>
         )}
         {tab === 'insumos' && (
-          <button className="btn btn-primary" onClick={() => setNuevoInsumo(true)}><Icons.Plus s={16} /> Nuevo insumo</button>
+          <button className="btn btn-primary" disabled={sinSede} onClick={() => setInsumoEditando(null)}><Icons.Plus s={16} /> Nuevo insumo</button>
         )}
         {tab === 'proveedores' && (
-          <button className="btn btn-primary" onClick={() => setNuevoProveedor(true)}><Icons.Plus s={16} /> Nuevo proveedor</button>
+          <button className="btn btn-primary" disabled={sinSede} onClick={() => setProveedorEditando(null)}><Icons.Plus s={16} /> Nuevo proveedor</button>
         )}
       </div>
+
+      {sinSede && (
+        <div className="panel" style={{ padding: '10px 14px', marginBottom: 14, borderColor: 'var(--warn)', display: 'flex', alignItems: 'center', gap: 10 }}>
+          <Icons.Alert s={16} style={{ color: 'var(--warn)', flexShrink: 0 }} />
+          <span style={{ fontSize: 13.5 }}>Elige una sede arriba (junto al nombre) para poder crear y editar compras.</span>
+        </div>
+      )}
 
       <div className="grid-stats" style={{ marginBottom: 16 }}>
         <MiniStat icon="Bag" color="var(--accent)" soft="var(--accent-soft)" k="Órdenes abiertas" v={resumen?.ordenesAbiertas ?? 0} d="por enviar / recibir" />
@@ -207,14 +304,14 @@ export function ComprasScreen() {
               </thead>
               <tbody>
                 {insumosQuery.insumos.map((i) => (
-                  <tr key={i.id}>
+                  <tr key={i.id} style={{ cursor: 'pointer' }} onClick={() => setInsumoEditando(i)}>
                     <td><strong>{i.nombre}</strong></td>
                     <td className="col-mobile-hidden"><span className="muted">{i.proveedorNombre ?? '—'}</span></td>
                     <td style={{ textAlign: 'right' }}><strong className="mono" style={i.bajoMinimo ? { color: 'var(--danger-text)' } : undefined}>{i.stockActual} {i.unidad}</strong></td>
                     <td style={{ textAlign: 'right' }} className="col-mobile-hidden"><span className="mono muted">{i.stockMinimo} {i.unidad}</span></td>
                     <td style={{ textAlign: 'right' }}><span className="mono">{formatMoney(i.costoUnitario)}</span></td>
                     <td>{i.bajoMinimo ? <span className="badge badge-danger dot">Reponer</span> : <span className="badge badge-ok dot">OK</span>}</td>
-                    <td style={{ textAlign: 'right' }}>
+                    <td style={{ textAlign: 'right' }} onClick={(e) => e.stopPropagation()}>
                       <button className="icon-btn" title="Eliminar insumo" onClick={() => eliminarInsumo(i.id)}><Icons.Close s={14} /></button>
                     </td>
                   </tr>
@@ -232,7 +329,7 @@ export function ComprasScreen() {
             <div className="muted">Sin proveedores registrados todavía.</div>
           )}
           {proveedoresQuery.proveedores.map((p) => (
-            <div className="panel prov-card" key={p.id}>
+            <div className="panel prov-card" key={p.id} style={{ cursor: 'pointer' }} onClick={() => setProveedorEditando(p)}>
               <div className="row" style={{ gap: 11, marginBottom: 10 }}>
                 <span className="prov-ava">{p.iniciales}</span>
                 <div style={{ minWidth: 0 }}>
@@ -240,7 +337,7 @@ export function ComprasScreen() {
                   <div className="muted" style={{ fontSize: 12 }}>{p.categoria ?? 'Sin categoría'}</div>
                 </div>
                 <span className="spacer" />
-                <button className="icon-btn" title="Eliminar proveedor" onClick={() => eliminarProveedor(p.id)}><Icons.Close s={14} /></button>
+                <button className="icon-btn" title="Eliminar proveedor" onClick={(e) => { e.stopPropagation(); eliminarProveedor(p.id); }}><Icons.Close s={14} /></button>
               </div>
               <div className="kv"><span className="k">RUC</span><span className="v mono">{p.ruc ?? '—'}</span></div>
               <div className="kv"><span className="k">Contacto</span><span className="v">{p.contacto ?? '—'}</span></div>
@@ -260,19 +357,35 @@ export function ComprasScreen() {
           onCerrarConFaltante={cerrarConFaltante}
         />
       )}
-      {nueva && (
-        <NuevaOCDrawer
+      {(nueva || ordenEditando) && (
+        <OrdenCompraDrawer
+          orden={ordenEditando}
           proveedores={proveedoresQuery.proveedores}
           insumos={insumosQuery.insumos}
-          onClose={() => setNueva(false)}
+          saving={ordenesQuery.saving}
+          onClose={() => { setNueva(false); setOrdenEditando(null); }}
           onCrear={crearOC}
+          onActualizar={actualizarOC}
         />
       )}
-      {nuevoProveedor && (
-        <NuevoProveedorDrawer onClose={() => setNuevoProveedor(false)} onCrear={crearProveedor} />
+      {proveedorEditando !== undefined && (
+        <ProveedorDrawer
+          proveedor={proveedorEditando}
+          saving={proveedoresQuery.saving}
+          onClose={() => setProveedorEditando(undefined)}
+          onCrear={guardarProveedor}
+          onActualizar={actualizarProveedor}
+        />
       )}
-      {nuevoInsumo && (
-        <NuevoInsumoDrawer proveedores={proveedoresQuery.proveedores} onClose={() => setNuevoInsumo(false)} onCrear={crearInsumo} />
+      {insumoEditando !== undefined && (
+        <InsumoDrawer
+          insumo={insumoEditando}
+          proveedores={proveedoresQuery.proveedores}
+          saving={insumosQuery.saving}
+          onClose={() => setInsumoEditando(undefined)}
+          onCrear={guardarInsumo}
+          onActualizar={actualizarInsumo}
+        />
       )}
       {detalleId && (
         <OrdenDetalleModal
@@ -281,6 +394,7 @@ export function ComprasScreen() {
           onEnviar={enviarDesdeModal}
           onAnular={anularDesdeModal}
           onEliminar={eliminarDesdeModal}
+          onEditar={editarDesdeModal}
         />
       )}
     </div>

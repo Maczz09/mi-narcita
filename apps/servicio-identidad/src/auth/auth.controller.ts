@@ -31,7 +31,7 @@ import {
   CrearSedeCommand,
   ActualizarSedeCommand,
 } from '@org/contracts';
-import { JwtAuthGuard, RolesGuard, Roles } from '@org/shared-auth';
+import { JwtAuthGuard, RolesGuard, Roles, CSRF_COOKIE_NAME } from '@org/shared-auth';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
 
 const COOKIE_SAME_SITE = (process.env.COOKIE_SAMESITE ?? 'strict') as
@@ -76,7 +76,7 @@ export class AuthController {
       maxAge: REFRESH_COOKIE_MAX_AGE_MS,
       path: '/',
     });
-    res.cookie('restoapp.csrf_token', csrfToken, {
+    res.cookie(CSRF_COOKIE_NAME, csrfToken, {
       httpOnly: false,
       secure: COOKIE_SECURE,
       sameSite: COOKIE_SAME_SITE,
@@ -128,7 +128,7 @@ export class AuthController {
       sameSite: COOKIE_SAME_SITE,
       path: '/',
     });
-    res.clearCookie('restoapp.csrf_token', {
+    res.clearCookie(CSRF_COOKIE_NAME, {
       httpOnly: false,
       secure: COOKIE_SECURE,
       sameSite: COOKIE_SAME_SITE,

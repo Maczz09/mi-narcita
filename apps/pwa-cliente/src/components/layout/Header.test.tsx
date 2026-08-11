@@ -30,6 +30,7 @@ vi.mock('../../hooks/useOnlineStatus', () => ({
 
 vi.mock('../../hooks/queries/useSedesQuery', () => ({
   useSedesQuery: () => ({ sedes: [], loading: false }),
+  useSedeActualQuery: () => ({ sede: null, loading: false }),
 }));
 
 const renderHeader = () => {

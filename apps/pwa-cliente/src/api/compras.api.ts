@@ -5,6 +5,7 @@ import { client } from './client';
 import { unwrapEntity } from './response';
 import type {
   ActualizarInsumoPayload,
+  ActualizarOrdenPayload,
   ActualizarProveedorPayload,
   ComprobanteCompraDto,
   CrearInsumoPayload,
@@ -96,6 +97,11 @@ export function obtenerOrden(id: string): Promise<OrdenDetalle> {
 
 export async function crearOrden(payload: CrearOrdenPayload): Promise<OrdenCompraDto> {
   const response = await client.post<{ message: string; orden: OrdenCompraDto }>('/compras/ordenes', payload);
+  return unwrapEntity<OrdenCompraDto>(response, 'orden');
+}
+
+export async function actualizarOrden(id: string, payload: ActualizarOrdenPayload): Promise<OrdenCompraDto> {
+  const response = await client.patch<{ message: string; orden: OrdenCompraDto }>(`/compras/ordenes/${id}`, payload);
   return unwrapEntity<OrdenCompraDto>(response, 'orden');
 }
 

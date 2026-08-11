@@ -1,29 +1,42 @@
 /* eslint-disable @typescript-eslint/no-misused-promises, @typescript-eslint/no-floating-promises */
-// screens/compras/NuevaOCDrawer.tsx — Crear una orden de compra en BORRADOR
-// contra proveedores e insumos reales.
+// screens/compras/OrdenCompraDrawer.tsx — Crear una orden de compra en
+// BORRADOR, o editar los ítems/cantidades de una que sigue en borrador.
+// El proveedor NO se puede cambiar en edición (el backend no lo admite:
+// reemplazar proveedor sería, en la práctica, otra orden).
 
 import { useMemo, useState } from 'react';
 import { Scrim } from '../../components/ui/Scrim';
 import { Icons } from '../../components/ui/icons';
 import { formatMoney } from '../../mappers/compras.mapper';
-import type { CrearOrdenPayload, InsumoVM, ProveedorVM } from '../../types/compras.types';
+import type { ActualizarOrdenPayload, CrearOrdenPayload, InsumoVM, OrdenCompraVM, ProveedorVM } from '../../types/compras.types';
 
-interface NuevaOCDrawerProps {
+interface OrdenCompraDrawerProps {
+  orden: OrdenCompraVM | null;
   proveedores: ProveedorVM[];
   insumos: InsumoVM[];
+  saving: boolean;
   onClose: () => void;
   onCrear: (payload: CrearOrdenPayload) => Promise<unknown>;
+  onActualizar: (id: string, payload: ActualizarOrdenPayload) => Promise<unknown>;
 }
 
-export function NuevaOCDrawer({ proveedores, insumos, onClose, onCrear }: Readonly<NuevaOCDrawerProps>) {
-  const [proveedorId, setProveedorId] = useState(proveedores[0]?.id ?? '');
-  const [sel, setSel] = useState<Record<string, number>>({});
-  const [creando, setCreando] = useState(false);
+export function OrdenCompraDrawer({ orden, proveedores, insumos, saving, onClose, onCrear, onActualizar }: Readonly<OrdenCompraDrawerProps>) {
+  const isNew = !orden;
+  const [proveedorId, setProveedorId] = useState(orden?.proveedorId ?? proveedores[0]?.id ?? '');
+  const [sel, setSel] = useState<Record<string, number>>(() => {
+    if (!orden) return {};
+    return Object.fromEntries(orden.items.map((it) => [it.insumoId, it.cantidadPedida]));
+  });
 
-  const insumosProveedor = useMemo(
-    () => insumos.filter((i) => i.proveedorId === proveedorId),
-    [insumos, proveedorId],
-  );
+  // Insumos a mostrar: los del proveedor elegido + los que ya estaban en la
+  // orden (por si su insumo cambió de proveedor fijo después de creada).
+  const insumosProveedor = useMemo(() => {
+    const propios = insumos.filter((i) => i.proveedorId === proveedorId);
+    if (isNew) return propios;
+    const idsPropios = new Set(propios.map((i) => i.id));
+    const deLaOrden = insumos.filter((i) => sel[i.id] != null && !idsPropios.has(i.id));
+    return [...propios, ...deLaOrden];
+  }, [insumos, proveedorId, isNew, sel]);
 
   const items = Object.entries(sel).filter(([, q]) => q > 0);
   const total = items.reduce((s, [id, q]) => {
@@ -33,16 +46,17 @@ export function NuevaOCDrawer({ proveedores, insumos, onClose, onCrear }: Readon
 
   const setQ = (id: string, q: number) => setSel((s) => ({ ...s, [id]: Math.max(0, q) }));
 
-  const crear = async () => {
-    if (items.length === 0 || creando) return;
-    setCreando(true);
-    try {
+  const guardar = async () => {
+    if (items.length === 0 || saving) return;
+    if (isNew) {
       await onCrear({
         proveedorId: proveedorId || undefined,
         items: items.map(([insumoId, cantidadPedida]) => ({ insumoId, cantidadPedida })),
       });
-    } finally {
-      setCreando(false);
+    } else {
+      await onActualizar(orden.id, {
+        items: items.map(([insumoId, cantidadPedida]) => ({ insumoId, cantidadPedida })),
+      });
     }
   };
 
@@ -51,24 +65,30 @@ export function NuevaOCDrawer({ proveedores, insumos, onClose, onCrear }: Readon
       <Scrim onClose={onClose} />
       <aside className="drawer">
         <div className="panel-h" style={{ padding: '16px 20px' }}>
-          <h3 style={{ fontSize: 17 }}>Nueva orden de compra</h3>
+          <h3 style={{ fontSize: 17 }}>{isNew ? 'Nueva orden de compra' : `Editar ${orden.codigo}`}</h3>
           <span className="spacer" />
           <button className="icon-btn" onClick={onClose}><Icons.Close s={17} /></button>
         </div>
         <div className="drawer-body">
           <div className="field" style={{ marginBottom: 14 }}>
             <label htmlFor="compra-proveedor">Proveedor</label>
-            <div className="input">
-              <select
-                id="compra-proveedor"
-                value={proveedorId}
-                onChange={(e) => { setProveedorId(e.target.value); setSel({}); }}
-                style={{ border: 0, background: 'transparent', width: '100%' }}
-              >
-                {proveedores.length === 0 && <option value="">Sin proveedores registrados</option>}
-                {proveedores.map((p) => <option key={p.id} value={p.id}>{p.nombre}</option>)}
-              </select>
-            </div>
+            {isNew ? (
+              <div className="input">
+                <select
+                  id="compra-proveedor"
+                  value={proveedorId}
+                  onChange={(e) => { setProveedorId(e.target.value); setSel({}); }}
+                  style={{ border: 0, background: 'transparent', width: '100%' }}
+                >
+                  {proveedores.length === 0 && <option value="">Sin proveedores registrados</option>}
+                  {proveedores.map((p) => <option key={p.id} value={p.id}>{p.nombre}</option>)}
+                </select>
+              </div>
+            ) : (
+              <div className="input" style={{ opacity: 0.75 }}>
+                <span>{orden.proveedorNombre}</span>
+              </div>
+            )}
           </div>
           <div className="hint" style={{ fontWeight: 800, textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: 8 }}>
             Insumos del proveedor
@@ -103,8 +123,8 @@ export function NuevaOCDrawer({ proveedores, insumos, onClose, onCrear }: Readon
         <div className="modal-foot" style={{ borderTop: '1px solid var(--border)', paddingTop: 14, alignItems: 'center' }}>
           <div><div className="hint">Total · {items.length} líneas</div><b className="mono" style={{ fontSize: 18 }}>{formatMoney(total)}</b></div>
           <span className="spacer" />
-          <button className="btn btn-primary" disabled={items.length === 0 || creando} onClick={crear}>
-            <Icons.Check s={15} /> Crear borrador
+          <button className="btn btn-primary" disabled={items.length === 0 || saving} onClick={guardar}>
+            <Icons.Check s={15} /> {isNew ? 'Crear borrador' : 'Guardar cambios'}
           </button>
         </div>
       </aside>

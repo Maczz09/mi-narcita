@@ -11,6 +11,7 @@ vi.mock('@nestjs/passport', () => ({
 }));
 
 import { JwtAuthGuard } from './jwt-auth.guard';
+import { CSRF_COOKIE_NAME } from './csrf';
 
 function contextFor(request: Record<string, unknown>): ExecutionContext {
   return {
@@ -48,7 +49,7 @@ describe('JwtAuthGuard compartido', () => {
             method,
             path: '/api/recurso',
             headers: {},
-            cookies: { 'nachopps.csrf_token': 'csrf-token' },
+            cookies: { [CSRF_COOKIE_NAME]: 'csrf-token' },
           }),
         ),
       ).rejects.toThrow(ForbiddenException);
@@ -64,7 +65,7 @@ describe('JwtAuthGuard compartido', () => {
             method,
             path: '/api/recurso',
             headers: { 'x-csrf-token': 'csrf-token' },
-            cookies: { 'nachopps.csrf_token': 'csrf-token' },
+            cookies: { [CSRF_COOKIE_NAME]: 'csrf-token' },
           }),
         ),
       ).resolves.toBe(true);
@@ -98,7 +99,7 @@ describe('JwtAuthGuard compartido', () => {
             method,
             path: '/api/recurso',
             headers: { 'x-csrf-token': 'csrf-token-mucho-mas-largo-que-la-cookie' },
-            cookies: { 'nachopps.csrf_token': 'csrf-token' },
+            cookies: { [CSRF_COOKIE_NAME]: 'csrf-token' },
           }),
         ),
       ).rejects.toThrow(ForbiddenException);
@@ -112,7 +113,7 @@ describe('JwtAuthGuard compartido', () => {
           method: 'POST',
           path: '/api/recurso',
           headers: { 'x-csrf-token': 'csrf-token-B' },
-          cookies: { 'nachopps.csrf_token': 'csrf-token-A' },
+          cookies: { [CSRF_COOKIE_NAME]: 'csrf-token-A' },
         }),
       ),
     ).rejects.toThrow(ForbiddenException);

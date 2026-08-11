@@ -8,5 +8,16 @@
     "@nestjs/passport": "^11.0.0",
     "passport": "^0.7.0",
     "passport-jwt": "^4.0.0"
+  },
+  "nx": {
+    "targets": {
+      "test": {
+        "executor": "nx:run-commands",
+        "options": {
+          "command": "vitest run libs/shared-auth --coverage.enabled=false",
+          "cwd": "{workspaceRoot}"
+        }
+      }
+    }
   }
 }

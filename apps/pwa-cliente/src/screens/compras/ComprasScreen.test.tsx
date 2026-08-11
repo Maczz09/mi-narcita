@@ -3,10 +3,15 @@ import { render, screen, fireEvent, within } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { ComprasScreen } from './ComprasScreen';
 import { useToast } from '../../components/ui/ToastProvider';
+import { useSedeActualQuery } from '../../hooks/queries/useSedesQuery';
 import * as comprasQueryHook from '../../hooks/queries/useComprasQuery';
 
 vi.mock('../../components/ui/ToastProvider', () => ({
   useToast: vi.fn(),
+}));
+
+vi.mock('../../hooks/queries/useSedesQuery', () => ({
+  useSedeActualQuery: vi.fn(),
 }));
 
 const proveedorA = {
@@ -45,6 +50,7 @@ function ordenVM(overrides: Record<string, unknown> = {}) {
 describe('ComprasScreen', () => {
   const mockToast = vi.fn();
   const mockCrear = vi.fn().mockResolvedValue(ordenVM());
+  const mockActualizar = vi.fn().mockResolvedValue(ordenVM());
   const mockEnviar = vi.fn().mockResolvedValue(ordenVM({ estado: 'ENVIADA' }));
   const mockRecibir = vi.fn().mockResolvedValue({ orden: ordenVM({ estado: 'RECIBIDA' }), recepcion: {} });
   const mockCerrar = vi.fn().mockResolvedValue(ordenVM({ estado: 'RECIBIDA' }));
@@ -58,6 +64,10 @@ describe('ComprasScreen', () => {
       configurable: true,
     });
     vi.mocked(useToast).mockReturnValue({ toast: mockToast } as any);
+    vi.mocked(useSedeActualQuery).mockReturnValue({
+      sede: { id: 's1', nombre: 'Salitral 1', direccion: 'Av. Salitral 123', activa: true },
+      loading: false,
+    } as any);
 
     vi.spyOn(comprasQueryHook, 'useResumenComprasQuery').mockReturnValue({
       resumen: { ordenesAbiertas: 1, ordenesPorRecibir: 1, montoPorRecibir: 50, gastoRecibido: 0, insumosBajoMinimo: 1 },
@@ -95,6 +105,7 @@ describe('ComprasScreen', () => {
       error: null,
       success: null,
       crear: mockCrear,
+      actualizar: mockActualizar,
       eliminar: mockEliminar,
       enviar: mockEnviar,
       cerrar: mockCerrar,
@@ -156,6 +167,7 @@ describe('ComprasScreen', () => {
       error: null,
       success: null,
       crear: mockCrear,
+      actualizar: mockActualizar,
       eliminar: mockEliminar,
       enviar: mockEnviar,
       cerrar: mockCerrar,
@@ -180,7 +192,7 @@ describe('ComprasScreen', () => {
     vi.spyOn(comprasQueryHook, 'useOrdenesQuery').mockReturnValue({
       ordenes: [ordenVM({ estado: 'ENVIADA', puedeEnviar: false, puedeRecibir: true })],
       loading: false, saving: false, error: null, success: null,
-      crear: mockCrear, eliminar: mockEliminar, enviar: mockEnviar, cerrar: mockCerrar, anular: mockAnular, recibir: mockRecibir,
+      crear: mockCrear, actualizar: mockActualizar, eliminar: mockEliminar, enviar: mockEnviar, cerrar: mockCerrar, anular: mockAnular, recibir: mockRecibir,
       clearFeedback: vi.fn(),
     } as any);
 
@@ -239,5 +251,83 @@ describe('ComprasScreen', () => {
     fireEvent.click(screen.getByText('OC-123').closest('tr')!);
     // El modal usa el mismo código como título junto al badge de estado.
     expect(screen.getAllByText('OC-123').length).toBeGreaterThan(1);
+  });
+
+  // Bug real: al fallar la creación (p. ej. "Indica la sede"), el error se
+  // perdía en silencio — ningún handler tenía try/catch, así que el usuario
+  // veía el drawer simplemente no hacer nada. Ahora se debe avisar por toast.
+  it('si crear un proveedor falla, avisa por toast en vez de fallar en silencio', async () => {
+    const mockCrearProveedor = vi.fn().mockRejectedValue(new Error('Indica la sede (sedeId): tu usuario administra varias y ninguna quedó seleccionada.'));
+    vi.spyOn(comprasQueryHook, 'useProveedoresQuery').mockReturnValue({
+      proveedores: [proveedorA, proveedorSinInsumos],
+      loading: false, saving: false, error: null, success: null,
+      crear: mockCrearProveedor, actualizar: vi.fn(), eliminar: vi.fn(), clearFeedback: vi.fn(),
+    } as any);
+
+    render(<ComprasScreen />);
+    fireEvent.click(screen.getByText('Proveedores'));
+    fireEvent.click(screen.getByText('Nuevo proveedor'));
+    fireEvent.change(screen.getByLabelText('Nombre *'), { target: { value: 'Pesquera del Norte' } });
+    fireEvent.click(screen.getByText('Crear proveedor'));
+
+    await vi.waitFor(() => {
+      expect(mockToast).toHaveBeenCalledWith(expect.objectContaining({
+        title: 'No se pudo crear el proveedor',
+        msg: expect.stringContaining('Indica la sede'),
+        kind: 'err',
+      }));
+    });
+  });
+
+  it('sin sede elegida, muestra el aviso y deshabilita crear', () => {
+    vi.mocked(useSedeActualQuery).mockReturnValue({ sede: null, loading: false } as any);
+    render(<ComprasScreen />);
+    expect(screen.getByText(/Elige una sede arriba/)).toBeInTheDocument();
+    expect(screen.getByText('Nueva orden').closest('button')).toBeDisabled();
+  });
+
+  it('con sede elegida, no muestra el aviso', () => {
+    render(<ComprasScreen />);
+    expect(screen.queryByText(/Elige una sede arriba/)).not.toBeInTheDocument();
+  });
+
+  it('click en un proveedor abre el drawer con sus datos para editar', () => {
+    render(<ComprasScreen />);
+    fireEvent.click(screen.getByText('Proveedores'));
+    fireEvent.click(screen.getByText('Proveedor A'));
+
+    expect(screen.getByText('Guardar cambios')).toBeInTheDocument();
+    expect(screen.getByDisplayValue('Proveedor A')).toBeInTheDocument();
+    expect(screen.getByDisplayValue('123456789')).toBeInTheDocument();
+  });
+
+  it('editar un proveedor llama a actualizar con el id correcto', async () => {
+    const mockActualizarProveedor = vi.fn().mockResolvedValue({ proveedor: proveedorA });
+    vi.spyOn(comprasQueryHook, 'useProveedoresQuery').mockReturnValue({
+      proveedores: [proveedorA, proveedorSinInsumos],
+      loading: false, saving: false, error: null, success: null,
+      crear: vi.fn(), actualizar: mockActualizarProveedor, eliminar: vi.fn(), clearFeedback: vi.fn(),
+    } as any);
+
+    render(<ComprasScreen />);
+    fireEvent.click(screen.getByText('Proveedores'));
+    fireEvent.click(screen.getByText('Proveedor A'));
+    fireEvent.change(screen.getByLabelText('Nombre *'), { target: { value: 'Proveedor A Renombrado' } });
+    fireEvent.click(screen.getByText('Guardar cambios'));
+
+    await vi.waitFor(() => {
+      expect(mockActualizarProveedor).toHaveBeenCalledWith('pr-a', expect.objectContaining({ nombre: 'Proveedor A Renombrado' }));
+    });
+  });
+
+  it('click en un insumo abre el drawer con sus datos para editar (stock actual no editable)', () => {
+    render(<ComprasScreen />);
+    fireEvent.click(screen.getByText('Insumos'));
+    fireEvent.click(screen.getByText('Insumo 1'));
+
+    expect(screen.getByText('Guardar cambios')).toBeInTheDocument();
+    expect(screen.getByDisplayValue('Insumo 1')).toBeInTheDocument();
+    // El stock actual se muestra de solo lectura, no como <input>.
+    expect(screen.queryByLabelText('Stock actual')).not.toBeInTheDocument();
   });
 });

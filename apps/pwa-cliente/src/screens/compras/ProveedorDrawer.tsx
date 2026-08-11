@@ -1,42 +1,55 @@
 /* eslint-disable @typescript-eslint/no-misused-promises, @typescript-eslint/no-floating-promises */
-// screens/compras/NuevoProveedorDrawer.tsx — Alta de proveedor (fijo, con RUC)
-// o compra ad-hoc de mercado (RUC opcional a propósito).
+// screens/compras/ProveedorDrawer.tsx — Alta y edición de proveedor (fijo, con
+// RUC) o compra ad-hoc de mercado (RUC opcional a propósito).
 
 import { useState } from 'react';
 import { Scrim } from '../../components/ui/Scrim';
 import { Icons } from '../../components/ui/icons';
-import type { CrearProveedorPayload } from '../../types/compras.types';
+import type { ActualizarProveedorPayload, CrearProveedorPayload, ProveedorVM } from '../../types/compras.types';
 
-interface NuevoProveedorDrawerProps {
+interface ProveedorDrawerProps {
+  proveedor: ProveedorVM | null;
+  saving: boolean;
   onClose: () => void;
   onCrear: (payload: CrearProveedorPayload) => Promise<unknown>;
+  onActualizar: (id: string, payload: ActualizarProveedorPayload) => Promise<unknown>;
 }
 
-export function NuevoProveedorDrawer({ onClose, onCrear }: Readonly<NuevoProveedorDrawerProps>) {
-  const [nombre, setNombre] = useState('');
-  const [ruc, setRuc] = useState('');
-  const [categoria, setCategoria] = useState('');
-  const [contacto, setContacto] = useState('');
-  const [telefono, setTelefono] = useState('');
-  const [diasEntrega, setDiasEntrega] = useState('');
-  const [condicionPago, setCondicionPago] = useState('');
-  const [guardando, setGuardando] = useState(false);
+export function ProveedorDrawer({ proveedor, saving, onClose, onCrear, onActualizar }: Readonly<ProveedorDrawerProps>) {
+  const isNew = !proveedor;
+  const [nombre, setNombre] = useState(proveedor?.nombre ?? '');
+  const [ruc, setRuc] = useState(proveedor?.ruc ?? '');
+  const [categoria, setCategoria] = useState(proveedor?.categoria ?? '');
+  const [contacto, setContacto] = useState(proveedor?.contacto ?? '');
+  const [telefono, setTelefono] = useState(proveedor?.telefono ?? '');
+  const [diasEntrega, setDiasEntrega] = useState(proveedor?.diasEntrega ?? '');
+  const [condicionPago, setCondicionPago] = useState(proveedor?.condicionPago ?? '');
 
-  const crear = async () => {
-    if (!nombre.trim() || guardando) return;
-    setGuardando(true);
-    try {
-      await onCrear({
-        nombre: nombre.trim(),
-        ruc: ruc.trim() || undefined,
-        categoria: categoria.trim() || undefined,
-        contacto: contacto.trim() || undefined,
-        telefono: telefono.trim() || undefined,
-        diasEntrega: diasEntrega.trim() || undefined,
-        condicionPago: condicionPago.trim() || undefined,
+  const valido = nombre.trim() !== '';
+
+  const guardar = async () => {
+    if (!valido || saving) return;
+    const campos = {
+      nombre: nombre.trim(),
+      ruc: ruc.trim() || undefined,
+      categoria: categoria.trim() || undefined,
+      contacto: contacto.trim() || undefined,
+      telefono: telefono.trim() || undefined,
+      diasEntrega: diasEntrega.trim() || undefined,
+      condicionPago: condicionPago.trim() || undefined,
+    };
+    if (isNew) {
+      await onCrear(campos);
+    } else {
+      await onActualizar(proveedor.id, {
+        ...campos,
+        ruc: ruc.trim() || null,
+        categoria: categoria.trim() || null,
+        contacto: contacto.trim() || null,
+        telefono: telefono.trim() || null,
+        diasEntrega: diasEntrega.trim() || null,
+        condicionPago: condicionPago.trim() || null,
       });
-    } finally {
-      setGuardando(false);
     }
   };
 
@@ -45,7 +58,7 @@ export function NuevoProveedorDrawer({ onClose, onCrear }: Readonly<NuevoProveed
       <Scrim onClose={onClose} />
       <aside className="drawer">
         <div className="panel-h" style={{ padding: '16px 20px' }}>
-          <h3 style={{ fontSize: 17 }}>Nuevo proveedor</h3>
+          <h3 style={{ fontSize: 17 }}>{isNew ? 'Nuevo proveedor' : proveedor.nombre}</h3>
           <span className="spacer" />
           <button className="icon-btn" onClick={onClose}><Icons.Close s={17} /></button>
         </div>
@@ -81,8 +94,8 @@ export function NuevoProveedorDrawer({ onClose, onCrear }: Readonly<NuevoProveed
         </div>
         <div className="modal-foot" style={{ borderTop: '1px solid var(--border)', paddingTop: 14 }}>
           <span className="spacer" />
-          <button className="btn btn-primary" disabled={!nombre.trim() || guardando} onClick={crear}>
-            <Icons.Check s={15} /> Crear proveedor
+          <button className="btn btn-primary" disabled={!valido || saving} onClick={guardar}>
+            <Icons.Check s={15} /> {isNew ? 'Crear proveedor' : 'Guardar cambios'}
           </button>
         </div>
       </aside>

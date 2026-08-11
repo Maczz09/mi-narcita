@@ -9,6 +9,7 @@ import type { ReactNode } from 'react';
 import { Sidebar } from './Sidebar';
 import { Header } from './Header';
 import { BottomNav } from './BottomNav';
+import { SedeGateModal } from './SedeGateModal';
 import { useOnlineStatus } from '../../hooks/useOnlineStatus';
 import { useLastSynced } from '../../hooks/useLastSynced';
 import { elapsedLabel } from '../../utils/format';
@@ -45,6 +46,7 @@ export function Shell({ children, hasSidePanel = false }: Readonly<ShellProps>) 
       )}
 
       <Sidebar />
+      <SedeGateModal />
 
       <div className="main">
         <Header />

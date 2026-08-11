@@ -15,9 +15,10 @@ interface OrdenDetalleModalProps {
   onEnviar: (id: string) => Promise<unknown>;
   onAnular: (id: string, motivo?: string) => Promise<unknown>;
   onEliminar: (id: string) => Promise<unknown>;
+  onEditar: (id: string) => void;
 }
 
-export function OrdenDetalleModal({ ordenId, onClose, onEnviar, onAnular, onEliminar }: Readonly<OrdenDetalleModalProps>) {
+export function OrdenDetalleModal({ ordenId, onClose, onEnviar, onAnular, onEliminar, onEditar }: Readonly<OrdenDetalleModalProps>) {
   const { orden, recepciones, comprobantes, loading } = useOrdenDetalleQuery(ordenId);
   const comprobanteMut = useComprobantesMutation();
 
@@ -106,9 +107,14 @@ export function OrdenDetalleModal({ ordenId, onClose, onEnviar, onAnular, onElim
         {orden && (orden.puedeEnviar || orden.puedeAnular || orden.puedeEditar) && (
           <div className="modal-foot">
             {orden.puedeEditar && (
-              <button className="btn btn-ghost" onClick={() => { void onEliminar(orden.id).then(onClose); }}>
-                <Icons.Close s={15} /> Eliminar borrador
-              </button>
+              <>
+                <button className="btn btn-ghost" onClick={() => { void onEliminar(orden.id).then(onClose); }}>
+                  <Icons.Close s={15} /> Eliminar borrador
+                </button>
+                <button className="btn btn-soft" onClick={() => onEditar(orden.id)}>
+                  <Icons.Edit s={15} /> Editar
+                </button>
+              </>
             )}
             <span className="spacer" />
             {orden.puedeAnular && (

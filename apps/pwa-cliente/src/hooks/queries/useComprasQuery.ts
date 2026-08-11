@@ -5,6 +5,7 @@ import { queryClient, retrySalvo404, refetchSiError } from '../../api/queryClien
 import { primerMensaje } from '../../utils/feedback';
 import type {
   ActualizarInsumoPayload,
+  ActualizarOrdenPayload,
   ActualizarProveedorPayload,
   CrearInsumoPayload,
   CrearOrdenPayload,
@@ -149,6 +150,15 @@ export function useOrdenesQuery(query: OrdenListQuery = {}) {
       invalidar(COMPRAS_RESUMEN_KEY);
     },
   });
+  const mutationActualizar = useMutation({
+    mutationFn: ({ id, payload }: { id: string; payload: ActualizarOrdenPayload }) =>
+      comprasApi.actualizarOrden(id, payload),
+    onSuccess: () => {
+      invalidar(COMPRAS_ORDENES_KEY);
+      invalidar(COMPRAS_ORDEN_KEY);
+      invalidar(COMPRAS_RESUMEN_KEY);
+    },
+  });
   const mutationEliminar = useMutation({
     mutationFn: (id: string) => comprasApi.eliminarOrden(id),
     onSuccess: () => {
@@ -184,6 +194,7 @@ export function useOrdenesQuery(query: OrdenListQuery = {}) {
 
   const saving =
     mutationCrear.isPending ||
+    mutationActualizar.isPending ||
     mutationEliminar.isPending ||
     mutationEnviar.isPending ||
     mutationCerrar.isPending ||
@@ -197,6 +208,7 @@ export function useOrdenesQuery(query: OrdenListQuery = {}) {
     error:
       (ordenesQuery.error ||
         mutationCrear.error ||
+        mutationActualizar.error ||
         mutationEliminar.error ||
         mutationEnviar.error ||
         mutationCerrar.error ||
@@ -204,6 +216,7 @@ export function useOrdenesQuery(query: OrdenListQuery = {}) {
         mutationRecibir.error)?.message ?? null,
     success: primerMensaje(
       [mutationCrear.isSuccess, 'Orden de compra creada.'],
+      [mutationActualizar.isSuccess, 'Orden de compra actualizada.'],
       [mutationEliminar.isSuccess, 'Orden de compra eliminada.'],
       [mutationEnviar.isSuccess, 'Orden enviada al proveedor.'],
       [mutationCerrar.isSuccess, 'Orden cerrada con faltante.'],
@@ -211,6 +224,7 @@ export function useOrdenesQuery(query: OrdenListQuery = {}) {
       [mutationRecibir.isSuccess, 'Recepción registrada.'],
     ),
     crear: (payload: CrearOrdenPayload) => mutationCrear.mutateAsync(payload),
+    actualizar: (id: string, payload: ActualizarOrdenPayload) => mutationActualizar.mutateAsync({ id, payload }),
     eliminar: (id: string) => mutationEliminar.mutateAsync(id),
     enviar: (id: string) => mutationEnviar.mutateAsync(id),
     cerrar: (id: string, motivo?: string) => mutationCerrar.mutateAsync({ id, motivo }),
@@ -218,6 +232,7 @@ export function useOrdenesQuery(query: OrdenListQuery = {}) {
     recibir: (ordenId: string, payload: RegistrarRecepcionPayload) => mutationRecibir.mutateAsync({ ordenId, payload }),
     clearFeedback: () => {
       mutationCrear.reset();
+      mutationActualizar.reset();
       mutationEliminar.reset();
       mutationEnviar.reset();
       mutationCerrar.reset();

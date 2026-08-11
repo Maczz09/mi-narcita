@@ -5,24 +5,26 @@
 // Inventario/Carta y Usuarios recarguen scopeados a la sede recién elegida.
 
 import { useRef, useState } from 'react';
-import { useSedesQuery } from '../../hooks/queries/useSedesQuery';
+import { useSedesQuery, useSedeActualQuery } from '../../hooks/queries/useSedesQuery';
 import { queryClient } from '../../api/queryClient';
-import { getSedeSeleccionada, setSedeSeleccionada } from '../../api/client';
+import { setSedeSeleccionada } from '../../api/client';
 import { useFocusTrap } from '../../hooks/useFocusTrap';
 import { Icons } from '../ui/icons';
 
 export function SedeSwitcher() {
   const { sedes, loading } = useSedesQuery();
   const [open, setOpen] = useState(false);
-  const [seleccionId, setSeleccionId] = useState(() => getSedeSeleccionada());
   const popRef = useRef<HTMLDivElement>(null);
   useFocusTrap(popRef, { active: open, onClose: () => setOpen(false) });
 
-  const sedeActual = sedes.find((s) => s.id === seleccionId) ?? null;
+  // `sede-actual` (no un estado local propio) para que elegir sede desde
+  // OTRO lugar — p. ej. SedeGateModal al recién entrar — se refleje acá
+  // también: ambos disparan el mismo invalidateQueries() sin filtro.
+  const { sede: sedeActual } = useSedeActualQuery();
+  const seleccionId = sedeActual?.id ?? null;
 
   const elegir = (id: string) => {
     setSedeSeleccionada(id);
-    setSeleccionId(id);
     setOpen(false);
     void queryClient.invalidateQueries();
   };

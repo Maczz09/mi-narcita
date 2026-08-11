@@ -321,6 +321,25 @@ fieldset { border: 0; padding: 0; margin: 0; min-width: 0; }
 .modal-body p { margin: 0; color: var(--text-2); font-size: 14px; }
 .modal-foot { display: flex; gap: 10px; padding: 0 22px 22px; }
 
+/* Modal de bienvenida (admin general sin sede elegida): tarjetas con
+   entrada escalonada — cada una anima con un pequeño delay via
+   --i (inline, índice del sede en la lista). */
+.sede-gate-list { display: grid; gap: 8px; margin-top: 18px; }
+.sede-gate-item {
+  display: flex; align-items: center; gap: 12px; width: 100%;
+  padding: 13px 14px; border-radius: var(--r-lg); border: 1px solid var(--border);
+  background: var(--surface-2); text-align: left; cursor: pointer;
+  transform: translateY(6px); opacity: 0; animation: sedeItemIn .3s cubic-bezier(.2,.8,.2,1) forwards;
+  animation-delay: calc(var(--i, 0) * 45ms);
+  transition: border-color .12s ease, background .12s ease, transform .12s ease;
+}
+.sede-gate-item:hover { border-color: var(--accent); background: var(--accent-soft); transform: translateY(-1px); }
+.sede-gate-item .sede-gate-ic {
+  flex: none; width: 34px; height: 34px; border-radius: 10px; display: grid; place-items: center;
+  background: var(--accent-soft); color: var(--accent);
+}
+@keyframes sedeItemIn { to { transform: translateY(0); opacity: 1; } }
+
 /* ============================================================
    TOASTS / BANNERS
    ============================================================ */
