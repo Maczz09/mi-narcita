@@ -31,6 +31,7 @@ export function BoletaInterna({ ticket, transaccion, mesaNumero, propina, onImpr
       <div className="print-area">
         <div className="zticket">
           <div className="zc">
+            <img src="/logo.webp" alt="" style={{ width: 56, height: 'auto', marginBottom: 6 }} />
             <h4>{RESTO_FISCAL.nombre.toUpperCase()}</h4>
             <div style={{ fontSize: 11 }}>{RESTO_FISCAL.dir}</div>
             <div style={{ fontSize: 11 }}>RUC {RESTO_FISCAL.ruc}</div>
