@@ -1023,8 +1023,6 @@ fieldset { border: 0; padding: 0; margin: 0; min-width: 0; }
 .zticket .zrow.bold { font-weight: 800; font-size: 13.5px; }
 .zticket .zlbl { font-size: 10px; letter-spacing: .12em; text-transform: uppercase; color: #8a8a93; font-weight: 700; }
 
-.boleta-interna-wrap { padding: 20px; }
-
 /* Impresión de boletas/tickets (caja): imprime solo el ticket, a ancho de
    rollo térmico 80mm (XP-80C / XP-E200L). .print-area envuelve el .zticket a
    imprimir — tanto la boleta interna (BoletaInterna.tsx) como el cierre Z
@@ -1037,8 +1035,6 @@ fieldset { border: 0; padding: 0; margin: 0; min-width: 0; }
 
   html, body {
     width: 80mm !important;
-    min-width: 80mm !important;
-    max-width: 80mm !important;
     height: auto !important;
     margin: 0 !important;
     padding: 0 !important;
@@ -1047,76 +1043,53 @@ fieldset { border: 0; padding: 0; margin: 0; min-width: 0; }
     overflow: visible !important;
   }
 
-  /* Oculta visibilidad por defecto en todos los elementos del DOM */
+  /* Desactiva visibilidad por defecto en todos los elementos del DOM */
   body * {
     visibility: hidden !important;
   }
 
-  /* Anula por completo las cajas y posicionamientos de dialog nativos,
-     modales y drawers en Chrome durante la impresión para que colapsen a (0,0) */
-  dialog,
-  dialog[open],
-  .modal-wrap,
-  .modal,
-  .modal.xwide,
-  .modal.wide,
-  .modal-scroll,
-  .drawer-wrap,
-  .drawer,
-  .drawer-body,
-  .two-up,
-  .zwrap,
-  .boleta-interna-wrap,
-  #root,
-  .content {
+  /* Anula propiedades de posicionamiento, flex, overflow y scroll en contenedores
+     padres que recortan el lienzo en Chrome durante print */
+  #root, .content, .modal-wrap, .modal, .modal-scroll, .drawer-wrap, .drawer, .drawer-body, .two-up, .zwrap {
     position: static !important;
-    display: block !important;
-    float: none !important;
-    width: 80mm !important;
-    min-width: 80mm !important;
-    max-width: 80mm !important;
+    overflow: visible !important;
     height: auto !important;
-    min-height: 0 !important;
     max-height: none !important;
-    margin: 0 !important;
-    padding: 0 !important;
+    transform: none !important;
     border: none !important;
-    border-radius: 0 !important;
     box-shadow: none !important;
     background: transparent !important;
-    transform: none !important;
-    inset: auto !important;
-    overflow: visible !important;
-    backdrop-filter: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
   }
 
-  /* Hace visible únicamente la zona imprimible del ticket */
-  .print-area,
-  .print-area * {
+  /* Fija el área imprimible al origen (0,0) de la página impresa */
+  .print-area, .print-area * {
     visibility: visible !important;
   }
 
   .print-area {
-    position: absolute !important;
+    position: fixed !important;
     top: 0 !important;
     left: 0 !important;
-    width: 76mm !important;
-    max-width: 76mm !important;
-    margin: 0 auto !important;
-    padding: 2mm 2mm 4mm !important;
+    width: 80mm !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
     background: #ffffff !important;
     color: #000000 !important;
-    box-sizing: border-box !important;
-    float: none !important;
+    box-shadow: none !important;
+    border: none !important;
+    z-index: 9999999 !important;
   }
 
   .print-area .zticket {
-    width: 100% !important;
+    width: 80mm !important;
     max-width: 100% !important;
     box-shadow: none !important;
     border: none !important;
     border-radius: 0 !important;
-    padding: 0 !important;
+    padding: 3mm 4mm 6mm !important;
     margin: 0 !important;
     background: #ffffff !important;
     color: #000000 !important;
@@ -1134,7 +1107,7 @@ fieldset { border: 0; padding: 0; margin: 0; min-width: 0; }
   }
 
   .zticket h4 {
-    font-size: 13.5px !important;
+    font-size: 14px !important;
     font-weight: 800 !important;
     margin: 0 0 2px !important;
     text-align: center !important;
@@ -1142,7 +1115,6 @@ fieldset { border: 0; padding: 0; margin: 0; min-width: 0; }
   }
 
   .zticket .zc {
-    display: block !important;
     text-align: center !important;
   }
 
@@ -1155,12 +1127,10 @@ fieldset { border: 0; padding: 0; margin: 0; min-width: 0; }
   .zticket .zrow {
     display: flex !important;
     justify-content: space-between !important;
-    gap: 6px !important;
-    padding: 1.5px 0 !important;
+    gap: 8px !important;
+    padding: 2px 0 !important;
     font-size: 11px !important;
     color: #000000 !important;
-    width: 100% !important;
-    box-sizing: border-box !important;
   }
 
   .zticket .zrow.bold {
@@ -1169,7 +1139,7 @@ fieldset { border: 0; padding: 0; margin: 0; min-width: 0; }
   }
 
   .zticket .zlbl {
-    font-size: 9px !important;
+    font-size: 9.5px !important;
     letter-spacing: .08em !important;
     text-transform: uppercase !important;
     color: #000000 !important;
@@ -1177,7 +1147,7 @@ fieldset { border: 0; padding: 0; margin: 0; min-width: 0; }
   }
 
   .zticket img {
-    max-width: 44px !important;
+    max-width: 48px !important;
     height: auto !important;
     display: block !important;
     margin: 0 auto 4px !important;
