@@ -30,7 +30,7 @@ export function BoletaInterna({ ticket, transaccion, mesaNumero, propina, sede, 
   const esFactura = transaccion.tipoComprobante === 'FACTURA';
 
   return (
-    <div style={{ padding: 20 }}>
+    <div className="boleta-interna-wrap">
       <div className="print-area">
         <div className="zticket">
           <div className="zc">
