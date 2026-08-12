@@ -87,6 +87,11 @@ test-output
 # SonarQube token local
 infra/sonarqube/.sonar-token.local
 
+# Certificados digitales SUNAT (facturacion electronica) — nunca versionar.
+certificates/
+*.p12
+*.pfx
+
 # AI Agents directories
 .agent/
 .agents/

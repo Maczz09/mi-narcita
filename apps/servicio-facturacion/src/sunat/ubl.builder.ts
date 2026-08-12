@@ -11,6 +11,9 @@ export interface DatosEmpresa {
   razonSocial: string;
   nombreComercial?: string;
   direccion?: string;
+  ubigeo?: string;
+  /** Código de establecimiento SUNAT ("local anexo"). "0000" = domicilio fiscal/matriz. */
+  codigoEstablecimiento?: string;
 }
 
 /** Catálogo 06 SUNAT (tipo de documento de identidad): 1=DNI, 6=RUC, 0=Sin documento. */
@@ -165,6 +168,16 @@ export function construirXmlComprobante(datos: DatosComprobante): ComprobanteCon
       </cac:PartyIdentification>
       <cac:PartyLegalEntity>
         <cbc:RegistrationName><![CDATA[${datos.empresa.razonSocial}]]></cbc:RegistrationName>
+        <cac:RegistrationAddress>${datos.empresa.ubigeo ? `\n          <cbc:ID>${escaparXml(datos.empresa.ubigeo)}</cbc:ID>` : ''}
+          <cbc:AddressTypeCode>${escaparXml(datos.empresa.codigoEstablecimiento ?? '0000')}</cbc:AddressTypeCode>${
+            datos.empresa.direccion
+              ? `\n          <cac:AddressLine>\n            <cbc:Line><![CDATA[${datos.empresa.direccion}]]></cbc:Line>\n          </cac:AddressLine>`
+              : ''
+          }
+          <cac:Country>
+            <cbc:IdentificationCode>PE</cbc:IdentificationCode>
+          </cac:Country>
+        </cac:RegistrationAddress>
       </cac:PartyLegalEntity>
     </cac:Party>
   </cac:AccountingSupplierParty>
@@ -178,6 +191,10 @@ export function construirXmlComprobante(datos: DatosComprobante): ComprobanteCon
       </cac:PartyLegalEntity>
     </cac:Party>
   </cac:AccountingCustomerParty>
+  <cac:PaymentTerms>
+    <cbc:ID>FormaPago</cbc:ID>
+    <cbc:PaymentMeansID>Contado</cbc:PaymentMeansID>
+  </cac:PaymentTerms>
   <cac:TaxTotal>
     <cbc:TaxAmount currencyID="${moneda}">${totalIgv.toFixed(2)}</cbc:TaxAmount>
     <cac:TaxSubtotal>

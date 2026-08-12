@@ -32,4 +32,30 @@ describe('construirXmlComprobante', () => {
   it('rechaza un comprobante sin ítems', () => {
     expect(() => construirXmlComprobante({ ...base, items: [] })).toThrow();
   });
+
+  // Campos confirmados contra beta real de SUNAT (RUC 10417758432, respuesta
+  // ACEPTADA): sin AddressTypeCode, SUNAT rechaza con error 3030 ("código de
+  // local anexo"); sin PaymentTerms, rechaza con 3244 ("tipo de transacción").
+  it('incluye el código de establecimiento (0000 por defecto) en RegistrationAddress', () => {
+    const { xml } = construirXmlComprobante(base);
+    expect(xml).toContain('<cbc:AddressTypeCode>0000</cbc:AddressTypeCode>');
+  });
+
+  it('usa el código de establecimiento de la empresa si se indica uno distinto', () => {
+    const { xml } = construirXmlComprobante({
+      ...base,
+      empresa: { ...base.empresa, codigoEstablecimiento: '0001' },
+    });
+    expect(xml).toContain('<cbc:AddressTypeCode>0001</cbc:AddressTypeCode>');
+  });
+
+  it('incluye el ubigeo de la empresa dentro de RegistrationAddress cuando está disponible', () => {
+    const { xml } = construirXmlComprobante({ ...base, empresa: { ...base.empresa, ubigeo: '150101' } });
+    expect(xml).toContain('<cac:RegistrationAddress>\n          <cbc:ID>150101</cbc:ID>');
+  });
+
+  it('siempre declara la forma de pago como Contado (no hay ventas al crédito)', () => {
+    const { xml } = construirXmlComprobante(base);
+    expect(xml).toContain('<cac:PaymentTerms>\n    <cbc:ID>FormaPago</cbc:ID>\n    <cbc:PaymentMeansID>Contado</cbc:PaymentMeansID>\n  </cac:PaymentTerms>');
+  });
 });

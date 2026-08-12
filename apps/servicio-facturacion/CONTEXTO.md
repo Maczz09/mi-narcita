@@ -12,6 +12,60 @@ desde otra cuenta/sesión de Claude Code en este mismo repo.
   Ceviche 2**, cada una con su propio RUC. Deben operar como emisores SUNAT
   independientes — nunca cruzar certificado ni numeración entre ambas.
 
+## 0. Actualización — sesión 2026-08-12: Fase 1 validada contra SUNAT BETA real
+
+El punto 5 de "Pendiente" de abajo ("cliente SOAP sin ejercitar contra el WSDL
+real") **quedó resuelto y confirmado**: se generó, firmó y envió una Factura
+de prueba (RUC 10417758432, "Salitral 1", serie F001-1) contra el ambiente
+BETA real de SUNAT con certificado y usuario SOL reales, y **SUNAT respondió
+`ResponseCode 0` — "La Factura numero F001-1, ha sido aceptada"**. Se usó
+`apps/servicio-facturacion/scripts/probar-beta.ts` (bypasea DB/Nest, corre
+suelto con `npx tsx`) — no se tocó la base de datos real ni el correlativo.
+
+En el camino aparecieron 3 bugs reales que **no se iban a ver sin probar
+contra SUNAT de verdad** (ninguno era detectable con schema/tipos/tests
+unitarios solos):
+
+1. **`soap.createClientAsync(url)` con la URL viva de SUNAT falla con 401**
+   al resolver el import interno del WSDL (`billService?ns1.wsdl`) — el
+   stack HTTP de `soap` (axios) lo dispara, pero la MISMA url responde 200
+   con `curl` o con `https.get` nativo de Node (confirmado a mano, no es
+   problema de red/credenciales). Fix: el WSDL se versiona localmente
+   (`src/sunat/wsdl/{billService.wsdl,billService-ns1.wsdl,billService.xsd2.xsd}`,
+   el `build` de `package.json` los copia a `dist/`) y `sunat-soap.client.ts`
+   apunta ahí; el endpoint real de envío se sigue tomando de
+   `SUNAT_WSDL_URL` (sin el `?wsdl`) vía `client.setEndpoint(...)`. El
+   contrato SOAP es estático — no depende de beta vs. producción.
+2. **`contentFile` (el zip) se mandaba como `Buffer` crudo** — `soap` no lo
+   serializa como `xs:base64Binary`, lo serializaba byte a byte
+   (`<0>80</0><1>75</1>...`). Fix: `zip.toString('base64')` antes de pasarlo
+   a `sendBillAsync`/`sendSummaryAsync`.
+3. **`ubl.builder.ts` armaba `AccountingSupplierParty` incompleto** — SUNAT
+   rechazó dos veces con errores reales de negocio (no de schema):
+   - Error 3030 "código de local anexo del emisor": la dirección del emisor
+     NO va en `cac:PostalAddress` como yo asumía — va en
+     `cac:PartyLegalEntity/cac:RegistrationAddress`, y el código de
+     establecimiento es `cbc:AddressTypeCode` (NO `cbc:ID` — ese es el
+     ubigeo). Confirmado contra un XML real generado por Greenter (gist de
+     giansalex). `Empresa.codigoEstablecimiento` nuevo en el schema,
+     default `'0000'` (matriz).
+   - Error 3244 "tipo de transacción del comprobante": faltaba
+     `cac:PaymentTerms` (`FormaPago`/`Contado`) — obligatorio siempre en
+     este negocio porque no hay ventas al crédito. Se agregó fijo, sin
+     condicionar a ningún dato (no existe concepto de crédito en el dominio).
+
+Cobertura nueva en `ubl.builder.spec.ts` para los 3 campos que resultaron
+obligatorios en la práctica (`AddressTypeCode`, `ubigeo` opcional,
+`PaymentTerms`) — hasta ahora el spec solo cubría estructura genérica, no
+estos campos puntuales que SUNAT sí valida.
+
+**Sigue pendiente** (no tocado hoy): sembrar la fila `Empresa` real en la
+DB, levantar `db-facturacion` y aplicar las 3 migraciones, rellenar
+`apps/servicio-facturacion/.env` con las credenciales reales (hoy solo se
+pasaron como env vars sueltas al script de prueba), y recién ahí probar el
+flujo completo vía HTTP real (`POST /facturacion/comprobantes/:cuentaId/emitir`
+a través de Kong) en vez del script suelto.
+
 ## 1. Ya hecho y verificado esta sesión
 
 ### 1.1 CI/CD — cerrado, no requiere más trabajo
@@ -155,9 +209,10 @@ src/sunat/envio.processor.ts               → cron que envía FIRMADO→SUNAT
    es invocable por API directa (curl/Postman) — falta el selector de
    comprobantes + botón "emitir boleta/factura" para que caja/admin lo usen
    sin tocar código.
-5. **Cliente SOAP** (`sunat-soap.client.ts`) sin ejercitar contra el WSDL
-   real — nombres de parámetro (`fileName`/`contentFile`/`ticket`) son
-   "correctos por documentación", falta validar en beta con credenciales reales.
+5. ~~**Cliente SOAP** sin ejercitar contra el WSDL real~~ — **RESUELTO
+   2026-08-12, ver sección 0**: probado contra beta real, SUNAT respondió
+   ACEPTADA. 3 bugs reales encontrados y arreglados en el camino (WSDL 401,
+   `contentFile` sin base64, `AccountingSupplierParty` incompleto).
 6. **`servicio-facturacion-e2e`** — no se creó (necesita el stack Docker
    levantado para tener sentido). Decisión consciente de alcance, no olvido.
 7. **`sendSummary`** (resumen diario de boletas) documentado como mejora

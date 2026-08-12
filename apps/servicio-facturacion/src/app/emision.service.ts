@@ -74,6 +74,8 @@ export class EmisionService {
         razonSocial: empresa.razonSocial,
         nombreComercial: empresa.nombreComercial ?? undefined,
         direccion: empresa.direccion ?? undefined,
+        ubigeo: empresa.ubigeo ?? undefined,
+        codigoEstablecimiento: empresa.codigoEstablecimiento,
       },
       cliente: this.datosCliente(dto),
       items,

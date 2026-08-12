@@ -38,6 +38,9 @@ model Empresa {
   nombreComercial    String?
   direccion          String?
   ubigeo             String?
+  // Código de establecimiento SUNAT ("local anexo"): "0000" = domicilio fiscal/matriz.
+  // Requerido por el validador de sendBill — sin esto SUNAT rechaza con error 3030.
+  codigoEstablecimiento String @default("0000")
   serieBoleta        String   @default("B001")
   serieFactura       String   @default("F001")
   correlativoBoleta  Int      @default(0)
