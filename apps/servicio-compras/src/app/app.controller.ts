@@ -238,6 +238,26 @@ export class AppController {
     this.enviarArchivo(ruta, 'image/webp', undefined, `${c.sha256}-thumb`, `${c.id}_thumb.webp`, req, res);
   }
 
+  // PDF generado bajo demanda (no se persiste, ver ComprobantesService.generarPdf).
+  // `inline` (no `attachment`): abrir la URL renderiza el PDF en el visor
+  // nativo del navegador — descargarlo es una acción aparte del lado del
+  // cliente sobre el mismo blob, no algo que el servidor deba forzar.
+  @Get('comprobantes/:id/pdf')
+  async pdf(
+    @Param('id') id: string,
+    @UsuarioActual('sedeId') usuarioSedeId: string | null,
+    @Res() res: Response,
+  ): Promise<void> {
+    const { buffer, filename } = await this.comprobantes.generarPdf(id, usuarioSedeId);
+    res.set({
+      'Content-Type': 'application/pdf',
+      'Content-Length': String(buffer.length),
+      'Content-Disposition': `inline; filename="${filename}"`,
+      'Cross-Origin-Resource-Policy': 'cross-origin',
+    });
+    res.end(buffer);
+  }
+
   @Delete('comprobantes/:id')
   eliminarComprobante(@Param('id') id: string, @UsuarioActual('sedeId') usuarioSedeId: string | null) {
     return this.comprobantes.eliminar(id, usuarioSedeId);

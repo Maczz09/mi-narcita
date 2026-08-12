@@ -167,3 +167,7 @@ export function obtenerArchivoBlob(id: string): Promise<Blob> {
 export function obtenerMiniaturaBlob(id: string): Promise<Blob> {
   return client.getBlob(`/compras/comprobantes/${id}/miniatura`);
 }
+
+export function obtenerComprobantePdfBlob(id: string): Promise<Blob> {
+  return client.getBlob(`/compras/comprobantes/${id}/pdf`);
+}
