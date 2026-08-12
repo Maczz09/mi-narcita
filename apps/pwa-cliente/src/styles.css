@@ -1024,14 +1024,135 @@ fieldset { border: 0; padding: 0; margin: 0; min-width: 0; }
 .zticket .zlbl { font-size: 10px; letter-spacing: .12em; text-transform: uppercase; color: #8a8a93; font-weight: 700; }
 
 /* Impresión de boletas/tickets (caja): imprime solo el ticket, a ancho de
-   rollo térmico 80mm. .print-area envuelve el .zticket a imprimir — tanto la
-   boleta interna (BoletaInterna.tsx) como el cierre Z (CierreDrawer.tsx). */
+   rollo térmico 80mm (XP-80C / XP-E200L). .print-area envuelve el .zticket a
+   imprimir — tanto la boleta interna (BoletaInterna.tsx) como el cierre Z
+   (CierreDrawer.tsx) y detalle de cobro (TransaccionDetalleDrawer.tsx). */
 @media print {
-  @page { size: 80mm auto; margin: 4mm; }
-  body * { visibility: hidden; }
-  .print-area, .print-area * { visibility: visible; }
-  .print-area { position: absolute; top: 0; left: 0; width: 100%; }
-  .print-area .zticket { width: 100%; box-shadow: none; border: 0; border-radius: 0; padding: 0; }
+  @page {
+    size: 80mm auto;
+    margin: 0;
+  }
+
+  html, body {
+    width: 80mm !important;
+    height: auto !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #ffffff !important;
+    color: #000000 !important;
+    overflow: visible !important;
+  }
+
+  /* Desactiva visibilidad por defecto en todos los elementos del DOM */
+  body * {
+    visibility: hidden !important;
+  }
+
+  /* Anula propiedades de posicionamiento, flex, overflow y scroll en contenedores
+     padres que recortan el lienzo en Chrome durante print */
+  #root, .content, .modal-wrap, .modal, .modal-scroll, .drawer-wrap, .drawer, .drawer-body, .two-up, .zwrap {
+    position: static !important;
+    overflow: visible !important;
+    height: auto !important;
+    max-height: none !important;
+    transform: none !important;
+    border: none !important;
+    box-shadow: none !important;
+    background: transparent !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  /* Fija el área imprimible al origen (0,0) de la página impresa */
+  .print-area, .print-area * {
+    visibility: visible !important;
+  }
+
+  .print-area {
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    width: 80mm !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #ffffff !important;
+    color: #000000 !important;
+    box-shadow: none !important;
+    border: none !important;
+    z-index: 9999999 !important;
+  }
+
+  .print-area .zticket {
+    width: 80mm !important;
+    max-width: 100% !important;
+    box-shadow: none !important;
+    border: none !important;
+    border-radius: 0 !important;
+    padding: 3mm 4mm 6mm !important;
+    margin: 0 !important;
+    background: #ffffff !important;
+    color: #000000 !important;
+    font-family: var(--mono), 'Courier New', Courier, monospace !important;
+    font-size: 11px !important;
+    line-height: 1.35 !important;
+    box-sizing: border-box !important;
+  }
+
+  .zticket * {
+    color: #000000 !important;
+    background: transparent !important;
+    text-shadow: none !important;
+    filter: none !important;
+  }
+
+  .zticket h4 {
+    font-size: 14px !important;
+    font-weight: 800 !important;
+    margin: 0 0 2px !important;
+    text-align: center !important;
+    color: #000000 !important;
+  }
+
+  .zticket .zc {
+    text-align: center !important;
+  }
+
+  .zticket .zhr {
+    border: 0 !important;
+    border-top: 1px dashed #000000 !important;
+    margin: 6px 0 !important;
+  }
+
+  .zticket .zrow {
+    display: flex !important;
+    justify-content: space-between !important;
+    gap: 8px !important;
+    padding: 2px 0 !important;
+    font-size: 11px !important;
+    color: #000000 !important;
+  }
+
+  .zticket .zrow.bold {
+    font-weight: 800 !important;
+    font-size: 12px !important;
+  }
+
+  .zticket .zlbl {
+    font-size: 9.5px !important;
+    letter-spacing: .08em !important;
+    text-transform: uppercase !important;
+    color: #000000 !important;
+    font-weight: 800 !important;
+  }
+
+  .zticket img {
+    max-width: 48px !important;
+    height: auto !important;
+    display: block !important;
+    margin: 0 auto 4px !important;
+    filter: grayscale(100%) contrast(150%) !important;
+  }
 }
 
 /* ============================================================

@@ -79,7 +79,7 @@ export function TransaccionDetalleDrawer({ transaccionId, cuentaId, onClose }: R
             <div className="banner err"><Icons.Alert s={16} /><span>No se encontró el cobro.</span></div>
           ) : (
             <>
-              <div className="zwrap" style={{ marginBottom: 18 }}>
+              <div className="zwrap print-area" style={{ marginBottom: 18 }}>
                 <div className="zticket">
                   <div className="zc">
                     <div className="zlbl">Cobro · {horaOf(transaccion.createdAt)}</div>
@@ -138,6 +138,7 @@ export function TransaccionDetalleDrawer({ transaccionId, cuentaId, onClose }: R
 
         <div className="modal-foot" style={{ borderTop: '1px solid var(--border)', paddingTop: 14 }}>
           <button className="btn btn-ghost" onClick={onClose}>Cerrar</button>
+          <button className="btn btn-ghost" onClick={() => globalThis.print()}><Icons.Print s={15} /> Imprimir</button>
           <span className="spacer" />
           <button className="btn btn-primary" disabled={!hayCambios || saving || !online} onClick={guardar}>
             {saving ? <span className="spinner" style={{ width: 14, height: 14, borderWidth: 2 }} /> : <Icons.Check s={15} />} Guardar cambios
