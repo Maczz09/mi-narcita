@@ -205,6 +205,36 @@ describe('ComprasScreen', () => {
     expect(screen.queryByText('Recepción · OC-123')).not.toBeInTheDocument();
   });
 
+  it('OC recibida sin comprobantes muestra "Falta boleta" y abre el detalle al hacer click', () => {
+    vi.spyOn(comprasQueryHook, 'useOrdenesQuery').mockReturnValue({
+      ordenes: [ordenVM({ estado: 'RECIBIDA', puedeEnviar: false, puedeRecibir: false, comprobantesCount: 0 })],
+      loading: false, saving: false, error: null, success: null,
+      crear: mockCrear, actualizar: mockActualizar, eliminar: mockEliminar, enviar: mockEnviar, cerrar: mockCerrar, anular: mockAnular, recibir: mockRecibir,
+      clearFeedback: vi.fn(),
+    } as any);
+
+    render(<ComprasScreen />);
+    const row = screen.getByText('OC-123').closest('tr');
+    expect(within(row!).getByText('Falta boleta')).toBeInTheDocument();
+
+    fireEvent.click(within(row!).getByText('Falta boleta'));
+    expect(screen.getByText('Comprobantes (boleta/factura)')).toBeInTheDocument();
+  });
+
+  it('OC recibida con comprobantes ya subidos muestra "Completada", no "Falta boleta"', () => {
+    vi.spyOn(comprasQueryHook, 'useOrdenesQuery').mockReturnValue({
+      ordenes: [ordenVM({ estado: 'RECIBIDA', puedeEnviar: false, puedeRecibir: false, comprobantesCount: 1 })],
+      loading: false, saving: false, error: null, success: null,
+      crear: mockCrear, actualizar: mockActualizar, eliminar: mockEliminar, enviar: mockEnviar, cerrar: mockCerrar, anular: mockAnular, recibir: mockRecibir,
+      clearFeedback: vi.fn(),
+    } as any);
+
+    render(<ComprasScreen />);
+    const row = screen.getByText('OC-123').closest('tr');
+    expect(within(row!).getByText('Completada')).toBeInTheDocument();
+    expect(within(row!).queryByText('Falta boleta')).not.toBeInTheDocument();
+  });
+
   it('puede crear una nueva OC', async () => {
     const { container } = render(<ComprasScreen />);
     fireEvent.click(screen.getByText('Nueva orden'));

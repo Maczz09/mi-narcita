@@ -26,14 +26,18 @@ export const NAV_GROUPS: NavGroup[] = [
     ],
   },
   {
+    // Orden pensado como flujo lógico, no alfabético: primero armas la
+    // carta (categorías → carta), luego el abastecimiento (inventario →
+    // compras), luego los registros de dinero (caja → reportes), y por
+    // último la configuración del negocio (usuarios → sedes).
     group: 'Administración',
     items: [
-      { key: 'carta', label: 'Carta / Menú', shortLabel: 'Carta', icon: 'Pedidos', priority: 8 },
-      { key: 'compras', label: 'Compras', shortLabel: 'Compras', icon: 'Bag', priority: 10 },
-      { key: 'inventario', label: 'Inventario', shortLabel: 'Stock', icon: 'Inventario', priority: 7 },
       { key: 'categorias', label: 'Categorías', shortLabel: 'Categorías', icon: 'Tag', priority: 7.5 },
-      { key: 'reportes', label: 'Reportes', shortLabel: 'Reportes', icon: 'Reportes', priority: 9 },
+      { key: 'carta', label: 'Carta / Menú', shortLabel: 'Carta', icon: 'Pedidos', priority: 8 },
+      { key: 'inventario', label: 'Inventario', shortLabel: 'Stock', icon: 'Inventario', priority: 7 },
+      { key: 'compras', label: 'Compras', shortLabel: 'Compras', icon: 'Bag', priority: 10 },
       { key: 'historial-caja', label: 'Historial de caja', shortLabel: 'Hist. Caja', icon: 'Caja', priority: 9.5 },
+      { key: 'reportes', label: 'Reportes', shortLabel: 'Reportes', icon: 'Reportes', priority: 9 },
       { key: 'usuarios', label: 'Usuarios', shortLabel: 'Usuarios', icon: 'Usuarios', priority: 11 },
       { key: 'sedes', label: 'Sedes', shortLabel: 'Sedes', icon: 'Sede', priority: 12 },
     ],

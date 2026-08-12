@@ -349,6 +349,10 @@ export class OrdenCompraDto {
   items: OrdenCompraItemDto[];
   @IsString()
   createdAt: string;
+  // Cuántas fotos de boleta/factura tiene subidas esta orden — permite que el
+  // listado avise "falta boleta" sin tener que abrir el detalle de cada una.
+  @IsNumber()
+  comprobantesCount: number;
 }
 
 export class ListarOrdenesQuery {

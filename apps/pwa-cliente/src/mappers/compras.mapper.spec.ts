@@ -36,6 +36,7 @@ describe('compras.mapper (frontend)', () => {
         { id: 'it-1', insumoId: 'i-1', insumoNombre: 'Pescado', unidad: 'kg', cantidadPedida: 12, cantidadRecibida: 5, costoUnitario: 28 },
       ],
       createdAt: '2026-06-01T00:00:00.000Z',
+      comprobantesCount: 0,
     };
     const vm = mapOrden(dto);
 

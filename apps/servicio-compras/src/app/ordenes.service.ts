@@ -43,7 +43,7 @@ export class OrdenesService {
             }
           : {}),
       },
-      include: { items: true },
+      include: { items: true, _count: { select: { comprobantes: true } } },
       take: limit + 1,
       ...(query.cursor ? { cursor: { id: query.cursor }, skip: 1 } : {}),
       orderBy: [{ fechaEmision: 'desc' }, { id: 'asc' }],

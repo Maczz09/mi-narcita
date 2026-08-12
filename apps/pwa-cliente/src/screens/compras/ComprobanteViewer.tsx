@@ -115,12 +115,12 @@ function ComprobanteVisorModal({ comprobante, onClose, onEliminar }: Readonly<Co
           <span className="spacer" />
           <button className="icon-btn" onClick={onClose}><Icons.Close s={17} /></button>
         </div>
-        <div style={{ padding: 16, textAlign: 'center' }}>
+        <div className="modal-scroll" style={{ padding: 16, textAlign: 'center' }}>
           {urlFull ? (
             <img
               src={urlFull}
               alt="Comprobante"
-              style={{ maxWidth: '100%', maxHeight: '55vh', borderRadius: 10, border: '1px solid var(--border)' }}
+              style={{ maxWidth: '100%', maxHeight: '70vh', borderRadius: 10, border: '1px solid var(--border)' }}
             />
           ) : (
             <div className="muted">Cargando imagen…</div>

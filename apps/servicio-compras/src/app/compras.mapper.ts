@@ -63,7 +63,9 @@ function toOrdenCompraItemDto(item: OrdenCompraItem): OrdenCompraItemDto {
   };
 }
 
-export function toOrdenCompraDto(o: OrdenCompra & { items: OrdenCompraItem[] }): OrdenCompraDto {
+export function toOrdenCompraDto(
+  o: OrdenCompra & { items: OrdenCompraItem[]; _count?: { comprobantes: number } },
+): OrdenCompraDto {
   return {
     id: o.id,
     sedeId: o.sedeId,
@@ -82,6 +84,9 @@ export function toOrdenCompraDto(o: OrdenCompra & { items: OrdenCompraItem[] }):
     usuarioNombre: o.usuarioNombre,
     items: o.items.map(toOrdenCompraItemDto),
     createdAt: o.createdAt.toISOString(),
+    // No siempre viene cargado (crear/enviar/cerrar/anular no lo piden porque
+    // no lo muestran) — 0 es un default seguro, no un conteo real todavía.
+    comprobantesCount: o._count?.comprobantes ?? 0,
   };
 }
 
