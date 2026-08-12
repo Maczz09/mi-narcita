@@ -70,7 +70,11 @@ jobs:
           - name: pwa-cliente
             dockerfile: apps/pwa-cliente/Dockerfile
             context: .
-            build-args: VITE_API_BASE_URL=https://nachopps-app.duckdns.org
+            # Repo Settings → Secrets and variables → Actions → Variables →
+            # VITE_API_BASE_URL = https://tu-dominio-real (sin esto, cae al
+            # placeholder de abajo y la PWA en prod llamaría a un dominio que
+            # no es el suyo — login/CORS rotos en silencio).
+            build-args: VITE_API_BASE_URL=${{ vars.VITE_API_BASE_URL || 'https://cambia-esto-en-settings-variables.example' }}
           - name: kong
             dockerfile: infra/kong/Dockerfile
             context: infra/kong

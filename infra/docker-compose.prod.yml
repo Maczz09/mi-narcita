@@ -197,8 +197,10 @@ services:
   # MICROSERVICIOS (Solo red interna)
   # ═══════════════════════════════════════════════════
   servicio-identidad:
-    image: ${REGISTRY:-nachopps}/servicio-identidad:latest
+    image: ${REGISTRY:-ghcr.io/Maczz09/nachoppssoa}/servicio-identidad:latest
     container_name: nachopps-servicio-identidad
+    labels:
+      - com.centurylinklabs.watchtower.enable=true
     restart: unless-stopped
     stop_grace_period: 30s
     environment:
@@ -228,8 +230,10 @@ services:
         condition: service_healthy
 
   servicio-mesas:
-    image: ${REGISTRY:-nachopps}/servicio-mesas:latest
+    image: ${REGISTRY:-ghcr.io/Maczz09/nachoppssoa}/servicio-mesas:latest
     container_name: nachopps-servicio-mesas
+    labels:
+      - com.centurylinklabs.watchtower.enable=true
     restart: unless-stopped
     stop_grace_period: 30s
     environment:
@@ -256,8 +260,10 @@ services:
         condition: service_healthy
 
   servicio-pedidos:
-    image: ${REGISTRY:-nachopps}/servicio-pedidos:latest
+    image: ${REGISTRY:-ghcr.io/Maczz09/nachoppssoa}/servicio-pedidos:latest
     container_name: nachopps-servicio-pedidos
+    labels:
+      - com.centurylinklabs.watchtower.enable=true
     restart: unless-stopped
     stop_grace_period: 30s
     environment:
@@ -286,8 +292,10 @@ services:
         condition: service_healthy
 
   servicio-cuentas:
-    image: ${REGISTRY:-nachopps}/servicio-cuentas:latest
+    image: ${REGISTRY:-ghcr.io/Maczz09/nachoppssoa}/servicio-cuentas:latest
     container_name: nachopps-servicio-cuentas
+    labels:
+      - com.centurylinklabs.watchtower.enable=true
     restart: unless-stopped
     stop_grace_period: 30s
     environment:
@@ -315,8 +323,10 @@ services:
         condition: service_healthy
 
   servicio-reservas:
-    image: ${REGISTRY:-nachopps}/servicio-reservas:latest
+    image: ${REGISTRY:-ghcr.io/Maczz09/nachoppssoa}/servicio-reservas:latest
     container_name: nachopps-servicio-reservas
+    labels:
+      - com.centurylinklabs.watchtower.enable=true
     restart: unless-stopped
     stop_grace_period: 30s
     environment:
@@ -343,8 +353,10 @@ services:
         condition: service_healthy
 
   servicio-inventario:
-    image: ${REGISTRY:-nachopps}/servicio-inventario:latest
+    image: ${REGISTRY:-ghcr.io/Maczz09/nachoppssoa}/servicio-inventario:latest
     container_name: nachopps-servicio-inventario
+    labels:
+      - com.centurylinklabs.watchtower.enable=true
     restart: unless-stopped
     stop_grace_period: 30s
     environment:
@@ -371,8 +383,10 @@ services:
         condition: service_healthy
 
   servicio-notificaciones:
-    image: ${REGISTRY:-nachopps}/servicio-notificaciones:latest
+    image: ${REGISTRY:-ghcr.io/Maczz09/nachoppssoa}/servicio-notificaciones:latest
     container_name: nachopps-servicio-notificaciones
+    labels:
+      - com.centurylinklabs.watchtower.enable=true
     restart: unless-stopped
     stop_grace_period: 30s
     environment:
@@ -399,8 +413,10 @@ services:
         condition: service_healthy
 
   servicio-caja:
-    image: ${REGISTRY:-nachopps}/servicio-caja:latest
+    image: ${REGISTRY:-ghcr.io/Maczz09/nachoppssoa}/servicio-caja:latest
     container_name: nachopps-servicio-caja
+    labels:
+      - com.centurylinklabs.watchtower.enable=true
     restart: unless-stopped
     stop_grace_period: 30s
     environment:
@@ -428,8 +444,10 @@ services:
         condition: service_healthy
 
   servicio-reportes:
-    image: ${REGISTRY:-nachopps}/servicio-reportes:latest
+    image: ${REGISTRY:-ghcr.io/Maczz09/nachoppssoa}/servicio-reportes:latest
     container_name: nachopps-servicio-reportes
+    labels:
+      - com.centurylinklabs.watchtower.enable=true
     restart: unless-stopped
     stop_grace_period: 30s
     environment:
@@ -456,8 +474,10 @@ services:
         condition: service_healthy
 
   servicio-facturacion:
-    image: ${REGISTRY:-nachopps}/servicio-facturacion:latest
+    image: ${REGISTRY:-ghcr.io/Maczz09/nachoppssoa}/servicio-facturacion:latest
     container_name: nachopps-servicio-facturacion
+    labels:
+      - com.centurylinklabs.watchtower.enable=true
     restart: unless-stopped
     stop_grace_period: 30s
     environment:
@@ -502,8 +522,10 @@ services:
         condition: service_healthy
 
   servicio-compras:
-    image: ${REGISTRY:-nachopps}/servicio-compras:latest
+    image: ${REGISTRY:-ghcr.io/Maczz09/nachoppssoa}/servicio-compras:latest
     container_name: nachopps-servicio-compras
+    labels:
+      - com.centurylinklabs.watchtower.enable=true
     restart: unless-stopped
     stop_grace_period: 30s
     environment:
@@ -543,6 +565,8 @@ services:
   pwa-cliente:
     image: ${REGISTRY:-ghcr.io/Maczz09/nachoppssoa}/pwa-cliente:latest
     container_name: nachopps-pwa-cliente
+    labels:
+      - com.centurylinklabs.watchtower.enable=true
     restart: unless-stopped
     ports:
       - '8080:8080'
@@ -551,11 +575,14 @@ services:
   # KONG API GATEWAY (Punto único de acceso)
   # ═══════════════════════════════════════════════════
   kong:
-    build:
-      context: kong
-      dockerfile: Dockerfile
-    image: ${REGISTRY:-nachopps}/kong:latest
+    # Se construye y publica en GHCR vía .github/workflows/deploy.yml (igual
+    # que los demás servicios) — sin `build:` acá para que Watchtower pueda
+    # actualizarlo igual que a todos: comparando el digest de la imagen
+    # publicada, no reconstruyéndolo localmente cada vez.
+    image: ${REGISTRY:-ghcr.io/Maczz09/nachoppssoa}/kong:latest
     container_name: nachopps-kong
+    labels:
+      - com.centurylinklabs.watchtower.enable=true
     restart: unless-stopped
     environment:
       KONG_DATABASE: 'off'
@@ -686,7 +713,14 @@ services:
       - ~/.docker/config.json:/config.json:ro
     environment:
       - DOCKER_API_VERSION=1.40
-    command: --interval 300 --cleanup
+    # --label-enable: solo toca contenedores con el label
+    # com.centurylinklabs.watchtower.enable=true (los 13 que publica
+    # .github/workflows/deploy.yml). Sin esto, Watchtower actualiza CUALQUIER
+    # contenedor del host — incluidas las 11 bases Postgres, RabbitMQ,
+    # Grafana, etc. — apenas Docker Hub publique un nuevo build de esas
+    # imágenes, reiniciándolas sin aviso. Nada de eso lo construye este repo;
+    # no debe auto-actualizarse solo.
+    command: --interval 300 --cleanup --label-enable
     restart: unless-stopped
 
 volumes:

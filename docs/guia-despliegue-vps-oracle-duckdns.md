@@ -1,5 +1,13 @@
 # Guia definitiva de despliegue VPS: Oracle Cloud + DuckDNS + Caddy
 
+> **Histórica — ya no es el flujo activo.** Esta guía construye las imágenes
+> a mano dentro de la propia VPS (`docker build`) en cada actualización. El
+> flujo vigente publica las imágenes por CI (GitHub Actions → GHCR) y la VPS
+> solo las jala (`git push` → auto-deploy con Watchtower) — ver
+> [docs/guia-despliegue-vps-contabo.md](guia-despliegue-vps-contabo.md). Se
+> deja este documento como referencia de los pasos de Oracle Cloud/Caddy que
+> siguen siendo válidos para ese proveedor específico.
+
 Esta guia resume el despliegue desde cero de NachoPps en una VPS Ubuntu 24.04, usando Docker Compose, DuckDNS gratuito y HTTPS automatico con Caddy.
 
 Ejemplo usado:
