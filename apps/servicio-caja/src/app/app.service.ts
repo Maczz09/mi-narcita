@@ -512,6 +512,8 @@ export class AppService {
           // MovimientoCaja.donde, ahora también en la Transaccion.
           mesaNumero: command.mesaNumero ?? undefined,
           mesaUnidaCon: command.mesaUnidaCon ?? undefined,
+          tipoComprobante: command.tipoComprobante ?? 'BOLETA',
+          clienteDocumento: command.clienteDocumento ?? undefined,
         },
       });
 
@@ -803,6 +805,8 @@ export class AppService {
       meseroNombre: t.meseroNombre || undefined,
       mesaNumero: t.mesaNumero || undefined,
       mesaUnidaCon: t.mesaUnidaCon || undefined,
+      tipoComprobante: t.tipoComprobante,
+      clienteDocumento: t.clienteDocumento || undefined,
       createdAt: t.createdAt.toISOString(),
     };
   }
