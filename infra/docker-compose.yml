@@ -848,7 +848,15 @@ services:
     image: mi-narcita-servicio-facturacion
     container_name: nachopps-servicio-facturacion
     ports: ['3011:3000']
-    env_file: [*jwt_dev_env, ./secrets/sunat-dev.env]
+    # sunat-dev.env es opcional a proposito (required: false): igual que el
+    # .p12 del volumen de abajo, no existe en un checkout fresco (CI, otro
+    # dev) — el servicio ya esta preparado para arrancar "no configurado"
+    # (ver SunatConfigService) y sin esto docker compose up fallaba entero
+    # por un env_file requerido inexistente.
+    env_file:
+      - *jwt_dev_env
+      - path: ./secrets/sunat-dev.env
+        required: false
     volumes:
       - ../certificates:/app/certificates:ro
     environment:
