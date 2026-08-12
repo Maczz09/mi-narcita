@@ -6,6 +6,7 @@ import type {
   EmpresaDto,
   EmitirComprobantePayload,
   EmitirComprobanteResultado,
+  CrearEmpresaPayload,
 } from '../types/facturacion.types';
 
 export async function listarDisponibles(sedeId?: string): Promise<ComprobantePagoDto[]> {
@@ -27,4 +28,19 @@ export async function listarEmpresas(): Promise<EmpresaDto[]> {
 
 export async function emitir(cuentaId: string, payload: EmitirComprobantePayload): Promise<EmitirComprobanteResultado> {
   return client.post<EmitirComprobanteResultado>(`/facturacion/comprobantes/${cuentaId}/emitir`, payload);
+}
+
+export function crearEmpresa(payload: CrearEmpresaPayload): Promise<EmpresaDto> {
+  const form = new FormData();
+  form.append('ruc', payload.ruc);
+  form.append('razonSocial', payload.razonSocial);
+  if (payload.nombreComercial) form.append('nombreComercial', payload.nombreComercial);
+  if (payload.direccion) form.append('direccion', payload.direccion);
+  if (payload.ubigeo) form.append('ubigeo', payload.ubigeo);
+  if (payload.codigoEstablecimiento) form.append('codigoEstablecimiento', payload.codigoEstablecimiento);
+  form.append('solUsuario', payload.solUsuario);
+  form.append('solClave', payload.solClave);
+  form.append('certificadoPass', payload.certificadoPass);
+  form.append('certificado', payload.certificado, payload.certificado.name);
+  return client.postForm<EmpresaDto>('/facturacion/empresas', form);
 }

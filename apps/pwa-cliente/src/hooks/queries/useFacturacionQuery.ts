@@ -9,7 +9,7 @@ import * as facturacionApi from '../../api/facturacion.api';
 import { useSedeActualQuery } from './useSedesQuery';
 import { queryClient } from '../../api/queryClient';
 import { primerMensaje } from '../../utils/feedback';
-import type { ComprobantePagoDto, EmitirComprobantePayload } from '../../types/facturacion.types';
+import type { ComprobantePagoDto, EmitirComprobantePayload, CrearEmpresaPayload } from '../../types/facturacion.types';
 
 const ESTADOS_PENDIENTES = new Set(['FIRMADO', 'ENVIADO']);
 
@@ -53,13 +53,21 @@ export function useFacturacionQuery() {
     onSuccess: invalidate,
   });
 
+  const mutationCrearEmpresa = useMutation({
+    mutationFn: (payload: CrearEmpresaPayload) => facturacionApi.crearEmpresa(payload),
+    onSuccess: invalidate,
+  });
+
   return {
     disponibles: disponiblesQuery.data ?? [],
     emitidos: (todosQuery.data ?? []).filter((c) => c.estado === 'EMITIDO'),
     empresas: empresasQuery.data ?? [],
+    empresasLoading: empresasQuery.isLoading,
     loading: disponiblesQuery.isLoading || todosQuery.isLoading,
     emitiendo: mutationEmitir.isPending,
+    configurandoEmpresa: mutationCrearEmpresa.isPending,
     error: disponiblesQuery.error?.message ?? todosQuery.error?.message ?? mutationEmitir.error?.message ?? null,
+    errorEmpresa: mutationCrearEmpresa.error?.message ?? null,
     success: primerMensaje([mutationEmitir.isSuccess, 'Comprobante firmado — enviándose a SUNAT.']),
     fetch: () => {
       void disponiblesQuery.refetch();
@@ -68,6 +76,10 @@ export function useFacturacionQuery() {
     emitirComprobante: async (cuentaId: string, payload: EmitirComprobantePayload) => {
       await mutationEmitir.mutateAsync({ cuentaId, payload });
     },
+    crearEmpresa: async (payload: CrearEmpresaPayload) => {
+      return mutationCrearEmpresa.mutateAsync(payload);
+    },
     clearFeedback: () => mutationEmitir.reset(),
+    clearFeedbackEmpresa: () => mutationCrearEmpresa.reset(),
   };
 }

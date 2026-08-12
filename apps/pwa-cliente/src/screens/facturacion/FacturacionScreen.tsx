@@ -15,6 +15,7 @@ import { useOnlineStatus } from '../../hooks/useOnlineStatus';
 import { fmt } from '../../utils/format';
 import { useFacturacionQuery } from '../../hooks/queries/useFacturacionQuery';
 import { abrirComprobanteParaImprimir } from '../../utils/comprobantePrint';
+import { ConfigurarEmpresaModal } from './ConfigurarEmpresaModal';
 import type { ComprobantePagoDto, EstadoComprobante, TipoComprobante } from '../../types/facturacion.types';
 
 const ESTADO_BADGE: Record<EstadoComprobante, string> = {
@@ -55,8 +56,12 @@ type FiltroEstado = '' | 'PENDIENTE' | 'ACEPTADO' | 'RECHAZADO' | 'OBSERVADO';
 export function FacturacionScreen() {
   const online = useOnlineStatus();
   const { toast } = useToast();
-  const { disponibles, emitidos, empresas, loading, emitiendo, error, success, fetch, emitirComprobante, clearFeedback } =
-    useFacturacionQuery();
+  const {
+    disponibles, emitidos, empresas, empresasLoading, loading, emitiendo, error, success, fetch,
+    emitirComprobante, clearFeedback, crearEmpresa, configurandoEmpresa, errorEmpresa, clearFeedbackEmpresa,
+  } = useFacturacionQuery();
+
+  const [configurarSunat, setConfigurarSunat] = useState(false);
 
   const [desde, setDesde] = useState('');
   const [hasta, setHasta] = useState('');
@@ -144,6 +149,11 @@ export function FacturacionScreen() {
           <div className="sub">Emisión de boletas y facturas electrónicas SUNAT</div>
         </div>
         <span className="spacer" />
+        {!empresasLoading && empresas.length < 2 && (
+          <button className="btn btn-soft btn-sm" onClick={() => setConfigurarSunat(true)}>
+            <Icons.Sede s={15} /> {empresas.length === 0 ? 'Configurar SUNAT' : 'Agregar otra empresa'}
+          </button>
+        )}
         <button className="btn btn-ghost btn-sm" onClick={fetch} title="Refrescar" aria-label="Refrescar facturación">
           <Icons.Refresh s={16} />
         </button>
@@ -156,10 +166,10 @@ export function FacturacionScreen() {
         </output>
       )}
 
-      {!puedeEmitir && (
+      {!empresasLoading && !puedeEmitir && (
         <div className="banner warn module-feedback" role="alert">
           <Icons.Alert s={17} />
-          <span>No hay ninguna empresa con certificado SUNAT configurado todavía.</span>
+          <span>No hay ninguna empresa con certificado SUNAT configurado todavía — usa "Configurar SUNAT" arriba.</span>
         </div>
       )}
 
@@ -418,6 +428,21 @@ export function FacturacionScreen() {
             </div>
           </dialog>
         </div>
+      )}
+
+      {configurarSunat && (
+        <ConfigurarEmpresaModal
+          guardando={configurandoEmpresa}
+          error={errorEmpresa}
+          onClose={() => { setConfigurarSunat(false); clearFeedbackEmpresa(); }}
+          onGuardar={async (payload) => {
+            const empresa = await crearEmpresa(payload);
+            toast({ title: 'Empresa configurada', msg: `${empresa.razonSocial} (RUC ${empresa.ruc}) ya puede emitir comprobantes.`, icon: 'Check', kind: 'ok' });
+            setConfigurarSunat(false);
+            clearFeedbackEmpresa();
+            return empresa;
+          }}
+        />
       )}
     </div>
   );

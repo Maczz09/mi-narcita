@@ -881,6 +881,11 @@ services:
       # — CertificadoService/EnvioProcessor lo detectan sin tumbar el resto.
       SUNAT_WSDL_URL: 'https://e-beta.sunat.gob.pe/ol-ti-itcpfegem-beta/billService?wsdl'
       SUNAT_PFX_EMPRESA_1_FILE: '/app/certificates/salitral-1/certificado.p12'
+      # Cifra las credenciales SUNAT que se suban por el formulario "Configurar
+      # SUNAT" de Facturación (ver CredencialesCryptoService) — 32 bytes hex,
+      # SOLO de dev. En prod, un secret real generado con
+      # `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`.
+      FACTURACION_CRED_ENCRYPTION_KEY: '165525fec81a294571de597b1110d6b17e5060da219c87dcb865da257e7f0d69'
     profiles: ['all']
     restart: unless-stopped
     mem_limit: 512m

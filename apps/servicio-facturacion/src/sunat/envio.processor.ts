@@ -46,7 +46,7 @@ export class EnvioProcessor {
       });
 
       for (const comprobante of pendientes as unknown as ComprobantePendiente[]) {
-        if (!this.config.tieneCredenciales(comprobante.empresa.slot)) {
+        if (!(await this.config.tieneCredenciales(comprobante.empresa.slot))) {
           // No es un error del comprobante: la empresa aún no tiene
           // certificado configurado. Se deja en FIRMADO sin gastar intentos.
           continue;
@@ -64,7 +64,7 @@ export class EnvioProcessor {
     const codigoTipo = comprobante.tipo === 'FACTURA' ? '01' : '03';
     const nombreArchivo = `${comprobante.empresa.ruc}-${codigoTipo}-${comprobante.serie}-${comprobante.correlativo}`;
     try {
-      const creds = this.config.credencialesParaSlot(comprobante.empresa.slot);
+      const creds = await this.config.credencialesParaSlot(comprobante.empresa.slot);
       const resultado = await this.soap.enviarComprobante({
         ruc: comprobante.empresa.ruc,
         solUsuario: creds.solUsuario,

@@ -4,6 +4,8 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { SedesScreen } from './SedesScreen';
 import { useOnlineStatus } from '../../hooks/useOnlineStatus';
 import { useSedesQuery } from '../../hooks/queries/useSedesQuery';
+import { useFacturacionQuery } from '../../hooks/queries/useFacturacionQuery';
+import { useToast } from '../../components/ui/ToastProvider';
 
 vi.mock('../../hooks/useOnlineStatus', () => ({
   useOnlineStatus: vi.fn(),
@@ -11,6 +13,14 @@ vi.mock('../../hooks/useOnlineStatus', () => ({
 
 vi.mock('../../hooks/queries/useSedesQuery', () => ({
   useSedesQuery: vi.fn(),
+}));
+
+vi.mock('../../hooks/queries/useFacturacionQuery', () => ({
+  useFacturacionQuery: vi.fn(),
+}));
+
+vi.mock('../../components/ui/ToastProvider', () => ({
+  useToast: vi.fn(),
 }));
 
 const mockSedes = [
@@ -34,10 +44,20 @@ function baseMock(overrides: Record<string, unknown> = {}) {
   };
 }
 
+function baseFacturacionMock(overrides: Record<string, unknown> = {}) {
+  return {
+    crearEmpresa: vi.fn().mockResolvedValue({ id: 'e1', slot: 1, ruc: '20111111111', razonSocial: 'Sede Sur', activo: true }),
+    configurandoEmpresa: false,
+    ...overrides,
+  };
+}
+
 describe('SedesScreen', () => {
   beforeEach(() => {
     vi.mocked(useOnlineStatus).mockReturnValue(true);
     vi.mocked(useSedesQuery).mockReturnValue(baseMock() as any);
+    vi.mocked(useFacturacionQuery).mockReturnValue(baseFacturacionMock() as any);
+    vi.mocked(useToast).mockReturnValue({ toast: vi.fn() } as any);
   });
 
   it('renderiza la lista de sedes con su estado', () => {
@@ -150,5 +170,87 @@ describe('SedesScreen', () => {
     expect(screen.getByText('Ya existe una sede llamada "Sede Central"')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Cerrar' }));
     expect(clearFeedback).toHaveBeenCalled();
+  });
+
+  describe('configurar SUNAT también (opcional, al crear la sede)', () => {
+    it('la sección de credenciales SUNAT está oculta hasta marcar el checkbox', () => {
+      render(<SedesScreen />);
+      expect(screen.queryByLabelText('Usuario SOL')).not.toBeInTheDocument();
+      fireEvent.click(screen.getByLabelText(/También configurar facturación electrónica SUNAT/i));
+      expect(screen.getByLabelText('Usuario SOL')).toBeInTheDocument();
+    });
+
+    it('crea la sede igual aunque el checkbox esté marcado sin completar las credenciales (no bloquea la sede)', async () => {
+      const crearSede = vi.fn();
+      const crearEmpresa = vi.fn();
+      vi.mocked(useSedesQuery).mockReturnValue(baseMock({ crearSede }) as any);
+      vi.mocked(useFacturacionQuery).mockReturnValue(baseFacturacionMock({ crearEmpresa }) as any);
+
+      render(<SedesScreen />);
+      fireEvent.change(screen.getByLabelText('Nombre'), { target: { value: 'Sede Sur' } });
+      fireEvent.click(screen.getByLabelText(/También configurar facturación electrónica SUNAT/i));
+      fireEvent.click(screen.getByRole('button', { name: /Crear sede/i }));
+
+      await waitFor(() => expect(crearSede).toHaveBeenCalled());
+      expect(crearEmpresa).not.toHaveBeenCalled();
+    });
+
+    it('con todo completo, crea la sede y encadena crearEmpresa con los mismos datos', async () => {
+      const crearSede = vi.fn().mockResolvedValue(undefined);
+      const crearEmpresa = vi.fn().mockResolvedValue({ id: 'e1', slot: 1, ruc: '20111111111', razonSocial: 'Sede Sur', activo: true });
+      vi.mocked(useSedesQuery).mockReturnValue(baseMock({ crearSede }) as any);
+      vi.mocked(useFacturacionQuery).mockReturnValue(baseFacturacionMock({ crearEmpresa }) as any);
+
+      render(<SedesScreen />);
+      fireEvent.change(screen.getByLabelText('Nombre'), { target: { value: 'Sede Sur' } });
+      fireEvent.change(screen.getByLabelText('RUC'), { target: { value: '20111111111' } });
+      fireEvent.click(screen.getByLabelText(/También configurar facturación electrónica SUNAT/i));
+      fireEvent.change(screen.getByLabelText('Usuario SOL'), { target: { value: 'MODDATOS' } });
+      fireEvent.change(screen.getByLabelText('Clave SOL'), { target: { value: 'clave-sol' } });
+      fireEvent.change(screen.getByLabelText('Contraseña del certificado'), { target: { value: 'clave-cert' } });
+      const archivo = new File(['x'], 'cert.p12', { type: 'application/x-pkcs12' });
+      fireEvent.change(screen.getByLabelText(/Certificado \(\.p12/), { target: { files: [archivo] } });
+
+      fireEvent.click(screen.getByRole('button', { name: /Crear sede/i }));
+
+      await waitFor(() => {
+        expect(crearSede).toHaveBeenCalledWith({ nombre: 'Sede Sur', direccion: undefined, ruc: '20111111111' });
+        expect(crearEmpresa).toHaveBeenCalledWith({
+          ruc: '20111111111',
+          razonSocial: 'Sede Sur',
+          direccion: undefined,
+          solUsuario: 'MODDATOS',
+          solClave: 'clave-sol',
+          certificadoPass: 'clave-cert',
+          certificado: archivo,
+        });
+      });
+    });
+
+    it('si crearEmpresa falla, la sede queda creada igual y se avisa por toast (no revienta el flujo)', async () => {
+      const toast = vi.fn();
+      vi.mocked(useToast).mockReturnValue({ toast } as any);
+      const crearSede = vi.fn().mockResolvedValue(undefined);
+      const crearEmpresa = vi.fn().mockRejectedValue(new Error('El certificado o su contraseña no son válidos'));
+      vi.mocked(useSedesQuery).mockReturnValue(baseMock({ crearSede }) as any);
+      vi.mocked(useFacturacionQuery).mockReturnValue(baseFacturacionMock({ crearEmpresa }) as any);
+
+      render(<SedesScreen />);
+      fireEvent.change(screen.getByLabelText('Nombre'), { target: { value: 'Sede Sur' } });
+      fireEvent.change(screen.getByLabelText('RUC'), { target: { value: '20111111111' } });
+      fireEvent.click(screen.getByLabelText(/También configurar facturación electrónica SUNAT/i));
+      fireEvent.change(screen.getByLabelText('Usuario SOL'), { target: { value: 'MODDATOS' } });
+      fireEvent.change(screen.getByLabelText('Clave SOL'), { target: { value: 'clave-sol' } });
+      fireEvent.change(screen.getByLabelText('Contraseña del certificado'), { target: { value: 'clave-cert' } });
+      const archivo = new File(['x'], 'cert.p12', { type: 'application/x-pkcs12' });
+      fireEvent.change(screen.getByLabelText(/Certificado \(\.p12/), { target: { files: [archivo] } });
+
+      fireEvent.click(screen.getByRole('button', { name: /Crear sede/i }));
+
+      await waitFor(() => {
+        expect(crearSede).toHaveBeenCalled();
+        expect(toast).toHaveBeenCalledWith(expect.objectContaining({ kind: 'err' }));
+      });
+    });
   });
 });

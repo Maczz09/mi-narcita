@@ -484,6 +484,11 @@ services:
       SUNAT_PFX_EMPRESA_2_PASS: ${SUNAT_PFX_EMPRESA_2_PASS:-}
       SUNAT_SOL_USER_EMPRESA_2: ${SUNAT_SOL_USER_EMPRESA_2:-}
       SUNAT_SOL_PASS_EMPRESA_2: ${SUNAT_SOL_PASS_EMPRESA_2:-}
+      # Cifra las credenciales SUNAT cargadas por el formulario "Configurar
+      # SUNAT" de Facturación — sin esto el formulario no puede guardar (pero
+      # el servicio sigue andando con las 8 variables SUNAT_*_EMPRESA_<n>_*
+      # de arriba). No bloquea el deploy si aún no se generó (${:-}).
+      FACTURACION_CRED_ENCRYPTION_KEY: ${FACTURACION_CRED_ENCRYPTION_KEY:-}
     healthcheck:
       test: ['CMD', 'wget', '-qO-', 'http://localhost:3000/api/health/live']
       interval: 10s

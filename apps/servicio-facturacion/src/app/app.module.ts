@@ -17,6 +17,7 @@ import { CertificadoService } from '../sunat/certificado.service';
 import { CorrelativoService } from '../sunat/correlativo.service';
 import { SunatSoapClient } from '../sunat/sunat-soap.client';
 import { EnvioProcessor } from '../sunat/envio.processor';
+import { CredencialesCryptoService } from '../sunat/credenciales-crypto.service';
 
 @Module({
   imports: [
@@ -44,6 +45,7 @@ import { EnvioProcessor } from '../sunat/envio.processor';
     CorrelativoService,
     SunatSoapClient,
     EnvioProcessor,
+    CredencialesCryptoService,
     { provide: APP_GUARD, useClass: JwtAuthGuard },
   ],
 })

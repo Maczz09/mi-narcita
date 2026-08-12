@@ -27,9 +27,11 @@ enum EstadoComprobante {
 }
 
 // Una fila por RUC (slot 1 = La Barra del Ceviche 1, slot 2 = La Barra del
-// Ceviche 2). El certificado/credenciales SOL de cada una viven en secretos
-// de infraestructura (SUNAT_*_EMPRESA_<slot>_*), no en esta tabla — aquí solo
-// va lo no sensible: identidad fiscal y numeración.
+// Ceviche 2). Las credenciales SUNAT admiten dos vías, en este orden de
+// prioridad (ver SunatConfigService): las columnas cifradas de abajo
+// (cargadas desde el formulario de Facturación, ver EmpresasService) o, si
+// esta fila no las tiene, los secretos de infraestructura
+// (SUNAT_*_EMPRESA_<slot>_*) para el despliegue existente que ya las usa así.
 model Empresa {
   id                 String   @id @default(uuid())
   slot               Int      @unique
@@ -46,6 +48,17 @@ model Empresa {
   correlativoBoleta  Int      @default(0)
   correlativoFactura Int      @default(0)
   activo             Boolean  @default(true)
+
+  // Credenciales SUNAT cargadas vía formulario (Facturación → configurar).
+  // Cifradas con AES-256-GCM (ver CredencialesCryptoService) — nunca en
+  // claro en la BD. solUsuario NO es secreto (es solo un identificador, como
+  // el RUC), va sin cifrar. Todo null = "no configurado por este medio",
+  // SunatConfigService cae al secreto de infraestructura del slot.
+  solUsuario             String?
+  solClaveCifrada        String? @db.Text
+  certificadoPfxCifrado  Bytes?
+  certificadoPassCifrada String? @db.Text
+
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
 

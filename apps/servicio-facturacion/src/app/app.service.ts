@@ -1,14 +1,25 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { BadRequestException, ConflictException, Injectable, Logger } from '@nestjs/common';
 import { OperableLog } from '@org/observabilidad';
 import { SEDE_PRINCIPAL_ID } from '@org/shared-auth';
 import { PrismaService } from '../prisma/prisma.service';
 import { CuentaCerradaPayload } from '@org/contracts';
+import { CredencialesCryptoService } from '../sunat/credenciales-crypto.service';
+import { extraerClavesDesdePfx } from '../sunat/certificado';
+import { CrearEmpresaDto } from './dto/crear-empresa.dto';
+
+// Mismo límite que SunatConfigService: el mecanismo de credenciales por
+// variables de entorno solo conoce SUNAT_*_EMPRESA_1_* y _2_* — agregar un
+// tercer slot exigiría tocar ese fallback también, fuera de alcance acá.
+const SLOTS_DISPONIBLES = [1, 2];
 
 @Injectable()
 export class AppService {
   private readonly logger = new Logger(AppService.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly crypto: CredencialesCryptoService,
+  ) {}
 
   /**
    * Read-model local del cierre de cuenta (consume cuenta.cerrada), mismo
@@ -98,5 +109,72 @@ export class AppService {
       select: { id: true, slot: true, ruc: true, razonSocial: true, activo: true },
       orderBy: { slot: 'asc' },
     });
+  }
+
+  /**
+   * Alta de una empresa emisora vía el formulario "Configurar SUNAT" de
+   * Facturación — la alternativa a sembrarla a mano con prisma studio +
+   * secretos de infraestructura (ver CONTEXTO.md). Valida el .p12 con su
+   * contraseña ANTES de guardar nada (extraerClavesDesdePfx explota si el
+   * archivo no es un PKCS#12 válido o la contraseña es incorrecta) — mejor
+   * fallar acá con un mensaje claro que descubrirlo en el cron de envío.
+   */
+  async crearEmpresa(dto: CrearEmpresaDto, certificadoPfx: Buffer) {
+    if (!this.crypto.configurada()) {
+      throw new BadRequestException(
+        'FACTURACION_CRED_ENCRYPTION_KEY no está configurada en el servidor; no se pueden guardar credenciales de forma segura.',
+      );
+    }
+    if (!certificadoPfx || certificadoPfx.length === 0) {
+      throw new BadRequestException('Sube el certificado digital (.p12/.pfx) de la empresa');
+    }
+
+    const existente = await this.prisma.empresa.findUnique({ where: { ruc: dto.ruc } });
+    if (existente) {
+      throw new ConflictException(`Ya existe una empresa configurada con el RUC ${dto.ruc}`);
+    }
+
+    const ocupados = await this.prisma.empresa.findMany({ select: { slot: true } });
+    const slot = SLOTS_DISPONIBLES.find((s) => !ocupados.some((o) => o.slot === s));
+    if (!slot) {
+      throw new ConflictException('Ya hay 2 empresas configuradas; no se admite una tercera por ahora.');
+    }
+
+    try {
+      extraerClavesDesdePfx(certificadoPfx, dto.certificadoPass);
+    } catch (error) {
+      throw new BadRequestException(
+        `El certificado o su contraseña no son válidos: ${(error as Error).message}`,
+      );
+    }
+
+    const empresa = await this.prisma.empresa.create({
+      data: {
+        slot,
+        ruc: dto.ruc,
+        razonSocial: dto.razonSocial,
+        nombreComercial: dto.nombreComercial ?? null,
+        direccion: dto.direccion ?? null,
+        ubigeo: dto.ubigeo ?? null,
+        codigoEstablecimiento: dto.codigoEstablecimiento ?? '0000',
+        solUsuario: dto.solUsuario,
+        solClaveCifrada: this.crypto.encriptarTexto(dto.solClave),
+        // Prisma tipa Bytes como Uint8Array<ArrayBuffer>, más estricto que
+        // Buffer<ArrayBufferLike> — new Uint8Array(buffer) copia a un
+        // ArrayBuffer propio y no compartido, satisface el tipo.
+        certificadoPfxCifrado: new Uint8Array(this.crypto.encriptar(certificadoPfx)),
+        certificadoPassCifrada: this.crypto.encriptarTexto(dto.certificadoPass),
+      },
+      select: { id: true, slot: true, ruc: true, razonSocial: true, activo: true },
+    });
+
+    this.logger.log({
+      operation: 'crearEmpresa',
+      aggregateId: empresa.id,
+      resultingState: 'CONFIGURADA',
+      message: `Empresa ${dto.razonSocial} (RUC ${dto.ruc}) configurada en slot ${slot} vía formulario.`,
+    } satisfies OperableLog);
+
+    return empresa;
   }
 }

@@ -19,6 +19,18 @@ vi.mock('../../hooks/useOnlineStatus', () => ({
   useOnlineStatus: vi.fn(),
 }));
 
+// El formulario en sí (validación, campos) se prueba aparte en
+// ConfigurarEmpresaModal.test.tsx — acá solo interesa la orquestación
+// (cuándo se muestra el botón, que abre/cierra el modal).
+vi.mock('./ConfigurarEmpresaModal', () => ({
+  ConfigurarEmpresaModal: ({ onClose, onGuardar }: any) => (
+    <div data-testid="configurar-empresa-modal">
+      <button onClick={onClose}>Cerrar modal config</button>
+      <button onClick={() => void onGuardar({ ruc: '20999999999' })}>Guardar config</button>
+    </div>
+  ),
+}));
+
 vi.mock('../../hooks/useFocusTrap', () => ({
   useFocusTrap: vi.fn(),
 }));
@@ -61,13 +73,18 @@ function baseMock(overrides: Record<string, unknown> = {}) {
     disponibles: [disponible],
     emitidos: [emitido, emitidoFactura],
     empresas: [empresa],
+    empresasLoading: false,
     loading: false,
     emitiendo: false,
+    configurandoEmpresa: false,
     error: null,
+    errorEmpresa: null,
     success: null,
     fetch: vi.fn(),
     emitirComprobante: vi.fn().mockResolvedValue(undefined),
     clearFeedback: vi.fn(),
+    crearEmpresa: vi.fn().mockResolvedValue({ id: 'e-2', slot: 2, ruc: '20999999999', razonSocial: 'Nueva SAC', activo: true }),
+    clearFeedbackEmpresa: vi.fn(),
     ...overrides,
   };
 }
@@ -213,6 +230,62 @@ describe('FacturacionScreen', () => {
           clienteDni: undefined,
           clienteNombre: undefined,
         });
+      });
+    });
+  });
+
+  describe('configurar SUNAT (alta de empresa emisora)', () => {
+    it('con 1 empresa configurada, el botón de cabecera ofrece agregar otra (queda espacio para el 2do slot)', () => {
+      render(<FacturacionScreen />);
+      expect(screen.getByRole('button', { name: /Agregar otra empresa/i })).toBeInTheDocument();
+      expect(screen.queryByText(/No hay ninguna empresa/i)).not.toBeInTheDocument();
+    });
+
+    it('sin ninguna empresa, muestra el aviso y el botón dice "Configurar SUNAT"', () => {
+      vi.mocked(useFacturacionQuery).mockReturnValue(baseMock({ empresas: [] }) as any);
+      render(<FacturacionScreen />);
+      expect(screen.getByText(/No hay ninguna empresa con certificado SUNAT configurado/)).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Configurar SUNAT' })).toBeInTheDocument();
+    });
+
+    it('con los 2 slots ocupados, no ofrece agregar una tercera empresa', () => {
+      const empresa2 = { id: 'e2', slot: 2, ruc: '20999999999', razonSocial: 'Otra SAC', activo: true };
+      vi.mocked(useFacturacionQuery).mockReturnValue(baseMock({ empresas: [empresa, empresa2] }) as any);
+      render(<FacturacionScreen />);
+      expect(screen.queryByRole('button', { name: /Configurar SUNAT|Agregar otra empresa/i })).not.toBeInTheDocument();
+    });
+
+    it('mientras se cargan las empresas, no muestra el aviso de "sin configurar" (evita el flash)', () => {
+      vi.mocked(useFacturacionQuery).mockReturnValue(baseMock({ empresas: [], empresasLoading: true }) as any);
+      render(<FacturacionScreen />);
+      expect(screen.queryByText(/No hay ninguna empresa/i)).not.toBeInTheDocument();
+    });
+
+    it('abre y cierra el modal de configuración', () => {
+      render(<FacturacionScreen />);
+      expect(screen.queryByTestId('configurar-empresa-modal')).not.toBeInTheDocument();
+
+      fireEvent.click(screen.getByRole('button', { name: /Agregar otra empresa/i }));
+      expect(screen.getByTestId('configurar-empresa-modal')).toBeInTheDocument();
+
+      fireEvent.click(screen.getByRole('button', { name: 'Cerrar modal config' }));
+      expect(screen.queryByTestId('configurar-empresa-modal')).not.toBeInTheDocument();
+    });
+
+    it('al guardar con éxito, avisa con un toast y cierra el modal', async () => {
+      const toast = vi.fn();
+      vi.mocked(useToast).mockReturnValue({ toast } as any);
+      const crearEmpresa = vi.fn().mockResolvedValue({ id: 'e-2', slot: 2, ruc: '20999999999', razonSocial: 'Otra SAC', activo: true });
+      vi.mocked(useFacturacionQuery).mockReturnValue(baseMock({ crearEmpresa }) as any);
+
+      render(<FacturacionScreen />);
+      fireEvent.click(screen.getByRole('button', { name: /Agregar otra empresa/i }));
+      fireEvent.click(screen.getByRole('button', { name: 'Guardar config' }));
+
+      await waitFor(() => {
+        expect(crearEmpresa).toHaveBeenCalledWith({ ruc: '20999999999' });
+        expect(toast).toHaveBeenCalledWith(expect.objectContaining({ kind: 'ok' }));
+        expect(screen.queryByTestId('configurar-empresa-modal')).not.toBeInTheDocument();
       });
     });
   });

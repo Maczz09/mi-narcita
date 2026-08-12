@@ -81,3 +81,18 @@ export interface EmitirComprobanteResultado {
   estado: EstadoComprobante;
   total: number;
 }
+
+// Alta de empresa emisora vía el formulario "Configurar SUNAT" — certificado
+// va aparte como archivo (multipart), no en este objeto.
+export interface CrearEmpresaPayload {
+  ruc: string;
+  razonSocial: string;
+  nombreComercial?: string;
+  direccion?: string;
+  ubigeo?: string;
+  codigoEstablecimiento?: string;
+  solUsuario: string;
+  solClave: string;
+  certificadoPass: string;
+  certificado: File;
+}

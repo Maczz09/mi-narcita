@@ -81,7 +81,7 @@ export class EmisionService {
       items,
     });
 
-    const claves = this.certificado.clavesParaSlot(empresa.slot);
+    const claves = await this.certificado.clavesParaSlot(empresa.slot);
     const xmlFirmado = firmarComprobante(xmlSinFirmar, claves);
 
     const [comprobante] = await this.prisma.$transaction([

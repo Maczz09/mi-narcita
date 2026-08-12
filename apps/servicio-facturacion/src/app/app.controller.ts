@@ -1,10 +1,17 @@
-import { Controller, Get, Logger, Query, UseGuards, UseInterceptors } from '@nestjs/common';
+import { Body, Controller, Get, Logger, Post, Query, UploadedFile, UseGuards, UseInterceptors } from '@nestjs/common';
 import { EventPattern, Payload } from '@nestjs/microservices';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { memoryStorage } from 'multer';
 import { Roles, RolesGuard } from '@org/shared-auth';
 import { RabbitMQRetryInterceptor } from '@org/resiliencia';
 import { OperableLog, UsuarioActual } from '@org/observabilidad';
 import { AppService } from './app.service';
+import { CrearEmpresaDto } from './dto/crear-empresa.dto';
 import { CuentaCerradaPayload, RoutingKeys } from '@org/contracts';
+
+// El .p12 de un certificado SUNAT real pesa unos pocos KB — 2 MB es margen
+// generoso, no un límite real que alguien vaya a rozar.
+const MAX_CERTIFICADO_BYTES = 2 * 1024 * 1024;
 
 // RBAC por método: el controller también atiende el evento RMQ (@EventPattern),
 // por eso el guard de roles no va a nivel de clase (mismo patrón que reportes).
@@ -41,6 +48,17 @@ export class AppController {
   @Get('empresas')
   listarEmpresas() {
     return this.appService.listarEmpresas();
+  }
+
+  // Configurar SUNAT (RUC + credenciales SOL + certificado): solo admin —
+  // más sensible que emitir un comprobante, por eso no incluye CAJERO acá
+  // (a diferencia de EmisionController).
+  @UseGuards(RolesGuard)
+  @Roles('ADMIN', 'SISTEMA')
+  @Post('empresas')
+  @UseInterceptors(FileInterceptor('certificado', { storage: memoryStorage(), limits: { fileSize: MAX_CERTIFICADO_BYTES, files: 1 } }))
+  crearEmpresa(@Body() dto: CrearEmpresaDto, @UploadedFile() certificado?: { buffer: Buffer }) {
+    return this.appService.crearEmpresa(dto, certificado?.buffer ?? Buffer.alloc(0));
   }
 
   @EventPattern(RoutingKeys.CuentaCerrada)

@@ -8,14 +8,18 @@ import { useState, type SubmitEvent } from 'react';
 import { Scrim } from '../../components/ui/Scrim';
 import { Icons } from '../../components/ui/icons';
 import { StatKpi } from '../../components/ui/StatKpi';
+import { useToast } from '../../components/ui/ToastProvider';
 import { useOnlineStatus } from '../../hooks/useOnlineStatus';
 import { useSedesQuery } from '../../hooks/queries/useSedesQuery';
+import { useFacturacionQuery } from '../../hooks/queries/useFacturacionQuery';
 import type { SedeDto } from '../../types/sede.types';
 
 const INITIAL_FORM = { nombre: '', direccion: '', ruc: '' };
+const INITIAL_SUNAT = { solUsuario: '', solClave: '', certificadoPass: '' };
 
 export function SedesScreen() {
   const online = useOnlineStatus();
+  const { toast } = useToast();
   const {
     sedes,
     loading,
@@ -28,8 +32,12 @@ export function SedesScreen() {
     eliminarSede,
     clearFeedback,
   } = useSedesQuery();
+  const { crearEmpresa, configurandoEmpresa } = useFacturacionQuery();
 
   const [form, setForm] = useState(INITIAL_FORM);
+  const [configurarSunat, setConfigurarSunat] = useState(false);
+  const [sunat, setSunat] = useState(INITIAL_SUNAT);
+  const [certificado, setCertificado] = useState<File | null>(null);
   const [edit, setEdit] = useState<SedeDto | null>(null);
   const [editNombre, setEditNombre] = useState('');
   const [editDireccion, setEditDireccion] = useState('');
@@ -37,15 +45,49 @@ export function SedesScreen() {
 
   const activas = sedes.filter((s) => s.activa).length;
 
+  const sunatCompleto = form.ruc.trim().length === 11 &&
+    sunat.solUsuario.trim().length > 0 && sunat.solClave.length > 0 &&
+    sunat.certificadoPass.length > 0 && certificado != null;
+
   const handleCrear = async (event: SubmitEvent) => {
     event.preventDefault();
     if (!online) return;
+    const rucSede = form.ruc.trim();
     await crearSede({
       nombre: form.nombre.trim(),
       direccion: form.direccion.trim() || undefined,
-      ruc: form.ruc.trim() || undefined,
+      ruc: rucSede || undefined,
     });
+
+    // La sede ya se creó; configurar SUNAT es aparte (otro servicio) y no
+    // debe deshacer la sede si falla — solo se avisa para reintentar desde
+    // Facturación → "Agregar otra empresa" con los mismos datos.
+    if (configurarSunat && sunatCompleto && certificado) {
+      try {
+        const empresa = await crearEmpresa({
+          ruc: rucSede,
+          razonSocial: form.nombre.trim(),
+          direccion: form.direccion.trim() || undefined,
+          solUsuario: sunat.solUsuario.trim(),
+          solClave: sunat.solClave,
+          certificadoPass: sunat.certificadoPass,
+          certificado,
+        });
+        toast({ title: 'SUNAT configurado', msg: `${empresa.razonSocial} ya puede emitir comprobantes electrónicos.`, icon: 'Check', kind: 'ok' });
+      } catch (err) {
+        toast({
+          title: 'La sede se creó, pero SUNAT no se pudo configurar',
+          msg: err instanceof Error ? err.message : 'Reintenta desde Facturación → Configurar SUNAT.',
+          icon: 'Alert',
+          kind: 'err',
+        });
+      }
+    }
+
     setForm(INITIAL_FORM);
+    setConfigurarSunat(false);
+    setSunat(INITIAL_SUNAT);
+    setCertificado(null);
   };
 
   const abrirEdicion = (sede: SedeDto) => {
@@ -235,8 +277,49 @@ export function SedesScreen() {
                   />
                 </div>
               </div>
-              <button className="btn btn-primary btn-block" disabled={saving || !online} type="submit">
-                {saving ? <span className="spinner" /> : <Icons.Plus s={16} />}
+
+              <label className="row" style={{ gap: 8, marginBottom: 12, cursor: 'pointer' }}>
+                <input type="checkbox" checked={configurarSunat} onChange={(e) => setConfigurarSunat(e.target.checked)} />
+                <span style={{ fontSize: 13 }}>También configurar facturación electrónica SUNAT (opcional)</span>
+              </label>
+
+              {configurarSunat && (
+                <div className="panel" style={{ padding: 14, marginBottom: 14, background: 'var(--surface-2)' }}>
+                  <div className="hint" style={{ marginBottom: 10 }}>
+                    Usa el mismo nombre y RUC de arriba como razón social de la empresa emisora. Necesita el RUC (11 dígitos) completo.
+                  </div>
+                  <div className="field" style={{ marginBottom: 10 }}>
+                    <label htmlFor="sede-sol-user">Usuario SOL</label>
+                    <div className="input">
+                      <input id="sede-sol-user" value={sunat.solUsuario} onChange={(e) => setSunat((s) => ({ ...s, solUsuario: e.target.value }))} autoComplete="off" />
+                    </div>
+                  </div>
+                  <div className="field" style={{ marginBottom: 10 }}>
+                    <label htmlFor="sede-sol-clave">Clave SOL</label>
+                    <div className="input">
+                      <input id="sede-sol-clave" type="password" value={sunat.solClave} onChange={(e) => setSunat((s) => ({ ...s, solClave: e.target.value }))} autoComplete="new-password" />
+                    </div>
+                  </div>
+                  <div className="field" style={{ marginBottom: 10 }}>
+                    <label htmlFor="sede-cert-pass">Contraseña del certificado</label>
+                    <div className="input">
+                      <input id="sede-cert-pass" type="password" value={sunat.certificadoPass} onChange={(e) => setSunat((s) => ({ ...s, certificadoPass: e.target.value }))} autoComplete="new-password" />
+                    </div>
+                  </div>
+                  <div className="field" style={{ marginBottom: 0 }}>
+                    <label htmlFor="sede-cert-file">Certificado (.p12 / .pfx)</label>
+                    <div className="input">
+                      <input id="sede-cert-file" type="file" accept=".p12,.pfx" onChange={(e) => setCertificado(e.target.files?.[0] ?? null)} />
+                    </div>
+                  </div>
+                  {configurarSunat && form.ruc.trim().length !== 11 && (
+                    <div className="hint" style={{ color: 'var(--warn-text)', marginTop: 8 }}>El RUC de arriba debe tener 11 dígitos para poder configurar SUNAT.</div>
+                  )}
+                </div>
+              )}
+
+              <button className="btn btn-primary btn-block" disabled={saving || configurandoEmpresa || !online} type="submit">
+                {saving || configurandoEmpresa ? <span className="spinner" /> : <Icons.Plus s={16} />}
                 Crear sede
               </button>
             </form>
