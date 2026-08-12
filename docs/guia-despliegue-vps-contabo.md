@@ -13,7 +13,7 @@ IP pública:  179.7.15.23
 App:         mi-narcita.duckdns.org
 API directa: mi-narcita-api.duckdns.org
 Repo:        https://github.com/Maczz09/mi-narcita
-Registry:    ghcr.io/Maczz09/nachoppssoa
+Registry:    ghcr.io/Maczz09/mi-narcita
 ```
 
 ## Cómo queda el flujo, de un vistazo
@@ -25,7 +25,7 @@ tu PC (rama local)
 GitHub Actions (.github/workflows/deploy.yml)
    │  build + push de 13 imágenes
    ▼
-ghcr.io/Maczz09/nachoppssoa/<servicio>:latest
+ghcr.io/Maczz09/mi-narcita/<servicio>:latest
    │  Watchtower en la VPS revisa cada 5 min
    ▼
 VPS: docker pull + recreate del contenedor que cambió
@@ -153,7 +153,7 @@ GitHub (permisos mínimos, fine-grained: `Contents: Read-only`,
 
 ## 3. Autenticar la VPS contra GHCR (para que pueda hacer `docker pull`)
 
-Las imágenes en `ghcr.io/Maczz09/nachoppssoa/*` son privadas (vienen de un
+Las imágenes en `ghcr.io/Maczz09/mi-narcita/*` son privadas (vienen de un
 repo privado). La VPS necesita sus propias credenciales para poder
 descargarlas — y Watchtower reusa esas mismas credenciales para los pulls
 automáticos.
@@ -208,7 +208,7 @@ Evita `$`, `%`, `` ` ``, espacios o `#` en los valores — Docker Compose los
 interpreta como sintaxis, no como texto literal.
 
 ```bash
-sed -i 's|^REGISTRY=.*|REGISTRY=ghcr.io/Maczz09/nachoppssoa|' .env
+sed -i 's|^REGISTRY=.*|REGISTRY=ghcr.io/Maczz09/mi-narcita|' .env
 sed -i 's|^DB_PASS=.*|DB_PASS=CAMBIA-ESTO-Seguro2026|' .env
 sed -i 's|^RABBITMQ_PASS=.*|RABBITMQ_PASS=CAMBIA-ESTO-Seguro2026|' .env
 sed -i 's|^SERVICE_JWT_SECRET=.*|SERVICE_JWT_SECRET=CAMBIA-ESTO-secreto-largo-aleatorio-123456789|' .env

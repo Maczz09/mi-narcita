@@ -197,7 +197,7 @@ services:
   # MICROSERVICIOS (Solo red interna)
   # ═══════════════════════════════════════════════════
   servicio-identidad:
-    image: ${REGISTRY:-ghcr.io/Maczz09/nachoppssoa}/servicio-identidad:latest
+    image: ${REGISTRY:-ghcr.io/Maczz09/mi-narcita}/servicio-identidad:latest
     container_name: nachopps-servicio-identidad
     labels:
       - com.centurylinklabs.watchtower.enable=true
@@ -230,7 +230,7 @@ services:
         condition: service_healthy
 
   servicio-mesas:
-    image: ${REGISTRY:-ghcr.io/Maczz09/nachoppssoa}/servicio-mesas:latest
+    image: ${REGISTRY:-ghcr.io/Maczz09/mi-narcita}/servicio-mesas:latest
     container_name: nachopps-servicio-mesas
     labels:
       - com.centurylinklabs.watchtower.enable=true
@@ -260,7 +260,7 @@ services:
         condition: service_healthy
 
   servicio-pedidos:
-    image: ${REGISTRY:-ghcr.io/Maczz09/nachoppssoa}/servicio-pedidos:latest
+    image: ${REGISTRY:-ghcr.io/Maczz09/mi-narcita}/servicio-pedidos:latest
     container_name: nachopps-servicio-pedidos
     labels:
       - com.centurylinklabs.watchtower.enable=true
@@ -292,7 +292,7 @@ services:
         condition: service_healthy
 
   servicio-cuentas:
-    image: ${REGISTRY:-ghcr.io/Maczz09/nachoppssoa}/servicio-cuentas:latest
+    image: ${REGISTRY:-ghcr.io/Maczz09/mi-narcita}/servicio-cuentas:latest
     container_name: nachopps-servicio-cuentas
     labels:
       - com.centurylinklabs.watchtower.enable=true
@@ -323,7 +323,7 @@ services:
         condition: service_healthy
 
   servicio-reservas:
-    image: ${REGISTRY:-ghcr.io/Maczz09/nachoppssoa}/servicio-reservas:latest
+    image: ${REGISTRY:-ghcr.io/Maczz09/mi-narcita}/servicio-reservas:latest
     container_name: nachopps-servicio-reservas
     labels:
       - com.centurylinklabs.watchtower.enable=true
@@ -353,7 +353,7 @@ services:
         condition: service_healthy
 
   servicio-inventario:
-    image: ${REGISTRY:-ghcr.io/Maczz09/nachoppssoa}/servicio-inventario:latest
+    image: ${REGISTRY:-ghcr.io/Maczz09/mi-narcita}/servicio-inventario:latest
     container_name: nachopps-servicio-inventario
     labels:
       - com.centurylinklabs.watchtower.enable=true
@@ -383,7 +383,7 @@ services:
         condition: service_healthy
 
   servicio-notificaciones:
-    image: ${REGISTRY:-ghcr.io/Maczz09/nachoppssoa}/servicio-notificaciones:latest
+    image: ${REGISTRY:-ghcr.io/Maczz09/mi-narcita}/servicio-notificaciones:latest
     container_name: nachopps-servicio-notificaciones
     labels:
       - com.centurylinklabs.watchtower.enable=true
@@ -413,7 +413,7 @@ services:
         condition: service_healthy
 
   servicio-caja:
-    image: ${REGISTRY:-ghcr.io/Maczz09/nachoppssoa}/servicio-caja:latest
+    image: ${REGISTRY:-ghcr.io/Maczz09/mi-narcita}/servicio-caja:latest
     container_name: nachopps-servicio-caja
     labels:
       - com.centurylinklabs.watchtower.enable=true
@@ -444,7 +444,7 @@ services:
         condition: service_healthy
 
   servicio-reportes:
-    image: ${REGISTRY:-ghcr.io/Maczz09/nachoppssoa}/servicio-reportes:latest
+    image: ${REGISTRY:-ghcr.io/Maczz09/mi-narcita}/servicio-reportes:latest
     container_name: nachopps-servicio-reportes
     labels:
       - com.centurylinklabs.watchtower.enable=true
@@ -474,7 +474,7 @@ services:
         condition: service_healthy
 
   servicio-facturacion:
-    image: ${REGISTRY:-ghcr.io/Maczz09/nachoppssoa}/servicio-facturacion:latest
+    image: ${REGISTRY:-ghcr.io/Maczz09/mi-narcita}/servicio-facturacion:latest
     container_name: nachopps-servicio-facturacion
     labels:
       - com.centurylinklabs.watchtower.enable=true
@@ -522,7 +522,7 @@ services:
         condition: service_healthy
 
   servicio-compras:
-    image: ${REGISTRY:-ghcr.io/Maczz09/nachoppssoa}/servicio-compras:latest
+    image: ${REGISTRY:-ghcr.io/Maczz09/mi-narcita}/servicio-compras:latest
     container_name: nachopps-servicio-compras
     labels:
       - com.centurylinklabs.watchtower.enable=true
@@ -563,7 +563,7 @@ services:
   # FRONTEND (PWA)
   # ═══════════════════════════════════════════════════
   pwa-cliente:
-    image: ${REGISTRY:-ghcr.io/Maczz09/nachoppssoa}/pwa-cliente:latest
+    image: ${REGISTRY:-ghcr.io/Maczz09/mi-narcita}/pwa-cliente:latest
     container_name: nachopps-pwa-cliente
     labels:
       - com.centurylinklabs.watchtower.enable=true
@@ -579,7 +579,7 @@ services:
     # que los demás servicios) — sin `build:` acá para que Watchtower pueda
     # actualizarlo igual que a todos: comparando el digest de la imagen
     # publicada, no reconstruyéndolo localmente cada vez.
-    image: ${REGISTRY:-ghcr.io/Maczz09/nachoppssoa}/kong:latest
+    image: ${REGISTRY:-ghcr.io/Maczz09/mi-narcita}/kong:latest
     container_name: nachopps-kong
     labels:
       - com.centurylinklabs.watchtower.enable=true

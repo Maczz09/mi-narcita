@@ -80,6 +80,12 @@ Arreglado en 3 archivos (solo el owner, nada más):
 | `.env.example` (raíz):9 | `ghcr.io/Maczz09/nachoppssoa` |
 | `infra/docker-compose.prod.yml:430` | ídem (fallback de `${REGISTRY:-...}`) |
 
+> **Actualización (2026-08-12):** el owner ya estaba bien (`Maczz09`); lo que
+> cambió después fue el nombre del *package* — `nachoppssoa` era branding
+> legado (el repo se llamaba así antes de "Mi Narcita"), sin relación con el
+> owner. Ahora es `ghcr.io/Maczz09/mi-narcita` en los mismos 3 archivos +
+> `docs/guia-despliegue-vps-contabo.md`.
+
 Verificado con `git diff --stat`: exactamente esos 3 archivos, 1 línea c/u.
 
 ### 1.2 `servicio-facturacion` — esqueleto completo, compila/lint/test en verde
