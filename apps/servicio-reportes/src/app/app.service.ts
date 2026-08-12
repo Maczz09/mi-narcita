@@ -87,9 +87,13 @@ export class AppService {
         lte: query.hasta ? this.parseFechaLimite(query.hasta, 'fin') : new Date(),
       };
     }
-    const hoy = new Date();
-    hoy.setHours(0, 0, 0, 0);
-    return { gte: hoy, lte: new Date() };
+    // "Hoy" tiene que anclarse al mismo día calendario de Lima que usa
+    // parseFechaLimite arriba. hoy.setHours(0,0,0,0) usaba la zona horaria
+    // del contenedor (UTC en Docker) — medianoche UTC son las 19:00 de AYER
+    // en Lima, así que el rango "de hoy" arrancaba 5 horas antes de tiempo y
+    // arrastraba ventas de la noche anterior.
+    const hoyLima = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Lima' }).format(new Date());
+    return { gte: this.parseFechaLimite(hoyLima, 'inicio'), lte: new Date() };
   }
 
   /** Deriva el turno a partir de la hora de la venta (plan 6.3). */

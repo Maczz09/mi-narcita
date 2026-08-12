@@ -42,7 +42,7 @@ describe('AppService — Reportes', () => {
 
   it('resume ingresos, horas y top productos del dia', async () => {
     jest.useFakeTimers();
-    jest.setSystemTime(new Date('2026-01-02T15:00:00.000Z'));
+    jest.setSystemTime(new Date('2026-01-02T15:00:00.000Z')); // 10:00 a.m. Lima
     prisma.ventaDiaria.findMany.mockResolvedValue([
       {
         total: 80,
@@ -61,12 +61,11 @@ describe('AppService — Reportes', () => {
 
     const resumen = await service.obtenerResumenDiario();
 
-    const inicioDiaLocal = new Date('2026-01-02T15:00:00.000Z');
-    inicioDiaLocal.setHours(0, 0, 0, 0);
+    const inicioDiaLima = new Date('2026-01-02T00:00:00.000-05:00');
     expect(prisma.ventaDiaria.findMany).toHaveBeenCalledWith({
-      where: { fecha: { gte: inicioDiaLocal, lte: new Date('2026-01-02T15:00:00.000Z') } },
+      where: { fecha: { gte: inicioDiaLima, lte: new Date('2026-01-02T15:00:00.000Z') } },
     });
-    expect(resumen.fecha).toEqual(inicioDiaLocal);
+    expect(resumen.fecha).toEqual(inicioDiaLima);
     expect(resumen.hasta).toEqual(new Date('2026-01-02T15:00:00.000Z'));
     expect(resumen.totalVentas).toBe(2);
     expect(resumen.ingresosTotales).toBe(100);
@@ -79,6 +78,29 @@ describe('AppService — Reportes', () => {
       nombre: 'Nachos',
       cantidad: 3,
       ingresos: 60,
+    });
+
+    jest.useRealTimers();
+  });
+
+  it('rango "Hoy" sin filtro no arrastra ventas de la noche anterior (bug real: setHours usaba UTC del contenedor)', async () => {
+    jest.useFakeTimers();
+    // 09:35 a.m. Lima == 14:35 UTC. El bug original (hoy.setHours(0,0,0,0) en
+    // un proceso con TZ=UTC) anclaba "hoy" a 2026-08-11T00:00:00.000Z, que es
+    // 2026-08-10T19:00 Lima — 14.5h antes de lo correcto, colando toda la
+    // noche anterior (cena incluida) dentro del reporte de "hoy".
+    jest.setSystemTime(new Date('2026-08-11T14:35:00.000Z'));
+    prisma.ventaDiaria.findMany.mockResolvedValue([]);
+
+    await service.obtenerResumenDiario();
+
+    expect(prisma.ventaDiaria.findMany).toHaveBeenCalledWith({
+      where: {
+        fecha: {
+          gte: new Date('2026-08-11T00:00:00.000-05:00'),
+          lte: new Date('2026-08-11T14:35:00.000Z'),
+        },
+      },
     });
 
     jest.useRealTimers();
