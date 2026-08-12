@@ -81,20 +81,23 @@ describe('ReportesScreen', () => {
         totalVentas: 5,
         ticketPromedioLabel: 'S/ 20',
         ventasPorHora: [],
-        topProductos: []
+        topProductos: [],
+        productosMenosVendidos: [],
+        estadisticasTicket: { media: 20, mediana: 0, moda: null, medianaLabel: 'Sin ventas', modaLabel: 'Sin moda repetida' },
       },
       loading: false,
       error: null,
       fetch: mockFetch
     } as any);
     render(<ReportesScreen />);
-    
+
     expect(screen.getByText('S/ 100')).toBeInTheDocument();
     expect(screen.getByText('5')).toBeInTheDocument();
     expect(screen.getByText('S/ 20')).toBeInTheDocument();
-    
+
     expect(screen.getByText('Sin desglose horario')).toBeInTheDocument();
     expect(screen.getByText('Sin top productos')).toBeInTheDocument();
+    expect(screen.getByText('Sin datos')).toBeInTheDocument();
   });
 
   it('renders report data with arrays', () => {
@@ -111,21 +114,28 @@ describe('ReportesScreen', () => {
         topProductos: [
           { productoId: 'P1', nombre: 'Burger', cantidad: 2, ingresos: 50 },
           { nombre: 'Fries', cantidad: 3, ingresos: null } // coverage for item.productoId ?? item.nombre and null ingresos
-        ]
+        ],
+        productosMenosVendidos: [
+          { productoId: 'P2', nombre: 'Chicha morada', cantidad: 1, ingresos: 8 },
+        ],
+        estadisticasTicket: { media: 20, mediana: 18, moda: 15, medianaLabel: 'S/ 18.00', modaLabel: 'S/ 15.00' },
       },
       loading: false,
       error: null,
       fetch: mockFetch
     } as any);
     render(<ReportesScreen />);
-    
+
     expect(screen.getByText('12:00')).toBeInTheDocument();
     expect(screen.getByText('13:00')).toBeInTheDocument();
-    
+
     expect(screen.getByText('Burger')).toBeInTheDocument();
     expect(screen.getByText('S/ 50.00')).toBeInTheDocument();
     expect(screen.getByText('Fries')).toBeInTheDocument();
     expect(screen.getByText('Sin dato')).toBeInTheDocument();
+    expect(screen.getByText('Chicha morada')).toBeInTheDocument();
+    expect(screen.getByText('S/ 18.00')).toBeInTheDocument();
+    expect(screen.getByText('S/ 15.00')).toBeInTheDocument();
   });
 
   it('el botón de exportar PDF está deshabilitado sin resumen', () => {
@@ -185,6 +195,7 @@ describe('ReportesScreen', () => {
       resumen: {
         ingresosLabel: 'S/ 100', fechaLabel: 'Hoy', rangoLabel: 'Hoy',
         totalVentas: 5, ticketPromedioLabel: 'S/ 20', ventasPorHora: [], topProductos: [],
+        productosMenosVendidos: [], estadisticasTicket: { media: 20, mediana: 0, moda: null, medianaLabel: 'Sin ventas', modaLabel: 'Sin moda repetida' },
       },
       loading: false,
       error: null,
@@ -203,6 +214,7 @@ describe('ReportesScreen', () => {
       resumen: {
         ingresosLabel: 'S/ 100', fechaLabel: 'Hoy', rangoLabel: 'Hoy',
         totalVentas: 5, ticketPromedioLabel: 'S/ 20', ventasPorHora: [], topProductos: [],
+        productosMenosVendidos: [], estadisticasTicket: { media: 20, mediana: 0, moda: null, medianaLabel: 'Sin ventas', modaLabel: 'Sin moda repetida' },
       },
       loading: false,
       error: null,

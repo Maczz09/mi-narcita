@@ -79,8 +79,48 @@ describe('AppService — Reportes', () => {
       cantidad: 3,
       ingresos: 60,
     });
+    expect(resumen.productosMenosVendidos[0]).toEqual({
+      productoId: 'prod-2',
+      nombre: 'Limonada',
+      cantidad: 1,
+      ingresos: 40,
+    });
+    expect(resumen.estadisticasTicket).toEqual({ media: 50, mediana: 50, moda: null });
 
     jest.useRealTimers();
+  });
+
+  it('resumen diario: productos menos vendidos y estadísticas de ticket (media/mediana/moda) del día', async () => {
+    prisma.ventaDiaria.findMany.mockResolvedValue([
+      {
+        total: 30,
+        fecha: new Date('2026-01-02T18:00:00.000Z'),
+        items: [
+          { productoId: 'p1', nombre: 'Nachos', cantidad: 5, precioUnitario: 5 },
+          { productoId: 'p2', nombre: 'Ceviche', cantidad: 1, precioUnitario: 30 },
+        ],
+      },
+      { total: 30, fecha: new Date('2026-01-02T19:00:00.000Z'), items: [] },
+      { total: 90, fecha: new Date('2026-01-02T20:00:00.000Z'), items: [] },
+    ]);
+
+    const resumen = await service.obtenerResumenDiario();
+
+    // El menos vendido es el de menor cantidad total (Ceviche: 1 unidad).
+    expect(resumen.productosMenosVendidos[0]).toEqual({
+      productoId: 'p2',
+      nombre: 'Ceviche',
+      cantidad: 1,
+      ingresos: 30,
+    });
+    expect(resumen.productosMenosVendidos.at(-1)).toEqual({
+      productoId: 'p1',
+      nombre: 'Nachos',
+      cantidad: 5,
+      ingresos: 25,
+    });
+    // Tickets: [30, 30, 90] → media 50, mediana 30, moda 30 (se repite).
+    expect(resumen.estadisticasTicket).toEqual({ media: 50, mediana: 30, moda: 30 });
   });
 
   it('rango "Hoy" sin filtro no arrastra ventas de la noche anterior (bug real: setHours usaba UTC del contenedor)', async () => {

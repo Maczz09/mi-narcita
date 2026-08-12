@@ -34,6 +34,8 @@ function resumen(overrides: Partial<ResumenVM> = {}): ResumenVM {
     ticketPromedioLabel: 'S/ 50.00',
     ventasPorHora: [{ hora: '13:00', total: 100 }],
     topProductos: [{ nombre: 'Ceviche', cantidad: 2, ingresos: 70 }],
+    productosMenosVendidos: [{ nombre: 'Chicha morada', cantidad: 1, ingresos: 8 }],
+    estadisticasTicket: { media: 50, mediana: 45, moda: 40, medianaLabel: 'S/ 45.00', modaLabel: 'S/ 40.00' },
     ...overrides,
   };
 }
@@ -64,8 +66,13 @@ describe('exportarResumenPdf', () => {
     );
   });
 
-  it('no llama a autoTable si no hay top productos ni ventas por hora', async () => {
-    await exportarResumenPdf(resumen({ topProductos: [], ventasPorHora: [] }));
+  it('incluye la tabla de productos menos vendidos cuando hay datos', async () => {
+    await exportarResumenPdf(resumen());
+    expect(mockText).toHaveBeenCalledWith('Productos menos vendidos', expect.any(Number), expect.any(Number));
+  });
+
+  it('no llama a autoTable si no hay top productos, menos vendidos ni ventas por hora', async () => {
+    await exportarResumenPdf(resumen({ topProductos: [], productosMenosVendidos: [], ventasPorHora: [] }));
     expect(mockAutoTable).not.toHaveBeenCalled();
     expect(mockSave).toHaveBeenCalled();
   });

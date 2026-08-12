@@ -3,6 +3,9 @@ import { OperableLog } from '@org/observabilidad';
 import { SEDE_PRINCIPAL_ID } from '@org/shared-auth';
 import { PrismaService } from '../prisma/prisma.service';
 import { CuentaCerradaPayload, PedidoSnapshotItem } from '@org/contracts';
+import { calcularEstadisticasTicket } from './estadisticas';
+
+const MENOS_VENDIDOS_LIMITE = 5;
 
 @Injectable()
 export class AppService {
@@ -227,16 +230,23 @@ export class AppService {
       }
     }
 
-    const topProductos = Array.from(productStats.entries())
+    const productosOrdenados = Array.from(productStats.entries())
       .map(([productoId, stats]) => ({
         productoId,
         nombre: stats.nombre,
         cantidad: stats.cantidad,
         ingresos: stats.ingresos,
       }))
-      .filter(p => p.cantidad > 0)
-      .sort((a, b) => b.cantidad - a.cantidad)
-      .slice(0, 10);
+      .filter(p => p.cantidad > 0);
+
+    const topProductos = [...productosOrdenados].sort((a, b) => b.cantidad - a.cantidad).slice(0, 10);
+    // Menos vendidos: solo entre lo que SÍ se vendió al menos una vez — un
+    // producto que nunca se pidió no está en productStats (viene de items de
+    // ventas reales, no del catálogo completo de la carta), así que esto no
+    // reemplaza un reporte de "productos sin ninguna venta".
+    const productosMenosVendidos = [...productosOrdenados].sort((a, b) => a.cantidad - b.cantidad).slice(0, MENOS_VENDIDOS_LIMITE);
+
+    const estadisticasTicket = calcularEstadisticasTicket(ventas.map((v) => Number(v.total)));
 
     return {
       fecha: gte,
@@ -244,6 +254,8 @@ export class AppService {
       totalVentas: ventas.length,
       ingresosTotales: totalIngresos,
       ventasPorHora,
+      productosMenosVendidos,
+      estadisticasTicket,
       topProductos,
     };
   }

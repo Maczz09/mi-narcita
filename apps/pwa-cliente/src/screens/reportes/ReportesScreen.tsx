@@ -128,7 +128,17 @@ export function ReportesScreen() {
             <div className="stat">
               <div className="k">Ticket promedio</div>
               <div className="v">{resumen.ticketPromedioLabel}</div>
-              <div className="d">Calculado desde ingresos reales</div>
+              <div className="d">Media: el total entre la cantidad de ventas</div>
+            </div>
+            <div className="stat">
+              <div className="k">Ticket mediana</div>
+              <div className="v">{resumen.estadisticasTicket.medianaLabel}</div>
+              <div className="d">El valor del medio, no lo mueve una venta enorme puntual</div>
+            </div>
+            <div className="stat">
+              <div className="k">Moda del ticket</div>
+              <div className="v">{resumen.estadisticasTicket.modaLabel}</div>
+              <div className="d">El monto que más se repite (suele ser un combo o precio fijo)</div>
             </div>
           </div>
 
@@ -179,6 +189,38 @@ export function ReportesScreen() {
                     </thead>
                     <tbody>
                       {resumen.topProductos.map((item) => (
+                        <tr key={item.productoId ?? item.nombre}>
+                          <td><strong>{item.nombre}</strong></td>
+                          <td className="col-mobile-hidden">{item.cantidad}</td>
+                          <td>{item.ingresos == null ? 'Sin dato' : `S/ ${item.ingresos.toFixed(2)}`}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </section>
+
+            <section className="panel">
+              <div className="panel-h"><h3>Productos menos vendidos</h3></div>
+              {resumen.productosMenosVendidos.length === 0 ? (
+                <div className="empty empty-compact">
+                  <div className="e-ic"><ListIcon /></div>
+                  <h3>Sin datos</h3>
+                  <p>Aún no hay ventas registradas en el rango para calcular esto.</p>
+                </div>
+              ) : (
+                <div className="table-wrap table-wrap-flat">
+                  <table className="dt">
+                    <thead>
+                      <tr>
+                        <th>Producto</th>
+                        <th className="col-mobile-hidden">Cantidad</th>
+                        <th>Ingresos</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {resumen.productosMenosVendidos.map((item) => (
                         <tr key={item.productoId ?? item.nombre}>
                           <td><strong>{item.nombre}</strong></td>
                           <td className="col-mobile-hidden">{item.cantidad}</td>

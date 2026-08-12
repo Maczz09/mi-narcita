@@ -33,7 +33,9 @@ export async function exportarResumenPdf(resumen: ResumenVM, nombreLocal = APP_N
   const kpis = [
     ['Ingresos', formatMoney(resumen.ingresosTotales)],
     ['Ventas cerradas', String(resumen.totalVentas)],
-    ['Ticket promedio', resumen.ticketPromedioLabel],
+    ['Ticket promedio (media)', resumen.ticketPromedioLabel],
+    ['Ticket mediana', resumen.estadisticasTicket.medianaLabel],
+    ['Moda del ticket', resumen.estadisticasTicket.modaLabel],
   ];
   for (const [label, value] of kpis) {
     doc.text(`${label}: ${value}`, margenX, y);
@@ -48,6 +50,25 @@ export async function exportarResumenPdf(resumen: ResumenVM, nombreLocal = APP_N
       startY: y + 4,
       head: [['Producto', 'Cantidad', 'Ingresos']],
       body: resumen.topProductos.map((p) => [
+        p.nombre,
+        String(p.cantidad),
+        p.ingresos == null ? '—' : formatMoney(p.ingresos),
+      ]),
+      margin: { left: margenX, right: margenX },
+      styles: { fontSize: 9 },
+      headStyles: { fillColor: [55, 65, 81] },
+    });
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-assignment
+    y = ((doc as any).lastAutoTable?.finalY ?? y) + 10;
+  }
+
+  if (resumen.productosMenosVendidos.length > 0) {
+    doc.setFontSize(12);
+    doc.text('Productos menos vendidos', margenX, y);
+    autoTable(doc, {
+      startY: y + 4,
+      head: [['Producto', 'Cantidad', 'Ingresos']],
+      body: resumen.productosMenosVendidos.map((p) => [
         p.nombre,
         String(p.cantidad),
         p.ingresos == null ? '—' : formatMoney(p.ingresos),

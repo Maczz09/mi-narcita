@@ -1,5 +1,11 @@
 // types/reporte.types.ts - DTOs y ViewModels de reportes
 
+export interface EstadisticasTicketDto {
+  media: number;
+  mediana: number;
+  moda: number | null;
+}
+
 export interface ResumenDto {
   fecha: string;
   hasta?: string;
@@ -7,6 +13,8 @@ export interface ResumenDto {
   ingresosTotales: number;
   ventasPorHora?: Array<{ hora: string; total: number; ingresos?: number }>;
   topProductos?: Array<{ productoId?: string; nombre: string; cantidad: number; ingresos?: number }>;
+  productosMenosVendidos?: Array<{ productoId?: string; nombre: string; cantidad: number; ingresos?: number }>;
+  estadisticasTicket?: EstadisticasTicketDto;
 }
 
 export interface ResumenQuery {
@@ -28,4 +36,13 @@ export interface ResumenVM {
   ticketPromedioLabel: string;
   ventasPorHora: Array<{ hora: string; total: number; ingresos?: number }>;
   topProductos: Array<{ productoId?: string; nombre: string; cantidad: number; ingresos?: number }>;
+  /** Entre lo que sí se vendió al menos una vez — no es "productos sin ninguna venta". */
+  productosMenosVendidos: Array<{ productoId?: string; nombre: string; cantidad: number; ingresos?: number }>;
+  estadisticasTicket: {
+    media: number;
+    mediana: number;
+    moda: number | null;
+    medianaLabel: string;
+    modaLabel: string;
+  };
 }
