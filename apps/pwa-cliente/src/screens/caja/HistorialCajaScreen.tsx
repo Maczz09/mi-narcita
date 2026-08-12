@@ -261,6 +261,8 @@ export function HistorialCajaScreen() {
                     <StatKpi icon="Trend" tint="accent" label="Ventas del turno" value={fmt(detalle.totalVentas)} />
                     <StatKpi icon="Coins" tint="ok" label="Propinas" value={fmt(detalle.propinas)} />
                     <StatKpi icon="Cash" tint="info" label="Efectivo esperado" value={fmt(detalle.efectivoEsperado)} />
+                    {/* IGV incluido en el precio (18%), no un cargo aparte — mismo criterio que la boleta interna y el reporte Z. */}
+                    <StatKpi icon="Receipt" tint="warn" label="IGV del turno" value={fmt(detalle.totalVentas - detalle.totalVentas / 1.18)} />
                   </div>
 
                   {detalle.arqueo && (

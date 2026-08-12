@@ -17,6 +17,10 @@ export function InicioScreen() {
     reservasProx, actividad, atencionCount,
   } = useInicioData();
 
+  // IGV incluido en el precio (18%), no un cargo aparte — mismo criterio que
+  // la boleta interna (TicketContent.tsx) y el reporte Z de caja.
+  const igvDelDia = totalVentas - totalVentas / 1.18;
+
   return (
     <div>
       <div className="page-h">
@@ -52,6 +56,7 @@ export function InicioScreen() {
         <HeroStat icon="Pedidos" color="var(--purple)" soft="var(--purple-soft)" k="Cuentas del día" v={cuentas} sub={`${cocina.activos} pedido(s) en curso`} />
         <HeroStat icon="Mesas" color="var(--ok)" soft="var(--ok-soft)" k="Mesas ocupadas" v={`${salon.ocupadas}/${salon.total}`} sub={`${ocupPct}% de ocupación`} />
         <HeroStat icon="Clock" color={cocina.demora ? 'var(--danger)' : 'var(--warn)'} soft={cocina.demora ? 'var(--danger-soft)' : 'var(--warn-soft)'} k="Tiempo cocina" v={`${cocina.prom}m`} sub={cocina.demora ? `${cocina.demora} en demora` : 'sin demoras'} />
+        <HeroStat icon="Wallet" color="var(--warn)" soft="var(--warn-soft)" k="IGV del día" v={fmt(igvDelDia)} sub="18%, incluido en el precio" />
       </div>
 
       <div className="module-grid">

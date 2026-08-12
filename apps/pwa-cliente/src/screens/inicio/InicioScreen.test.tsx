@@ -114,14 +114,23 @@ describe('InicioScreen', () => {
     expect(mockNavigate).toHaveBeenCalledWith('/app/caja');
   });
 
-  it('renderiza 5 HeroStats', () => {
+  it('renderiza 6 HeroStats', () => {
     render(<InicioScreen />);
-    expect(screen.getAllByTestId('hero-stat')).toHaveLength(5);
+    expect(screen.getAllByTestId('hero-stat')).toHaveLength(6);
   });
 
   it('muestra stat de "Ventas del día"', () => {
     render(<InicioScreen />);
     expect(screen.getByText('Ventas del día')).toBeInTheDocument();
+  });
+
+  it('calcula el IGV del día como 18% incluido en las ventas totales, no un cargo aparte', () => {
+    mockUseInicioData.mockReturnValue({ ...defaultInicioData, totalVentas: 118 });
+    render(<InicioScreen />);
+    expect(screen.getByText('IGV del día')).toBeInTheDocument();
+    // 118 con IGV incluido al 18% → operación gravada 100, IGV exactamente 18.
+    // (este archivo mockea fmt() sin espacio tras "S/", ver el vi.mock de arriba)
+    expect(screen.getByText('S/18.00')).toBeInTheDocument();
   });
 
   it('muestra stat de "Mesas ocupadas"', () => {

@@ -149,6 +149,9 @@ describe('HistorialCajaScreen', () => {
       expect(screen.getByText('S/ 864.00')).toBeInTheDocument();
     });
     expect(screen.getByText('S/ -2.00')).toBeInTheDocument();
+    // IGV incluido en el precio (18%), no un cargo aparte, sobre las ventas del turno.
+    expect(screen.getByText('IGV del turno')).toBeInTheDocument();
+    expect(screen.getByText('S/ 131.80')).toBeInTheDocument();
   });
 
   describe('imprimir el cierre Z de un turno ya cerrado', () => {
