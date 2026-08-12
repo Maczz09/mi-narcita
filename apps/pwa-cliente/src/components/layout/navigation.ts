@@ -38,6 +38,12 @@ export const NAV_GROUPS: NavGroup[] = [
       { key: 'sedes', label: 'Sedes', shortLabel: 'Sedes', icon: 'Sede', priority: 12 },
     ],
   },
+  {
+    group: 'Facturación',
+    items: [
+      { key: 'facturacion', label: 'Facturación', shortLabel: 'Facturación', icon: 'Receipt', priority: 13 },
+    ],
+  },
 ];
 
 export const NAV_ITEMS = NAV_GROUPS.flatMap((group) => group.items);

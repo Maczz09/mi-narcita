@@ -1,17 +1,17 @@
-// screens/print/TicketPrintPage.tsx — Pestaña dedicada para imprimir la
-// boleta/factura en la tiquetera térmica 80mm. Ruta fuera del Shell (sin
-// sidebar/header/modales): así Chrome genera el PDF térmico contando solo
-// el ticket, no el layout completo de la app alrededor.
+// screens/print/ComprobantePrintPage.tsx — Pestaña dedicada para imprimir el
+// comprobante SUNAT (boleta/factura aceptada) en la tiquetera térmica 80mm.
+// Ruta fuera del Shell (sin sidebar/header/modales): así Chrome genera el PDF
+// térmico contando solo el ticket, no el layout completo de la app alrededor.
 //
 // No hace fetch ni requiere sesión: lee el payload que dejó
-// utils/ticketPrint.ts en localStorage (de un solo uso) y lo renderiza.
+// utils/comprobantePrint.ts en localStorage (de un solo uso) y lo renderiza.
 
 import { useEffect, useRef, useState } from 'react';
-import { TicketContent, type TicketContentProps } from '../../components/caja/TicketContent';
-import { TICKET_PRINT_KEY } from '../../utils/ticketPrint';
+import { ComprobanteTicket, type ComprobanteTicketProps } from '../../components/facturacion/ComprobanteTicket';
+import { COMPROBANTE_PRINT_KEY } from '../../utils/comprobantePrint';
 
-export function TicketPrintPage() {
-  const [payload, setPayload] = useState<TicketContentProps | null>(null);
+export function ComprobantePrintPage() {
+  const [payload, setPayload] = useState<ComprobanteTicketProps | null>(null);
   const [error, setError] = useState(false);
   // StrictMode (dev) monta el efecto dos veces; sin este guard la 2da pasada
   // encuentra la key ya borrada por la 1ra y pisa el payload con "error".
@@ -20,11 +20,11 @@ export function TicketPrintPage() {
   useEffect(() => {
     if (leido.current) return;
     leido.current = true;
-    const raw = localStorage.getItem(TICKET_PRINT_KEY);
-    localStorage.removeItem(TICKET_PRINT_KEY);
+    const raw = localStorage.getItem(COMPROBANTE_PRINT_KEY);
+    localStorage.removeItem(COMPROBANTE_PRINT_KEY);
     if (!raw) { setError(true); return; }
     try {
-      setPayload(JSON.parse(raw) as TicketContentProps);
+      setPayload(JSON.parse(raw) as ComprobanteTicketProps);
     } catch {
       setError(true);
     }
@@ -51,5 +51,5 @@ export function TicketPrintPage() {
   }
   if (!payload) return null;
 
-  return <TicketContent {...payload} />;
+  return <ComprobanteTicket {...payload} />;
 }

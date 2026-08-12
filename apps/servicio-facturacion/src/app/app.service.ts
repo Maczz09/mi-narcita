@@ -75,7 +75,28 @@ export class AppService {
       where: { ...(sedeId ? { sedeId } : {}) },
       orderBy: { fecha: 'desc' },
       take: 200,
-      include: { comprobante: true },
+      // Se anida la empresa emisora (no todo el registro: correlativoBoleta/
+      // correlativoFactura son contadores internos, no deben viajar al front)
+      // porque la impresión del comprobante SUNAT (ver ComprobanteTicket.tsx
+      // en pwa-cliente) necesita razón social/RUC/dirección del emisor.
+      include: {
+        comprobante: {
+          include: {
+            empresa: { select: { ruc: true, razonSocial: true, nombreComercial: true, direccion: true } },
+          },
+        },
+      },
+    });
+  }
+
+  // Selector de RUC emisor al emitir: hoy solo hay una empresa activa
+  // (Salitral 1), pero no se hardcodea el RUC en el frontend — cuando se
+  // configure la segunda, aparece sola en este listado.
+  async listarEmpresas() {
+    return this.prisma.empresa.findMany({
+      where: { activo: true },
+      select: { id: true, slot: true, ruc: true, razonSocial: true, activo: true },
+      orderBy: { slot: 'asc' },
     });
   }
 }

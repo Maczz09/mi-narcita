@@ -10,6 +10,7 @@ import { useToast } from '../../components/ui/ToastProvider';
 import { useAuthStore } from '../../store/auth.store';
 import { useMesasQuery } from '../../hooks/queries/useMesasQuery';
 import { useCajaQuery } from '../../hooks/queries/useCajaQuery';
+import { useSedeActualQuery } from '../../hooks/queries/useSedesQuery';
 import { fmt, horaOf } from '../../utils/format';
 import { METODO_META, METODOS_ORDEN, computeKpis } from './cajaMeta';
 import { MovimientoModal } from './MovimientoModal';
@@ -64,6 +65,7 @@ export function CajaScreen() {
   const cajero = useAuthStore((s) => s.user);
   const { mesas } = useMesasQuery();
   const { resumen, turno, loading, error, abrirTurno, crearMovimiento, cerrarTurno } = useCajaQuery();
+  const { sede } = useSedeActualQuery();
   const [searchParams, setSearchParams] = useSearchParams();
 
   const [modal, setModal] = useState<Modal>(null);
@@ -322,6 +324,7 @@ export function CajaScreen() {
         <CierreDrawer
           k={k}
           cajeroNombre={cajeroNombre}
+          sede={sede}
           onClose={() => setModal(null)}
           onDone={(...args) => { void (async (denominaciones) => {
             try {

@@ -7,6 +7,7 @@ import { useToast } from '../../components/ui/ToastProvider';
 import { useAuthStore } from '../../store/auth.store';
 import { useMesasQuery } from '../../hooks/queries/useMesasQuery';
 import { useCajaQuery } from '../../hooks/queries/useCajaQuery';
+import { useSedeActualQuery } from '../../hooks/queries/useSedesQuery';
 
 vi.mock('react-router-dom', () => ({
   useSearchParams: vi.fn()
@@ -26,6 +27,10 @@ vi.mock('../../hooks/queries/useMesasQuery', () => ({
 
 vi.mock('../../hooks/queries/useCajaQuery', () => ({
   useCajaQuery: vi.fn()
+}));
+
+vi.mock('../../hooks/queries/useSedesQuery', () => ({
+  useSedeActualQuery: vi.fn()
 }));
 
 vi.mock('../../components/ui/Scrim', () => ({
@@ -128,6 +133,7 @@ describe('CajaScreen', () => {
     vi.mocked(useToast).mockReturnValue({ toast: toastMock } as any);
     vi.mocked(useAuthStore).mockImplementation((selector: any) => selector({ user: { nombre: 'Juan' } }));
     vi.mocked(useMesasQuery).mockReturnValue({ mesas: mockMesas } as any);
+    vi.mocked(useSedeActualQuery).mockReturnValue({ sede: null, loading: false } as any);
     vi.mocked(useSearchParams).mockReturnValue([new URLSearchParams(), setSearchParams] as any);
   });
 

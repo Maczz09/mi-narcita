@@ -36,6 +36,13 @@ export class AppController {
     return this.appService.listarTodos(usuarioSedeId, sedeId);
   }
 
+  @UseGuards(RolesGuard)
+  @Roles('ADMIN', 'SISTEMA', 'CAJERO')
+  @Get('empresas')
+  listarEmpresas() {
+    return this.appService.listarEmpresas();
+  }
+
   @EventPattern(RoutingKeys.CuentaCerrada)
   async handleCuentaCerrada(@Payload() payload: CuentaCerradaPayload) {
     this.logger.log({

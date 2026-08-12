@@ -848,7 +848,9 @@ services:
     image: mi-narcita-servicio-facturacion
     container_name: nachopps-servicio-facturacion
     ports: ['3011:3000']
-    env_file: *jwt_dev_env
+    env_file: [*jwt_dev_env, ./secrets/sunat-dev.env]
+    volumes:
+      - ../certificates:/app/certificates:ro
     environment:
       PORT: '3000'
       NODE_OPTIONS: '--max-old-space-size=400'
@@ -864,10 +866,13 @@ services:
       OTEL_EXPORTER_OTLP_ENDPOINT: 'http://otel-collector:4318'
       SERVICE_JWT_SECRET: 'nachopps_service_secret_dev'
       CORS_ORIGIN: 'http://localhost:4200'
-      # SUNAT: sin credenciales en dev por defecto — el servicio arranca igual
-      # (CertificadoService/EnvioProcessor detectan "no configurado" y no
-      # tumban nada); rellena por empresa cuando tengas certificado + SOL.
+      # SUNAT: credenciales de empresa 1 (Salitral 1, RUC 10417758432) desde
+      # infra/secrets/sunat-dev.env (gitignorado); el .p12 se monta como
+      # volumen desde certificates/ (también gitignorado, nunca en la imagen).
+      # Empresa 2 queda "no configurada" hasta tramitar su propio certificado
+      # — CertificadoService/EnvioProcessor lo detectan sin tumbar el resto.
       SUNAT_WSDL_URL: 'https://e-beta.sunat.gob.pe/ol-ti-itcpfegem-beta/billService?wsdl'
+      SUNAT_PFX_EMPRESA_1_FILE: '/app/certificates/salitral-1/certificado.p12'
     profiles: ['all']
     restart: unless-stopped
     mem_limit: 512m
