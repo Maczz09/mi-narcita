@@ -61,6 +61,11 @@ Monorepo **Nx** con una arquitectura de **microservicios event-driven** (NestJS)
 ## Desarrollo
 
 ```sh
+# Primera vez en esta máquina: genera infra/secrets/jwt-dev.env (par de claves
+# JWT RS256 de desarrollo) — sin esto, el compose falla porque Kong exige ese
+# env_file y no viene en el repo (son credenciales, van gitignored).
+npm run dev:keys
+
 # Infra (RabbitMQ, Postgres x9, Kong, Jaeger, Prometheus, Grafana)
 docker compose -f infra/docker-compose.yml --profile infra up -d
 
@@ -72,7 +77,7 @@ npm exec nx serve pwa-cliente
 npm exec nx run-many -- --target=lint --all
 npm exec nx run-many -- --target=typecheck --all
 npm exec nx run-many -- --target=build --all
-npm exec nx run @org/source:test   # vitest raíz: recoge *.spec de servicios + pwa + shared-auth
+npm exec nx run @org/source:test   # vitest raíz: *.spec de pwa + shared-auth (los servicios NestJS corren su propia suite Jest vía su target `test` de nx, no acá)
 npm exec nx run-many -- --target=e2e --all --parallel=1   # contra stack Docker/Kong levantado
 ```
 
