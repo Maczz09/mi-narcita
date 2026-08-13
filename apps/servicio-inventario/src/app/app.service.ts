@@ -217,7 +217,7 @@ export class AppService {
   private normalizeLimit(limit?: number): number {
     const parsed = Number(limit ?? 20);
     if (!Number.isFinite(parsed)) return 20;
-    return Math.min(Math.max(Math.trunc(parsed), 1), 100);
+    return Math.min(Math.max(Math.trunc(parsed), 1), 500);
   }
 
   private normalizeBoolean(value?: boolean): boolean | undefined {

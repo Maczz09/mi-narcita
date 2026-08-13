@@ -370,11 +370,11 @@ describe('AppService — Inventario (comprehensive)', () => {
       );
     });
 
-    it('limita el máximo a 100', async () => {
+    it('limita el máximo a 500', async () => {
       mockPrisma.producto.findMany.mockResolvedValue([] as any);
-      await service.listarProductos({ limit: 500 }, SEDE);
+      await service.listarProductos({ limit: 1000 }, SEDE);
       expect(mockPrisma.producto.findMany).toHaveBeenCalledWith(
-        expect.objectContaining({ take: 101 }),
+        expect.objectContaining({ take: 501 }),
       );
     });
 

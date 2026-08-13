@@ -31,7 +31,9 @@ export function CartaScreen() {
     crearProducto,
     actualizarProducto,
     actualizarDisponibilidad,
-  } = useInventarioQuery(undefined, { conStock: false });
+  // La carta se muestra completa de una vez (tabs de categoría con conteos
+  // en cliente), no paginada: limit alto para cubrir el menú real (~183 platos).
+  } = useInventarioQuery(undefined, { conStock: false, limit: 500 });
 
   const [modo, setModo] = useState<'CARTA' | 'MENU_DIA'>('CARTA');
   const [cat, setCat] = useState<string>('TODAS');
