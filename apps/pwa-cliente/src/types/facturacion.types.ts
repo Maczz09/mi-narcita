@@ -44,6 +44,30 @@ export interface ComprobanteDto {
   empresa: EmpresaComprobanteDto;
 }
 
+export interface DocumentoAfectadoDto {
+  tipo: TipoComprobante;
+  serie: string;
+  correlativo: number;
+}
+
+// Una nota es un Comprobante (tipo NOTA_CREDITO/NOTA_DEBITO), no un
+// ComprobantePago — no tiene comprobantePagoId ni items propios.
+export interface NotaDto {
+  id: string;
+  tipo: TipoNota;
+  serie: string;
+  correlativo: number;
+  motivoCodigo: string | null;
+  motivoDescripcion: string | null;
+  subtotal: number | string;
+  igv: number | string;
+  total: number | string;
+  estado: EstadoComprobante;
+  motivoRechazo: string | null;
+  createdAt: string;
+  comprobanteAfectado: DocumentoAfectadoDto | null;
+}
+
 export interface ComprobantePagoDto {
   id: string;
   cuentaId: string;

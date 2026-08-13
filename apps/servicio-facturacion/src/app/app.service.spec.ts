@@ -15,6 +15,9 @@ describe('AppService — Facturación', () => {
       upsert: jest.fn(),
       findMany: jest.fn(),
     },
+    comprobante: {
+      findMany: jest.fn(),
+    },
     empresa: {
       findUnique: jest.fn(),
       findMany: jest.fn(),
@@ -97,6 +100,39 @@ describe('AppService — Facturación', () => {
       expect(prisma.comprobantePago.findMany).toHaveBeenCalledWith(
         expect.objectContaining({ where: { estado: 'DISPONIBLE', sedeId: 'sede-002' } }),
       );
+    });
+  });
+
+  describe('listarNotas', () => {
+    it('filtra por tipo NOTA_CREDITO/NOTA_DEBITO y ordena por más reciente', async () => {
+      prisma.comprobante.findMany.mockResolvedValue([]);
+      await service.listarNotas(null);
+      expect(prisma.comprobante.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { tipo: { in: ['NOTA_CREDITO', 'NOTA_DEBITO'] } },
+          orderBy: { createdAt: 'desc' },
+        }),
+      );
+    });
+
+    it('usuario pineado: filtra por su sede viajando por el comprobante afectado', async () => {
+      prisma.comprobante.findMany.mockResolvedValue([]);
+      await service.listarNotas('sede-001');
+      expect(prisma.comprobante.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            tipo: { in: ['NOTA_CREDITO', 'NOTA_DEBITO'] },
+            comprobanteAfectado: { comprobantePago: { sedeId: 'sede-001' } },
+          },
+        }),
+      );
+    });
+
+    it('admin general sin sede → sin filtro de sede (todas)', async () => {
+      prisma.comprobante.findMany.mockResolvedValue([]);
+      await service.listarNotas(null);
+      const where = prisma.comprobante.findMany.mock.calls.at(-1)[0].where;
+      expect(where).not.toHaveProperty('comprobanteAfectado');
     });
   });
 

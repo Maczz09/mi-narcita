@@ -9,7 +9,7 @@ import * as facturacionApi from '../../api/facturacion.api';
 import { useSedeActualQuery } from './useSedesQuery';
 import { queryClient } from '../../api/queryClient';
 import { primerMensaje } from '../../utils/feedback';
-import type { ComprobantePagoDto, EmitirComprobantePayload, EmitirNotaPayload, CrearEmpresaPayload } from '../../types/facturacion.types';
+import type { ComprobantePagoDto, EmitirComprobantePayload, EmitirNotaPayload, NotaDto, CrearEmpresaPayload } from '../../types/facturacion.types';
 
 const ESTADOS_PENDIENTES = new Set(['FIRMADO', 'ENVIADO']);
 
@@ -20,6 +20,14 @@ const ESTADOS_PENDIENTES = new Set(['FIRMADO', 'ENVIADO']);
 function refetchMientrasPendiente(query: { state: { data?: unknown } }): number | false {
   const data = query.state.data as ComprobantePagoDto[] | undefined;
   const pendiente = data?.some((c) => c.comprobante && ESTADOS_PENDIENTES.has(c.comprobante.estado));
+  return pendiente ? 8000 : false;
+}
+
+// Igual que arriba, pero las notas son Comprobante directo (sin anidar bajo
+// .comprobante) — mismo polling mientras alguna siga sin veredicto de SUNAT.
+function refetchNotasMientrasPendiente(query: { state: { data?: unknown } }): number | false {
+  const data = query.state.data as NotaDto[] | undefined;
+  const pendiente = data?.some((n) => ESTADOS_PENDIENTES.has(n.estado));
   return pendiente ? 8000 : false;
 }
 
@@ -42,6 +50,12 @@ export function useFacturacionQuery() {
     queryKey: ['facturacion', 'empresas'],
     queryFn: () => facturacionApi.listarEmpresas(),
     staleTime: 1000 * 60 * 10,
+  });
+
+  const notasQuery = useQuery({
+    queryKey: ['facturacion', 'notas', sedeId],
+    queryFn: () => facturacionApi.listarNotas(sedeId),
+    refetchInterval: refetchNotasMientrasPendiente,
   });
 
   const invalidate = () =>
@@ -73,6 +87,8 @@ export function useFacturacionQuery() {
   return {
     disponibles: disponiblesQuery.data ?? [],
     emitidos: (todosQuery.data ?? []).filter((c) => c.estado === 'EMITIDO'),
+    notas: notasQuery.data ?? [],
+    notasLoading: notasQuery.isLoading,
     empresas: empresasQuery.data ?? [],
     empresasLoading: empresasQuery.isLoading,
     loading: disponiblesQuery.isLoading || todosQuery.isLoading,
@@ -84,6 +100,7 @@ export function useFacturacionQuery() {
     fetch: () => {
       void disponiblesQuery.refetch();
       void todosQuery.refetch();
+      void notasQuery.refetch();
     },
     emitirComprobante: async (cuentaId: string, payload: EmitirComprobantePayload) => {
       await mutationEmitir.mutateAsync({ cuentaId, payload });

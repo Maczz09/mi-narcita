@@ -8,6 +8,7 @@ import type {
   EmitirComprobanteResultado,
   EmitirNotaPayload,
   EmitirNotaResultado,
+  NotaDto,
   CrearEmpresaPayload,
 } from '../types/facturacion.types';
 
@@ -30,6 +31,12 @@ export async function listarEmpresas(): Promise<EmpresaDto[]> {
 
 export async function emitir(cuentaId: string, payload: EmitirComprobantePayload): Promise<EmitirComprobanteResultado> {
   return client.post<EmitirComprobanteResultado>(`/facturacion/comprobantes/${cuentaId}/emitir`, payload);
+}
+
+export async function listarNotas(sedeId?: string): Promise<NotaDto[]> {
+  const qs = sedeId ? `?sedeId=${encodeURIComponent(sedeId)}` : '';
+  const response = await client.get<NotaDto[]>(`/facturacion/notas${qs}`);
+  return Array.isArray(response) ? response : [];
 }
 
 export function emitirNotaCredito(comprobanteId: string, payload: EmitirNotaPayload): Promise<EmitirNotaResultado> {

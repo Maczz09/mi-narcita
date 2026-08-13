@@ -45,6 +45,13 @@ export class AppController {
 
   @UseGuards(RolesGuard)
   @Roles('ADMIN', 'SISTEMA', 'CAJERO')
+  @Get('notas')
+  listarNotas(@UsuarioActual('sedeId') usuarioSedeId: string | null, @Query('sedeId') sedeId?: string) {
+    return this.appService.listarNotas(usuarioSedeId, sedeId);
+  }
+
+  @UseGuards(RolesGuard)
+  @Roles('ADMIN', 'SISTEMA', 'CAJERO')
   @Get('empresas')
   listarEmpresas() {
     return this.appService.listarEmpresas();

@@ -72,6 +72,8 @@ function baseMock(overrides: Record<string, unknown> = {}) {
   return {
     disponibles: [disponible],
     emitidos: [emitido, emitidoFactura],
+    notas: [],
+    notasLoading: false,
     empresas: [empresa],
     empresasLoading: false,
     loading: false,
@@ -236,6 +238,46 @@ describe('FacturacionScreen', () => {
           clienteNombre: undefined,
         });
       });
+    });
+  });
+
+  describe('lista de notas de crédito/débito emitidas', () => {
+    it('muestra el estado vacío cuando no hay ninguna', () => {
+      render(<FacturacionScreen />);
+      expect(screen.getByText('Todavía no emitiste ninguna')).toBeInTheDocument();
+    });
+
+    it('lista una nota con el documento afectado, motivo, monto y estado SUNAT', () => {
+      const nota = {
+        id: 'n1', tipo: 'NOTA_CREDITO', serie: 'FC01', correlativo: 2,
+        motivoCodigo: '01', motivoDescripcion: 'Anulación de la operación',
+        subtotal: '25.42', igv: '4.58', total: '30.00',
+        estado: 'ACEPTADO', motivoRechazo: null, createdAt: '2026-08-13T09:00:00.000Z',
+        comprobanteAfectado: { tipo: 'BOLETA', serie: 'B002', correlativo: 9 },
+      };
+      vi.mocked(useFacturacionQuery).mockReturnValue(baseMock({ emitidos: [], notas: [nota] }) as any);
+      render(<FacturacionScreen />);
+
+      expect(screen.getByText('NC FC01-2')).toBeInTheDocument();
+      expect(screen.getByText('B B002-9')).toBeInTheDocument();
+      expect(screen.getByText('Anulación de la operación')).toBeInTheDocument();
+      expect(screen.getByText('S/ 30.00')).toBeInTheDocument();
+      expect(screen.getByText('Aceptado por SUNAT')).toBeInTheDocument();
+    });
+
+    it('una nota de débito rechazada muestra ND y el badge de rechazado', () => {
+      const nota = {
+        id: 'n2', tipo: 'NOTA_DEBITO', serie: 'FD01', correlativo: 1,
+        motivoCodigo: '01', motivoDescripcion: 'Intereses por mora',
+        subtotal: '8.47', igv: '1.53', total: '10.00',
+        estado: 'RECHAZADO', motivoRechazo: 'Formato inválido', createdAt: '2026-08-13T09:00:00.000Z',
+        comprobanteAfectado: { tipo: 'FACTURA', serie: 'F001', correlativo: 2 },
+      };
+      vi.mocked(useFacturacionQuery).mockReturnValue(baseMock({ emitidos: [], notas: [nota] }) as any);
+      render(<FacturacionScreen />);
+
+      expect(screen.getByText('ND FD01-1')).toBeInTheDocument();
+      expect(screen.getByText('Rechazado')).toBeInTheDocument();
     });
   });
 

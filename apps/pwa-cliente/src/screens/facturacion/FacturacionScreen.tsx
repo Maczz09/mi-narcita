@@ -58,7 +58,7 @@ export function FacturacionScreen() {
   const online = useOnlineStatus();
   const { toast } = useToast();
   const {
-    disponibles, emitidos, empresas, empresasLoading, loading, emitiendo, error, success, fetch,
+    disponibles, emitidos, notas, notasLoading, empresas, empresasLoading, loading, emitiendo, error, success, fetch,
     emitirComprobante, clearFeedback, crearEmpresa, configurandoEmpresa, errorEmpresa, clearFeedbackEmpresa,
     emitiendoNota, errorNota, emitirNotaCredito, emitirNotaDebito, clearFeedbackNota,
   } = useFacturacionQuery();
@@ -405,6 +405,59 @@ export function FacturacionScreen() {
                     </tr>
                   );
                 })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
+
+      <section className="panel" style={{ marginTop: 16 }}>
+        <div className="panel-h">
+          <h3>Notas de crédito / débito</h3>
+          <span className="spacer" />
+          <span className="badge badge-info">{notas.length}</span>
+        </div>
+
+        {!notasLoading && notas.length === 0 && (
+          <div className="empty">
+            <div className="e-ic"><Icons.Edit s={24} /></div>
+            <h3>Todavía no emitiste ninguna</h3>
+            <p>Aparecen acá las notas que emitas sobre un comprobante ya aceptado por SUNAT.</p>
+          </div>
+        )}
+
+        {notas.length > 0 && (
+          <div className="table-wrap table-wrap-flat">
+            <table className="dt">
+              <thead>
+                <tr>
+                  <th>Nota</th>
+                  <th className="col-mobile-hidden">Sobre</th>
+                  <th className="col-mobile-hidden">Motivo</th>
+                  <th style={{ textAlign: 'right' }}>Monto</th>
+                  <th>Estado SUNAT</th>
+                </tr>
+              </thead>
+              <tbody>
+                {notas.map((n) => (
+                  <tr key={n.id}>
+                    <td>
+                      <strong>{n.tipo === 'NOTA_CREDITO' ? 'NC' : 'ND'} {n.serie}-{n.correlativo}</strong>
+                    </td>
+                    <td className="col-mobile-hidden muted">
+                      {n.comprobanteAfectado
+                        ? `${n.comprobanteAfectado.tipo === 'FACTURA' ? 'F' : 'B'} ${n.comprobanteAfectado.serie}-${n.comprobanteAfectado.correlativo}`
+                        : '—'}
+                    </td>
+                    <td className="col-mobile-hidden muted">{n.motivoDescripcion ?? '—'}</td>
+                    <td style={{ textAlign: 'right' }}>{fmt(Number(n.total))}</td>
+                    <td>
+                      <span className={`badge dot ${ESTADO_BADGE[n.estado]}`} title={n.motivoRechazo ?? undefined}>
+                        {ESTADO_LABEL[n.estado]}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
               </tbody>
             </table>
           </div>

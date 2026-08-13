@@ -100,6 +100,28 @@ export class AppService {
     });
   }
 
+  /**
+   * Notas de crédito/débito emitidas — no viven bajo un ComprobantePago
+   * (nacen de OTRO Comprobante vía comprobanteAfectadoId), así que no
+   * aparecen en listarTodos(). El sedeId se resuelve viajando por el
+   * comprobante afectado hasta su comprobantePago (las notas no tienen
+   * sedeId propio).
+   */
+  async listarNotas(usuarioSedeId?: string | null, sedeIdSolicitado?: string) {
+    const sedeId = usuarioSedeId ?? sedeIdSolicitado;
+    return this.prisma.comprobante.findMany({
+      where: {
+        tipo: { in: ['NOTA_CREDITO', 'NOTA_DEBITO'] },
+        ...(sedeId ? { comprobanteAfectado: { comprobantePago: { sedeId } } } : {}),
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 200,
+      include: {
+        comprobanteAfectado: { select: { tipo: true, serie: true, correlativo: true } },
+      },
+    });
+  }
+
   // Selector de RUC emisor al emitir: hoy solo hay una empresa activa
   // (Salitral 1), pero no se hardcodea el RUC en el frontend — cuando se
   // configure la segunda, aparece sola en este listado.
