@@ -56,7 +56,10 @@ function enRango(iso: string, desde: string, hasta: string): boolean {
 type FiltroEstado = '' | 'PENDIENTE' | 'ACEPTADO' | 'RECHAZADO' | 'OBSERVADO';
 type FiltroTipoNota = '' | TipoNota;
 
-type Detalle = { kind: 'comprobante'; data: ComprobanteDto } | { kind: 'nota'; data: NotaDto };
+type Detalle =
+  | { kind: 'comprobante'; data: ComprobanteDto }
+  | { kind: 'nota'; data: NotaDto }
+  | { kind: 'disponible'; data: ComprobantePagoDto };
 
 export function FacturacionScreen() {
   const online = useOnlineStatus();
@@ -329,6 +332,7 @@ export function FacturacionScreen() {
                 <tr>
                   <th>Fecha</th>
                   <th className="col-mobile-hidden">Mesero</th>
+                  <th className="col-mobile-hidden" style={{ textAlign: 'right' }}>Ítems</th>
                   <th style={{ textAlign: 'right' }}>Total</th>
                   <th className="cell-action"></th>
                 </tr>
@@ -338,15 +342,26 @@ export function FacturacionScreen() {
                   <tr key={c.id}>
                     <td className="muted">{fechaHora(c.fecha)}</td>
                     <td className="col-mobile-hidden">{c.meseroNombre ?? <span className="muted">Sin datos</span>}</td>
+                    <td className="col-mobile-hidden" style={{ textAlign: 'right' }}>{c.items?.length ?? 0}</td>
                     <td style={{ textAlign: 'right' }}>{fmt(Number(c.total))}</td>
                     <td className="cell-action">
-                      <button
-                        className="btn btn-sm btn-primary"
-                        disabled={!online || !puedeEmitir}
-                        onClick={() => abrirEmision(c)}
-                      >
-                        Emitir
-                      </button>
+                      <div className="row wrap" style={{ justifyContent: 'flex-end', gap: 6 }}>
+                        <button
+                          className="icon-btn"
+                          title="Ver detalle"
+                          aria-label="Ver detalle del comprobante de pago"
+                          onClick={() => setDetalle({ kind: 'disponible', data: c })}
+                        >
+                          <Icons.Eye s={16} />
+                        </button>
+                        <button
+                          className="btn btn-sm btn-primary"
+                          disabled={!online || !puedeEmitir}
+                          onClick={() => abrirEmision(c)}
+                        >
+                          Emitir
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -711,71 +726,133 @@ export function FacturacionScreen() {
               <h3 style={{ fontSize: 18 }}>
                 {detalle.kind === 'nota'
                   ? `${detalle.data.tipo === 'NOTA_CREDITO' ? 'Nota de crédito' : 'Nota de débito'} ${detalle.data.serie}-${detalle.data.correlativo}`
-                  : `${detalle.data.tipo === 'FACTURA' ? 'Factura' : 'Boleta'} ${detalle.data.serie}-${detalle.data.correlativo}`}
+                  : detalle.kind === 'comprobante'
+                    ? `${detalle.data.tipo === 'FACTURA' ? 'Factura' : 'Boleta'} ${detalle.data.serie}-${detalle.data.correlativo}`
+                    : 'Comprobante de pago'}
               </h3>
               <span className="spacer" />
               <button className="icon-btn" onClick={cerrarDetalle} aria-label="Cerrar detalle"><Icons.Close s={17} /></button>
             </div>
-            <div className="modal-scroll" style={{ padding: '18px 20px', display: 'grid', gap: 10 }}>
-              <div className="row" style={{ justifyContent: 'space-between' }}>
-                <span className="muted">Estado SUNAT</span>
-                <span className={`badge dot ${ESTADO_BADGE[detalle.data.estado]}`}>{ESTADO_LABEL[detalle.data.estado]}</span>
-              </div>
-
-              {detalle.data.motivoRechazo && (
+            {detalle.kind === 'disponible' ? (
+              <div className="modal-scroll" style={{ padding: '18px 20px', display: 'grid', gap: 10 }}>
                 <div className="row" style={{ justifyContent: 'space-between' }}>
-                  <span className="muted">Motivo del rechazo/observación</span>
-                  <span>{detalle.data.motivoRechazo}</span>
+                  <span className="muted">Fecha</span>
+                  <span>{fechaHora(detalle.data.fecha)}</span>
                 </div>
-              )}
+                <div className="row" style={{ justifyContent: 'space-between' }}>
+                  <span className="muted">Mesero</span>
+                  <span>{detalle.data.meseroNombre ?? 'Sin datos'}</span>
+                </div>
 
-              <div className="row" style={{ justifyContent: 'space-between' }}>
-                <span className="muted">Fecha</span>
-                <span>{fechaHora(detalle.data.createdAt)}</span>
+                <hr style={{ border: 0, borderTop: '1px solid var(--border)', margin: '4px 0' }} />
+
+                {detalle.data.items && detalle.data.items.length > 0 ? (
+                  <table className="dt" style={{ width: '100%' }}>
+                    <thead>
+                      <tr>
+                        <th>Producto</th>
+                        <th style={{ textAlign: 'right' }}>Cant.</th>
+                        <th style={{ textAlign: 'right' }}>P. unit.</th>
+                        <th style={{ textAlign: 'right' }}>Subtotal</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {detalle.data.items.map((it) => (
+                        <tr key={it.productoId}>
+                          <td>{it.nombre}</td>
+                          <td style={{ textAlign: 'right' }}>{it.cantidad}</td>
+                          <td style={{ textAlign: 'right' }}>{fmt(it.precioUnitario)}</td>
+                          <td style={{ textAlign: 'right' }}>{fmt(it.precioUnitario * it.cantidad)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                ) : (
+                  <span className="muted">Sin detalle de ítems.</span>
+                )}
+
+                <hr style={{ border: 0, borderTop: '1px solid var(--border)', margin: '4px 0' }} />
+
+                <div className="row" style={{ justifyContent: 'space-between' }}>
+                  <strong>Total</strong>
+                  <strong>{fmt(Number(detalle.data.total))}</strong>
+                </div>
               </div>
+            ) : (
+              <div className="modal-scroll" style={{ padding: '18px 20px', display: 'grid', gap: 10 }}>
+                <div className="row" style={{ justifyContent: 'space-between' }}>
+                  <span className="muted">Estado SUNAT</span>
+                  <span className={`badge dot ${ESTADO_BADGE[detalle.data.estado]}`}>{ESTADO_LABEL[detalle.data.estado]}</span>
+                </div>
 
-              <div className="row" style={{ justifyContent: 'space-between' }}>
-                <span className="muted">Cliente</span>
-                <span>
-                  {detalle.data.clienteRazonSocial ?? detalle.data.clienteNombre ?? detalle.data.clienteRuc ?? detalle.data.clienteDni ?? 'Cliente varios'}
-                </span>
-              </div>
-
-              {detalle.kind === 'nota' && (
-                <>
+                {detalle.data.motivoRechazo && (
                   <div className="row" style={{ justifyContent: 'space-between' }}>
-                    <span className="muted">Documento que corrige</span>
-                    <span>
-                      {detalle.data.comprobanteAfectado
-                        ? `${detalle.data.comprobanteAfectado.tipo === 'FACTURA' ? 'Factura' : 'Boleta'} ${detalle.data.comprobanteAfectado.serie}-${detalle.data.comprobanteAfectado.correlativo}`
-                        : '—'}
-                    </span>
+                    <span className="muted">Motivo del rechazo/observación</span>
+                    <span>{detalle.data.motivoRechazo}</span>
                   </div>
-                  <div className="row" style={{ justifyContent: 'space-between' }}>
-                    <span className="muted">Motivo (catálogo SUNAT)</span>
-                    <span>{detalle.data.motivoCodigo ? `${detalle.data.motivoCodigo} · ${detalle.data.motivoDescripcion}` : '—'}</span>
-                  </div>
-                </>
-              )}
+                )}
 
-              <hr style={{ border: 0, borderTop: '1px solid var(--border)', margin: '4px 0' }} />
+                <div className="row" style={{ justifyContent: 'space-between' }}>
+                  <span className="muted">Fecha</span>
+                  <span>{fechaHora(detalle.data.createdAt)}</span>
+                </div>
 
-              <div className="row" style={{ justifyContent: 'space-between' }}>
-                <span className="muted">Subtotal</span>
-                <span>{fmt(Number(detalle.data.subtotal))}</span>
+                <div className="row" style={{ justifyContent: 'space-between' }}>
+                  <span className="muted">Cliente</span>
+                  <span>
+                    {detalle.data.clienteRazonSocial ?? detalle.data.clienteNombre ?? detalle.data.clienteRuc ?? detalle.data.clienteDni ?? 'Cliente varios'}
+                  </span>
+                </div>
+
+                {detalle.kind === 'nota' && (
+                  <>
+                    <div className="row" style={{ justifyContent: 'space-between' }}>
+                      <span className="muted">Documento que corrige</span>
+                      <span>
+                        {detalle.data.comprobanteAfectado
+                          ? `${detalle.data.comprobanteAfectado.tipo === 'FACTURA' ? 'Factura' : 'Boleta'} ${detalle.data.comprobanteAfectado.serie}-${detalle.data.comprobanteAfectado.correlativo}`
+                          : '—'}
+                      </span>
+                    </div>
+                    <div className="row" style={{ justifyContent: 'space-between' }}>
+                      <span className="muted">Motivo (catálogo SUNAT)</span>
+                      <span>{detalle.data.motivoCodigo ? `${detalle.data.motivoCodigo} · ${detalle.data.motivoDescripcion}` : '—'}</span>
+                    </div>
+                  </>
+                )}
+
+                <hr style={{ border: 0, borderTop: '1px solid var(--border)', margin: '4px 0' }} />
+
+                <div className="row" style={{ justifyContent: 'space-between' }}>
+                  <span className="muted">Subtotal</span>
+                  <span>{fmt(Number(detalle.data.subtotal))}</span>
+                </div>
+                <div className="row" style={{ justifyContent: 'space-between' }}>
+                  <span className="muted">IGV</span>
+                  <span>{fmt(Number(detalle.data.igv))}</span>
+                </div>
+                <div className="row" style={{ justifyContent: 'space-between' }}>
+                  <strong>Total</strong>
+                  <strong>{fmt(Number(detalle.data.total))}</strong>
+                </div>
               </div>
-              <div className="row" style={{ justifyContent: 'space-between' }}>
-                <span className="muted">IGV</span>
-                <span>{fmt(Number(detalle.data.igv))}</span>
-              </div>
-              <div className="row" style={{ justifyContent: 'space-between' }}>
-                <strong>Total</strong>
-                <strong>{fmt(Number(detalle.data.total))}</strong>
-              </div>
-            </div>
+            )}
             <div className="modal-foot" style={{ borderTop: '1px solid var(--border)', paddingTop: 14, padding: '14px 20px' }}>
               <button className="btn btn-ghost" onClick={cerrarDetalle}>Cancelar</button>
               <span className="spacer" />
+              {detalle.kind === 'disponible' && (
+                <button
+                  className="btn btn-primary"
+                  disabled={!online || !puedeEmitir}
+                  onClick={() => {
+                    const c = detalle.data;
+                    cerrarDetalle();
+                    abrirEmision(c);
+                  }}
+                >
+                  <Icons.Check s={15} /> Emitir
+                </button>
+              )}
               {detalle.kind === 'comprobante' && detalle.data.estado === 'ACEPTADO' && (
                 <button
                   className="btn btn-primary"

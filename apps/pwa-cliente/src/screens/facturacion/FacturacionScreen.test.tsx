@@ -46,6 +46,15 @@ const disponible = {
   items: [], meseroNombre: 'Pepe', estado: 'DISPONIBLE', fecha: '2026-08-12T10:00:00.000Z',
 };
 
+const disponibleConItems = {
+  id: 'cp4', cuentaId: 'c4', sedeId: 's1', mesaId: 'm4', total: '55.00',
+  items: [
+    { productoId: 'p1', nombre: 'Ceviche de Caballa', cantidad: 1, precioUnitario: 40 },
+    { productoId: 'p2', nombre: 'Cristal', cantidad: 3, precioUnitario: 5 },
+  ],
+  meseroNombre: 'Javier', estado: 'DISPONIBLE', fecha: '2026-08-13T10:00:00.000Z',
+};
+
 const emitido = {
   id: 'cp2', cuentaId: 'c2', sedeId: 's1', mesaId: 'm1', total: '30.00',
   items: [], meseroNombre: 'Ana', estado: 'EMITIDO', fecha: '2026-08-12T09:00:00.000Z',
@@ -354,6 +363,31 @@ describe('FacturacionScreen', () => {
       fireEvent.click(within(dialog).getByRole('button', { name: 'Cancelar' }));
 
       expect(screen.queryByRole('dialog', { name: 'Detalle del comprobante' })).not.toBeInTheDocument();
+    });
+
+    it('el detalle de un comprobante de pago disponible muestra el desglose de ítems', () => {
+      vi.mocked(useFacturacionQuery).mockReturnValue(baseMock({ disponibles: [disponibleConItems] }) as any);
+      render(<FacturacionScreen />);
+
+      fireEvent.click(screen.getByRole('button', { name: 'Ver detalle del comprobante de pago' }));
+
+      const dialog = screen.getByRole('dialog', { name: 'Detalle del comprobante' });
+      expect(within(dialog).getByText('Comprobante de pago')).toBeInTheDocument();
+      expect(within(dialog).getByText('Javier')).toBeInTheDocument();
+      expect(within(dialog).getByText('Ceviche de Caballa')).toBeInTheDocument();
+      expect(within(dialog).getByText('Cristal')).toBeInTheDocument();
+      expect(within(dialog).getByText('S/ 15.00')).toBeInTheDocument(); // subtotal de 3× Cristal (5 c/u)
+    });
+
+    it('desde el detalle de un comprobante de pago disponible se puede pasar directo a emitir', () => {
+      vi.mocked(useFacturacionQuery).mockReturnValue(baseMock({ disponibles: [disponibleConItems] }) as any);
+      render(<FacturacionScreen />);
+
+      fireEvent.click(screen.getByRole('button', { name: 'Ver detalle del comprobante de pago' }));
+      const dialog = screen.getByRole('dialog', { name: 'Detalle del comprobante' });
+      fireEvent.click(within(dialog).getByRole('button', { name: 'Emitir' }));
+
+      expect(screen.getByText(/Emisor: QUISPE MORALES YUSLUNY YANET/)).toBeInTheDocument();
     });
   });
 
