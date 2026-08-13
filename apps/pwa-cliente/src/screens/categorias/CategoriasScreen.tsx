@@ -28,8 +28,9 @@ export function CategoriasScreen() {
     actualizarCategoria,
     eliminarCategoria,
     clearFeedback,
-  // El backend valida limit <= 100 (ListarProductosQuery); 200 rompía la carga.
-  } = useInventarioQuery(undefined, { limit: 100 });
+  // Necesita el catálogo completo: "Con productos" y el bloqueo de borrado se
+  // calculan sobre `productos`, no solo la primera página.
+  } = useInventarioQuery(undefined, { limit: 500 });
 
   const [form, setForm] = useState(INITIAL_FORM);
   const [edit, setEdit] = useState<CategoriaDto | null>(null);
