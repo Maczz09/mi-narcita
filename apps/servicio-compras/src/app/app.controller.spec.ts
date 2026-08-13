@@ -33,59 +33,59 @@ describe('AppController (servicio-compras)', () => {
     jest.clearAllMocks();
   });
 
-  it('listarProveedores delega en ProveedoresService con la sede del usuario', () => {
-    controller.listarProveedores({}, 'sede-001');
+  it('listarProveedores delega en ProveedoresService con la sede del usuario', async () => {
+    await controller.listarProveedores({}, 'sede-001');
     expect(proveedores.listar).toHaveBeenCalledWith({}, 'sede-001');
   });
 
-  it('crearInsumo delega en InsumosService con el sedeId del query', () => {
-    controller.crearInsumo({ nombre: 'X', unidad: 'kg' }, null, 'sede-002');
+  it('crearInsumo delega en InsumosService con el sedeId del query', async () => {
+    await controller.crearInsumo({ nombre: 'X', unidad: 'kg' }, null, 'sede-002');
     expect(insumos.crear).toHaveBeenCalledWith({ nombre: 'X', unidad: 'kg' }, null, 'sede-002');
   });
 
   describe('crearOrden', () => {
-    it('resuelve el usuario autenticado (id + nombre) antes de delegar', () => {
+    it('resuelve el usuario autenticado (id + nombre) antes de delegar', async () => {
       const body = { proveedorNombre: 'X', items: [] };
-      controller.crearOrden(body, 'u-1', 'Ana', null, 'sede-001', undefined);
+      await controller.crearOrden(body, 'u-1', 'Ana', null, 'sede-001', undefined);
       expect(ordenes.crear).toHaveBeenCalledWith(body, { id: 'u-1', nombre: 'Ana' }, 'sede-001', undefined);
     });
 
-    it('cae a email y luego a usuarioId si falta el nombre', () => {
+    it('cae a email y luego a usuarioId si falta el nombre', async () => {
       const body = { proveedorNombre: 'X', items: [] };
-      controller.crearOrden(body, 'u-1', null, 'a@x.pe', 'sede-001');
+      await controller.crearOrden(body, 'u-1', null, 'a@x.pe', 'sede-001');
       expect(ordenes.crear).toHaveBeenCalledWith(body, { id: 'u-1', nombre: 'a@x.pe' }, 'sede-001', undefined);
 
-      controller.crearOrden(body, 'svc', null, null, null);
+      await controller.crearOrden(body, 'svc', null, null, null);
       expect(ordenes.crear).toHaveBeenCalledWith(body, { id: 'svc', nombre: 'svc' }, null, undefined);
     });
 
-    it('usuario null cuando no hay sesión autenticada', () => {
+    it('usuario null cuando no hay sesión autenticada', async () => {
       const body = { proveedorNombre: 'X', items: [] };
-      controller.crearOrden(body, null, null, null, 'sede-001');
+      await controller.crearOrden(body, null, null, null, 'sede-001');
       expect(ordenes.crear).toHaveBeenCalledWith(body, null, 'sede-001', undefined);
     });
   });
 
-  it('enviarOrden / cerrarOrden / anularOrden delegan con id y motivo', () => {
-    controller.enviarOrden('oc-1', 'sede-001');
+  it('enviarOrden / cerrarOrden / anularOrden delegan con id y motivo', async () => {
+    await controller.enviarOrden('oc-1', 'sede-001');
     expect(ordenes.enviar).toHaveBeenCalledWith('oc-1', 'sede-001');
 
-    controller.cerrarOrden('oc-1', { motivo: 'faltante' }, 'sede-001');
+    await controller.cerrarOrden('oc-1', { motivo: 'faltante' }, 'sede-001');
     expect(ordenes.cerrar).toHaveBeenCalledWith('oc-1', 'faltante', 'sede-001');
 
-    controller.anularOrden('oc-1', {}, 'sede-001');
+    await controller.anularOrden('oc-1', {}, 'sede-001');
     expect(ordenes.anular).toHaveBeenCalledWith('oc-1', undefined, 'sede-001');
   });
 
-  it('registrarRecepcion resuelve el usuario y delega en RecepcionesService', () => {
+  it('registrarRecepcion resuelve el usuario y delega en RecepcionesService', async () => {
     const body = { items: [{ ordenItemId: 'it-1', cantidadRecibida: 5 }] };
-    controller.registrarRecepcion('oc-1', body, 'u-1', 'Ana', null, 'sede-001');
+    await controller.registrarRecepcion('oc-1', body, 'u-1', 'Ana', null, 'sede-001');
     expect(recepciones.registrar).toHaveBeenCalledWith('oc-1', body, { id: 'u-1', nombre: 'Ana' }, 'sede-001');
   });
 
-  it('subirComprobante delega el archivo y el body en ComprobantesService', () => {
+  it('subirComprobante delega el archivo y el body en ComprobantesService', async () => {
     const file = { buffer: Buffer.from('x'), originalname: 'a.jpg', mimetype: 'image/jpeg', size: 1 };
-    controller.subirComprobante(file, { tipo: 'BOLETA' }, 'u-1', 'Ana', null, 'sede-001', undefined);
+    await controller.subirComprobante(file, { tipo: 'BOLETA' }, 'u-1', 'Ana', null, 'sede-001', undefined);
     expect(comprobantes.subir).toHaveBeenCalledWith(file, { tipo: 'BOLETA' }, { id: 'u-1', nombre: 'Ana' }, 'sede-001', undefined);
   });
 
@@ -131,8 +131,8 @@ describe('AppController (servicio-compras)', () => {
     });
   });
 
-  it('eliminarComprobante delega en ComprobantesService', () => {
-    controller.eliminarComprobante('cp-1', 'sede-001');
+  it('eliminarComprobante delega en ComprobantesService', async () => {
+    await controller.eliminarComprobante('cp-1', 'sede-001');
     expect(comprobantes.eliminar).toHaveBeenCalledWith('cp-1', 'sede-001');
   });
 });

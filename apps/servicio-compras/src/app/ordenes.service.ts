@@ -133,7 +133,7 @@ export class OrdenesService {
           sedeId,
           codigo,
           proveedorId: command.proveedorId ?? null,
-          proveedorNombre: proveedorNombre!,
+          proveedorNombre,
           estado: OrdenCompraEstado.Borrador,
           fechaEntregaEsperada: command.fechaEntregaEsperada ? new Date(command.fechaEntregaEsperada) : null,
           notas: command.notas ?? null,
