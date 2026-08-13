@@ -15,6 +15,7 @@ const CajaScreen = lazy(() => import('../screens/caja/CajaScreen').then(m => ({ 
 const HistorialCajaScreen = lazy(() => import('../screens/caja/HistorialCajaScreen').then(m => ({ default: m.HistorialCajaScreen })));
 const ReservasScreen = lazy(() => import('../screens/reservas/ReservasScreen').then(m => ({ default: m.ReservasScreen })));
 const InventarioScreen = lazy(() => import('../screens/inventario/InventarioScreen').then(m => ({ default: m.InventarioScreen })));
+const MermasScreen = lazy(() => import('../screens/inventario/MermasScreen').then(m => ({ default: m.MermasScreen })));
 const CategoriasScreen = lazy(() => import('../screens/categorias/CategoriasScreen').then(m => ({ default: m.CategoriasScreen })));
 const ReportesScreen = lazy(() => import('../screens/reportes/ReportesScreen').then(m => ({ default: m.ReportesScreen })));
 const UsuariosScreen = lazy(() => import('../screens/admin/UsuariosScreen').then(m => ({ default: m.UsuariosScreen })));
@@ -131,6 +132,7 @@ export function AppRouter() {
           <Route path="historial-caja" element={<RutaPorRol ruta="historial-caja"><ScreenBoundary modulo="Historial de caja"><HistorialCajaScreen /></ScreenBoundary></RutaPorRol>} />
           <Route path="reservas" element={<RutaPorRol ruta="reservas"><ScreenBoundary modulo="Reservas"><ReservasScreen /></ScreenBoundary></RutaPorRol>} />
           <Route path="inventario" element={<RutaPorRol ruta="inventario"><ScreenBoundary modulo="Inventario"><InventarioScreen /></ScreenBoundary></RutaPorRol>} />
+          <Route path="mermas" element={<RutaPorRol ruta="mermas"><ScreenBoundary modulo="Mermas"><MermasScreen /></ScreenBoundary></RutaPorRol>} />
           <Route path="categorias" element={<RutaPorRol ruta="categorias"><ScreenBoundary modulo="Categorías"><CategoriasScreen /></ScreenBoundary></RutaPorRol>} />
           <Route path="reportes" element={<RutaPorRol ruta="reportes"><ScreenBoundary modulo="Reportes"><ReportesScreen /></ScreenBoundary></RutaPorRol>} />
           <Route path="usuarios" element={<RutaPorRol ruta="usuarios"><ScreenBoundary modulo="Usuarios"><UsuariosScreen /></ScreenBoundary></RutaPorRol>} />

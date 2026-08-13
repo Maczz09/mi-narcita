@@ -35,6 +35,7 @@ export const NAV_GROUPS: NavGroup[] = [
       { key: 'categorias', label: 'Categorías', shortLabel: 'Categorías', icon: 'Tag', priority: 7.5 },
       { key: 'carta', label: 'Carta / Menú', shortLabel: 'Carta', icon: 'Pedidos', priority: 8 },
       { key: 'inventario', label: 'Inventario', shortLabel: 'Stock', icon: 'Inventario', priority: 7 },
+      { key: 'mermas', label: 'Mermas', shortLabel: 'Mermas', icon: 'Alert', priority: 7.2 },
       { key: 'compras', label: 'Compras', shortLabel: 'Compras', icon: 'Bag', priority: 10 },
       { key: 'historial-caja', label: 'Historial de caja', shortLabel: 'Hist. Caja', icon: 'Caja', priority: 9.5 },
       { key: 'reportes', label: 'Reportes', shortLabel: 'Reportes', icon: 'Reportes', priority: 9 },

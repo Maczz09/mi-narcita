@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-misused-promises, @typescript-eslint/no-floating-promises */
 import { useMemo, useState, useEffect, type SubmitEvent } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useOnlineStatus } from '../../hooks/useOnlineStatus';
 import { useInventarioQuery } from '../../hooks/queries/useInventarioQuery';
 import { Icons } from '../../components/ui/icons';
@@ -7,7 +8,6 @@ import { StatKpi } from '../../components/ui/StatKpi';
 import { ProductoTable } from '../../components/inventario/ProductoTable';
 import { NuevoProductoForm } from '../../components/inventario/NuevoProductoForm';
 import { RegistrarMermaModal } from '../../components/inventario/RegistrarMermaModal';
-import { MermasHistorialDrawer } from '../../components/inventario/MermasHistorialDrawer';
 import { useMermasQuery } from '../../hooks/queries/useMermasQuery';
 import { useToast } from '../../components/ui/ToastProvider';
 import { INITIAL_PRODUCT, STOCK_BAJO, computeInventarioKpis } from '../../domain/inventario';
@@ -15,6 +15,7 @@ import type { CrearProductoPayload, ProductoVM } from '../../types/inventario.ty
 
 export function InventarioScreen() {
   const online = useOnlineStatus();
+  const navigate = useNavigate();
   const { toast } = useToast();
   const [categoriaId, setCategoriaId] = useState('');
   const [search, setSearch] = useState('');
@@ -31,7 +32,6 @@ export function InventarioScreen() {
   const [productoForm, setProductoForm] = useState<CrearProductoPayload>(INITIAL_PRODUCT);
   const [stockInputs, setStockInputs] = useState<Record<string, string>>({});
   const [mermaProducto, setMermaProducto] = useState<ProductoVM | null>(null);
-  const [historialMermas, setHistorialMermas] = useState(false);
 
   useEffect(() => {
     const el = document.querySelector('.content');
@@ -103,8 +103,8 @@ export function InventarioScreen() {
           <div className="sub">Productos, disponibilidad y reposición de stock</div>
         </div>
         <span className="spacer" />
-        <button className="btn btn-ghost btn-sm" onClick={() => setHistorialMermas(true)}>
-          <Icons.Alert s={15} /> Historial de mermas
+        <button className="btn btn-ghost btn-sm" onClick={() => navigate('/app/mermas')}>
+          <Icons.Alert s={15} /> Ver mermas
         </button>
         <button className="btn btn-ghost btn-sm" onClick={() => fetch()} title="Refrescar" aria-label="Refrescar inventario">
           <Icons.Refresh s={16} />
@@ -197,7 +197,6 @@ export function InventarioScreen() {
         />
       )}
 
-      {historialMermas && <MermasHistorialDrawer onClose={() => setHistorialMermas(false)} />}
     </div>
   );
 }

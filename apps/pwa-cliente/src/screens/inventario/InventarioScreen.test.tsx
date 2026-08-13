@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { BrowserRouter } from 'react-router-dom';
 import { InventarioScreen } from './InventarioScreen';
 import { ToastProvider } from '../../components/ui/ToastProvider';
 import * as onlineStatusHook from '../../hooks/useOnlineStatus';
@@ -42,9 +43,11 @@ vi.mock('../../components/inventario/NuevoProductoForm', () => ({
 
 function renderScreen() {
   return render(
-    <ToastProvider>
-      <InventarioScreen />
-    </ToastProvider>,
+    <BrowserRouter>
+      <ToastProvider>
+        <InventarioScreen />
+      </ToastProvider>
+    </BrowserRouter>,
   );
 }
 

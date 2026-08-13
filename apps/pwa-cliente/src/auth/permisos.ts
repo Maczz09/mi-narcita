@@ -21,6 +21,7 @@ export const TODAS_LAS_RUTAS = [
   'carta',
   'compras',
   'inventario',
+  'mermas',
   'categorias',
   'reportes',
   'usuarios',
@@ -44,7 +45,7 @@ export const ACCESO_POR_ROL: Record<RolUsuario, AccesoRol> = {
   SISTEMA: { home: 'usuarios', rutas: TODAS_LAS_RUTAS },
   GERENCIA: {
     home: 'reportes',
-    rutas: ['reportes', 'inventario', 'categorias', 'compras', 'carta', 'reservas', 'usuarios', 'auditoria-anulaciones'],
+    rutas: ['reportes', 'inventario', 'mermas', 'categorias', 'compras', 'carta', 'reservas', 'usuarios', 'auditoria-anulaciones'],
   },
   CAJERO: { home: 'caja', rutas: ['caja', 'mesas', 'pedidos'] },
   COCINA: { home: 'cocina', rutas: ['cocina', 'carta'] },
