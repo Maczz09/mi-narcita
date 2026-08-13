@@ -879,6 +879,9 @@ services:
       # volumen desde certificates/ (también gitignorado, nunca en la imagen).
       # Empresa 2 queda "no configurada" hasta tramitar su propio certificado
       # — CertificadoService/EnvioProcessor lo detectan sin tumbar el resto.
+      # A propósito en BETA/homologación, aunque prod ya usa el endpoint real
+      # (ver .env.example) — este stack es para desarrollo local; nunca debe
+      # poder enviar un comprobante real a SUNAT solo por estar probando algo.
       SUNAT_WSDL_URL: 'https://e-beta.sunat.gob.pe/ol-ti-itcpfegem-beta/billService?wsdl'
       SUNAT_PFX_EMPRESA_1_FILE: '/app/certificates/salitral-1/certificado.p12'
       # Cifra las credenciales SUNAT que se suban por el formulario "Configurar

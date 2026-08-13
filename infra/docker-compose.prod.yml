@@ -495,7 +495,10 @@ services:
       # debe fallar si aún no tienes certificado/SOL de una o ambas empresas.
       # Mientras falten, CertificadoService/EnvioProcessor lo detectan y ese
       # comprobante queda FIRMADO sin enviar (nunca se pierde, no gasta intentos).
-      SUNAT_WSDL_URL: ${SUNAT_WSDL_URL:-https://e-beta.sunat.gob.pe/ol-ti-itcpfegem-beta/billService?wsdl}
+      # Fallback de producción — coincide con .env.example. Si algún día se
+      # necesita volver a homologación, sobreescribe SUNAT_WSDL_URL en .env
+      # con la URL de e-beta.sunat.gob.pe (no toques este default).
+      SUNAT_WSDL_URL: ${SUNAT_WSDL_URL:-https://e-factura.sunat.gob.pe/ol-ti-itcpfegem/billService?wsdl}
       SUNAT_PFX_EMPRESA_1_FILE: ${SUNAT_PFX_EMPRESA_1_FILE:-}
       SUNAT_PFX_EMPRESA_1_PASS: ${SUNAT_PFX_EMPRESA_1_PASS:-}
       SUNAT_SOL_USER_EMPRESA_1: ${SUNAT_SOL_USER_EMPRESA_1:-}
