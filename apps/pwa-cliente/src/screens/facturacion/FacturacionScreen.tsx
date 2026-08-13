@@ -13,11 +13,12 @@ import { useToast } from '../../components/ui/ToastProvider';
 import { useFocusTrap } from '../../hooks/useFocusTrap';
 import { useOnlineStatus } from '../../hooks/useOnlineStatus';
 import { fmt } from '../../utils/format';
+import { rangoDePeriodo } from '../../utils/periodos';
 import { useFacturacionQuery } from '../../hooks/queries/useFacturacionQuery';
 import { abrirComprobanteParaImprimir } from '../../utils/comprobantePrint';
 import { ConfigurarEmpresaModal } from './ConfigurarEmpresaModal';
 import { CATALOGO_MOTIVOS_NOTA_CREDITO, CATALOGO_MOTIVOS_NOTA_DEBITO } from '../../types/facturacion.types';
-import type { ComprobanteDto, ComprobantePagoDto, EstadoComprobante, TipoComprobante, TipoNota } from '../../types/facturacion.types';
+import type { ComprobanteDto, ComprobantePagoDto, EstadoComprobante, NotaDto, TipoComprobante, TipoNota } from '../../types/facturacion.types';
 
 const ESTADO_BADGE: Record<EstadoComprobante, string> = {
   FIRMADO: 'badge-info',
@@ -53,6 +54,9 @@ function enRango(iso: string, desde: string, hasta: string): boolean {
 }
 
 type FiltroEstado = '' | 'PENDIENTE' | 'ACEPTADO' | 'RECHAZADO' | 'OBSERVADO';
+type FiltroTipoNota = '' | TipoNota;
+
+type Detalle = { kind: 'comprobante'; data: ComprobanteDto } | { kind: 'nota'; data: NotaDto };
 
 export function FacturacionScreen() {
   const online = useOnlineStatus();
@@ -69,6 +73,15 @@ export function FacturacionScreen() {
   const [hasta, setHasta] = useState('');
   const [filtroTipo, setFiltroTipo] = useState<TipoComprobante | ''>('');
   const [filtroEstado, setFiltroEstado] = useState<FiltroEstado>('');
+  const [filtroTipoNota, setFiltroTipoNota] = useState<FiltroTipoNota>('');
+  const [filtroEstadoNota, setFiltroEstadoNota] = useState<FiltroEstado>('');
+  const [detalle, setDetalle] = useState<Detalle | null>(null);
+
+  const aplicarPeriodo = (periodo: 'dia' | 'semana' | 'mes') => {
+    const r = rangoDePeriodo(periodo);
+    setDesde(r.desde);
+    setHasta(r.hasta);
+  };
 
   const disponiblesFiltrados = useMemo(
     () => disponibles.filter((c) => enRango(c.fecha, desde, hasta)),
@@ -86,6 +99,18 @@ export function FacturacionScreen() {
         return estado === filtroEstado;
       }),
     [emitidos, desde, hasta, filtroTipo, filtroEstado],
+  );
+
+  const notasFiltradas = useMemo(
+    () =>
+      notas.filter((n) => {
+        if (!enRango(n.createdAt, desde, hasta)) return false;
+        if (filtroTipoNota && n.tipo !== filtroTipoNota) return false;
+        if (!filtroEstadoNota) return true;
+        if (filtroEstadoNota === 'PENDIENTE') return n.estado === 'FIRMADO' || n.estado === 'ENVIADO';
+        return n.estado === filtroEstadoNota;
+      }),
+    [notas, desde, hasta, filtroTipoNota, filtroEstadoNota],
   );
 
   const [emitir, setEmitir] = useState<ComprobantePagoDto | null>(null);
@@ -108,6 +133,10 @@ export function FacturacionScreen() {
 
   const cerrarNotaModal = () => { setNotaPara(null); clearFeedbackNota(); };
   useFocusTrap(notaModalRef, { active: !!notaPara, onClose: cerrarNotaModal });
+
+  const detalleModalRef = useRef<HTMLDialogElement>(null);
+  const cerrarDetalle = () => setDetalle(null);
+  useFocusTrap(detalleModalRef, { active: !!detalle, onClose: cerrarDetalle });
 
   const catalogoNota = tipoNota === 'NOTA_CREDITO' ? CATALOGO_MOTIVOS_NOTA_CREDITO : CATALOGO_MOTIVOS_NOTA_DEBITO;
 
@@ -191,12 +220,14 @@ export function FacturacionScreen() {
 
   const pendientesSunat = emitidosFiltrados.filter((c) => c.comprobante?.estado === 'FIRMADO' || c.comprobante?.estado === 'ENVIADO').length;
   const aceptados = emitidosFiltrados.filter((c) => c.comprobante?.estado === 'ACEPTADO').length;
-  const hayFiltros = !!(desde || hasta || filtroTipo || filtroEstado);
+  const hayFiltros = !!(desde || hasta || filtroTipo || filtroEstado || filtroTipoNota || filtroEstadoNota);
   const limpiarFiltros = () => {
     setDesde('');
     setHasta('');
     setFiltroTipo('');
     setFiltroEstado('');
+    setFiltroTipoNota('');
+    setFiltroEstadoNota('');
   };
 
   return (
@@ -247,6 +278,11 @@ export function FacturacionScreen() {
       </div>
 
       <div className="module-toolbar" style={{ marginBottom: 16 }}>
+        <fieldset className="filters" aria-label="Periodo rápido">
+          <button className="chip" onClick={() => aplicarPeriodo('dia')}>Hoy</button>
+          <button className="chip" onClick={() => aplicarPeriodo('semana')}>Esta semana</button>
+          <button className="chip" onClick={() => aplicarPeriodo('mes')}>Este mes</button>
+        </fieldset>
         <div className="field" style={{ marginBottom: 0 }}>
           <label htmlFor="fact-desde">Desde</label>
           <div className="input"><input id="fact-desde" type="date" value={desde} onChange={(e) => setDesde(e.target.value)} /></div>
@@ -381,24 +417,36 @@ export function FacturacionScreen() {
                         ) : '—'}
                       </td>
                       <td className="cell-action">
-                        {comprobante?.estado === 'ACEPTADO' && (
+                        {comprobante && (
                           <div className="row" style={{ gap: 6, justifyContent: 'flex-end' }}>
                             <button
                               className="btn btn-sm btn-ghost"
-                              title="Emitir nota de crédito/débito"
-                              aria-label="Emitir nota de crédito o débito"
-                              onClick={() => abrirNota(comprobante)}
+                              title="Ver detalle"
+                              aria-label="Ver detalle del comprobante"
+                              onClick={() => setDetalle({ kind: 'comprobante', data: comprobante })}
                             >
-                              <Icons.Edit s={15} />
+                              <Icons.Eye s={15} />
                             </button>
-                            <button
-                              className="btn btn-sm btn-ghost"
-                              title="Imprimir comprobante"
-                              aria-label="Imprimir comprobante"
-                              onClick={() => abrirComprobanteParaImprimir({ comprobante, items: c.items ?? [] })}
-                            >
-                              <Icons.Print s={15} />
-                            </button>
+                            {comprobante.estado === 'ACEPTADO' && (
+                              <>
+                                <button
+                                  className="btn btn-sm btn-ghost"
+                                  title="Emitir nota de crédito/débito"
+                                  aria-label="Emitir nota de crédito o débito"
+                                  onClick={() => abrirNota(comprobante)}
+                                >
+                                  <Icons.Edit s={15} />
+                                </button>
+                                <button
+                                  className="btn btn-sm btn-ghost"
+                                  title="Imprimir comprobante"
+                                  aria-label="Imprimir comprobante"
+                                  onClick={() => abrirComprobanteParaImprimir({ comprobante, items: c.items ?? [] })}
+                                >
+                                  <Icons.Print s={15} />
+                                </button>
+                              </>
+                            )}
                           </div>
                         )}
                       </td>
@@ -415,18 +463,34 @@ export function FacturacionScreen() {
         <div className="panel-h">
           <h3>Notas de crédito / débito</h3>
           <span className="spacer" />
-          <span className="badge badge-info">{notas.length}</span>
+          <span className="badge badge-info">{notasFiltradas.length}</span>
         </div>
 
-        {!notasLoading && notas.length === 0 && (
+        <div className="module-toolbar" style={{ padding: '0 16px 12px' }}>
+          <fieldset className="filters" aria-label="Filtrar por tipo de nota">
+            <button className={`chip ${filtroTipoNota === '' ? 'on' : ''}`} onClick={() => setFiltroTipoNota('')}>Todas</button>
+            <button className={`chip ${filtroTipoNota === 'NOTA_CREDITO' ? 'on' : ''}`} onClick={() => setFiltroTipoNota('NOTA_CREDITO')}>Crédito</button>
+            <button className={`chip ${filtroTipoNota === 'NOTA_DEBITO' ? 'on' : ''}`} onClick={() => setFiltroTipoNota('NOTA_DEBITO')}>Débito</button>
+          </fieldset>
+          <span className="spacer" />
+          <fieldset className="filters" aria-label="Filtrar notas por estado SUNAT">
+            <button className={`chip ${filtroEstadoNota === '' ? 'on' : ''}`} onClick={() => setFiltroEstadoNota('')}>Todas</button>
+            <button className={`chip ${filtroEstadoNota === 'PENDIENTE' ? 'on' : ''}`} onClick={() => setFiltroEstadoNota('PENDIENTE')}>Sin resolver</button>
+            <button className={`chip ${filtroEstadoNota === 'ACEPTADO' ? 'on' : ''}`} onClick={() => setFiltroEstadoNota('ACEPTADO')}>Aceptadas</button>
+            <button className={`chip ${filtroEstadoNota === 'RECHAZADO' ? 'on' : ''}`} onClick={() => setFiltroEstadoNota('RECHAZADO')}>Rechazadas</button>
+            <button className={`chip ${filtroEstadoNota === 'OBSERVADO' ? 'on' : ''}`} onClick={() => setFiltroEstadoNota('OBSERVADO')}>Observadas</button>
+          </fieldset>
+        </div>
+
+        {!notasLoading && notasFiltradas.length === 0 && (
           <div className="empty">
             <div className="e-ic"><Icons.Edit s={24} /></div>
-            <h3>Todavía no emitiste ninguna</h3>
-            <p>Aparecen acá las notas que emitas sobre un comprobante ya aceptado por SUNAT.</p>
+            <h3>{notas.length === 0 ? 'Todavía no emitiste ninguna' : 'Nada con este filtro'}</h3>
+            <p>{notas.length === 0 ? 'Aparecen acá las notas que emitas sobre un comprobante ya aceptado por SUNAT.' : 'Prueba ampliando el rango de fechas o cambiando el filtro.'}</p>
           </div>
         )}
 
-        {notas.length > 0 && (
+        {notasFiltradas.length > 0 && (
           <div className="table-wrap table-wrap-flat">
             <table className="dt">
               <thead>
@@ -436,10 +500,11 @@ export function FacturacionScreen() {
                   <th className="col-mobile-hidden">Motivo</th>
                   <th style={{ textAlign: 'right' }}>Monto</th>
                   <th>Estado SUNAT</th>
+                  <th className="cell-action"></th>
                 </tr>
               </thead>
               <tbody>
-                {notas.map((n) => (
+                {notasFiltradas.map((n) => (
                   <tr key={n.id}>
                     <td>
                       <strong>{n.tipo === 'NOTA_CREDITO' ? 'NC' : 'ND'} {n.serie}-{n.correlativo}</strong>
@@ -455,6 +520,16 @@ export function FacturacionScreen() {
                       <span className={`badge dot ${ESTADO_BADGE[n.estado]}`} title={n.motivoRechazo ?? undefined}>
                         {ESTADO_LABEL[n.estado]}
                       </span>
+                    </td>
+                    <td className="cell-action">
+                      <button
+                        className="btn btn-sm btn-ghost"
+                        title="Ver detalle"
+                        aria-label="Ver detalle de la nota"
+                        onClick={() => setDetalle({ kind: 'nota', data: n })}
+                      >
+                        <Icons.Eye s={15} />
+                      </button>
                     </td>
                   </tr>
                 ))}
@@ -623,6 +698,96 @@ export function FacturacionScreen() {
               <button className="btn btn-primary" disabled={emitiendoNota} onClick={() => void confirmarNota()}>
                 {emitiendoNota ? <span className="spinner" /> : <Icons.Check s={15} />} Emitir {tipoNota === 'NOTA_CREDITO' ? 'nota de crédito' : 'nota de débito'}
               </button>
+            </div>
+          </dialog>
+        </div>
+      )}
+
+      {detalle && (
+        <div className="modal-wrap">
+          <Scrim onClose={cerrarDetalle} />
+          <dialog open className="modal" ref={detalleModalRef} aria-modal="true" aria-label="Detalle del comprobante" style={{ position: 'relative', zIndex: 1 }}>
+            <div className="panel-h" style={{ padding: '16px 20px' }}>
+              <h3 style={{ fontSize: 18 }}>
+                {detalle.kind === 'nota'
+                  ? `${detalle.data.tipo === 'NOTA_CREDITO' ? 'Nota de crédito' : 'Nota de débito'} ${detalle.data.serie}-${detalle.data.correlativo}`
+                  : `${detalle.data.tipo === 'FACTURA' ? 'Factura' : 'Boleta'} ${detalle.data.serie}-${detalle.data.correlativo}`}
+              </h3>
+              <span className="spacer" />
+              <button className="icon-btn" onClick={cerrarDetalle} aria-label="Cerrar detalle"><Icons.Close s={17} /></button>
+            </div>
+            <div className="modal-scroll" style={{ padding: '18px 20px', display: 'grid', gap: 10 }}>
+              <div className="row" style={{ justifyContent: 'space-between' }}>
+                <span className="muted">Estado SUNAT</span>
+                <span className={`badge dot ${ESTADO_BADGE[detalle.data.estado]}`}>{ESTADO_LABEL[detalle.data.estado]}</span>
+              </div>
+
+              {detalle.data.motivoRechazo && (
+                <div className="row" style={{ justifyContent: 'space-between' }}>
+                  <span className="muted">Motivo del rechazo/observación</span>
+                  <span>{detalle.data.motivoRechazo}</span>
+                </div>
+              )}
+
+              <div className="row" style={{ justifyContent: 'space-between' }}>
+                <span className="muted">Fecha</span>
+                <span>{fechaHora(detalle.data.createdAt)}</span>
+              </div>
+
+              <div className="row" style={{ justifyContent: 'space-between' }}>
+                <span className="muted">Cliente</span>
+                <span>
+                  {detalle.data.clienteRazonSocial ?? detalle.data.clienteNombre ?? detalle.data.clienteRuc ?? detalle.data.clienteDni ?? 'Cliente varios'}
+                </span>
+              </div>
+
+              {detalle.kind === 'nota' && (
+                <>
+                  <div className="row" style={{ justifyContent: 'space-between' }}>
+                    <span className="muted">Documento que corrige</span>
+                    <span>
+                      {detalle.data.comprobanteAfectado
+                        ? `${detalle.data.comprobanteAfectado.tipo === 'FACTURA' ? 'Factura' : 'Boleta'} ${detalle.data.comprobanteAfectado.serie}-${detalle.data.comprobanteAfectado.correlativo}`
+                        : '—'}
+                    </span>
+                  </div>
+                  <div className="row" style={{ justifyContent: 'space-between' }}>
+                    <span className="muted">Motivo (catálogo SUNAT)</span>
+                    <span>{detalle.data.motivoCodigo ? `${detalle.data.motivoCodigo} · ${detalle.data.motivoDescripcion}` : '—'}</span>
+                  </div>
+                </>
+              )}
+
+              <hr style={{ border: 0, borderTop: '1px solid var(--border)', margin: '4px 0' }} />
+
+              <div className="row" style={{ justifyContent: 'space-between' }}>
+                <span className="muted">Subtotal</span>
+                <span>{fmt(Number(detalle.data.subtotal))}</span>
+              </div>
+              <div className="row" style={{ justifyContent: 'space-between' }}>
+                <span className="muted">IGV</span>
+                <span>{fmt(Number(detalle.data.igv))}</span>
+              </div>
+              <div className="row" style={{ justifyContent: 'space-between' }}>
+                <strong>Total</strong>
+                <strong>{fmt(Number(detalle.data.total))}</strong>
+              </div>
+            </div>
+            <div className="modal-foot" style={{ borderTop: '1px solid var(--border)', paddingTop: 14, padding: '14px 20px' }}>
+              <button className="btn btn-ghost" onClick={cerrarDetalle}>Cancelar</button>
+              <span className="spacer" />
+              {detalle.kind === 'comprobante' && detalle.data.estado === 'ACEPTADO' && (
+                <button
+                  className="btn btn-primary"
+                  onClick={() => {
+                    const c = detalle.data;
+                    cerrarDetalle();
+                    abrirNota(c);
+                  }}
+                >
+                  <Icons.Edit s={15} /> Emitir nota
+                </button>
+              )}
             </div>
           </dialog>
         </div>

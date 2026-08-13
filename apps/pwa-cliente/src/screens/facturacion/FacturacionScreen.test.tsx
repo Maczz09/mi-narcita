@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, within, fireEvent, waitFor } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { FacturacionScreen } from './FacturacionScreen';
 import { useFacturacionQuery } from '../../hooks/queries/useFacturacionQuery';
@@ -278,6 +278,82 @@ describe('FacturacionScreen', () => {
 
       expect(screen.getByText('ND FD01-1')).toBeInTheDocument();
       expect(screen.getByText('Rechazado')).toBeInTheDocument();
+    });
+
+    it('el chip Crédito filtra las notas de débito', () => {
+      const notaCredito = { id: 'n1', tipo: 'NOTA_CREDITO', serie: 'FC01', correlativo: 1, clienteRuc: null, clienteDni: null, clienteRazonSocial: null, clienteNombre: null, motivoCodigo: '01', motivoDescripcion: 'Anulación de la operación', subtotal: '12.71', igv: '2.29', total: '15.00', estado: 'ACEPTADO', motivoRechazo: null, createdAt: '2026-08-12T10:00:00.000Z', comprobanteAfectado: { tipo: 'BOLETA', serie: 'B001', correlativo: 1 } };
+      const notaDebito = { id: 'n2', tipo: 'NOTA_DEBITO', serie: 'FD01', correlativo: 1, clienteRuc: null, clienteDni: null, clienteRazonSocial: null, clienteNombre: null, motivoCodigo: '01', motivoDescripcion: 'Intereses por mora', subtotal: '8.47', igv: '1.53', total: '10.00', estado: 'ACEPTADO', motivoRechazo: null, createdAt: '2026-08-12T10:00:00.000Z', comprobanteAfectado: { tipo: 'BOLETA', serie: 'B001', correlativo: 2 } };
+      vi.mocked(useFacturacionQuery).mockReturnValue(baseMock({ notas: [notaCredito, notaDebito] }) as any);
+      render(<FacturacionScreen />);
+
+      fireEvent.click(screen.getByRole('button', { name: 'Crédito' }));
+      expect(screen.getByText('NC FC01-1')).toBeInTheDocument();
+      expect(screen.queryByText('ND FD01-1')).not.toBeInTheDocument();
+    });
+  });
+
+  describe('período rápido (hoy / semana / mes)', () => {
+    it('"Hoy" fija Desde y Hasta a la fecha de hoy', () => {
+      render(<FacturacionScreen />);
+      fireEvent.click(screen.getByRole('button', { name: 'Hoy' }));
+
+      const hoy = new Date().toLocaleDateString('en-CA');
+      expect(screen.getByLabelText('Desde')).toHaveValue(hoy);
+      expect(screen.getByLabelText('Hasta')).toHaveValue(hoy);
+      expect(screen.getByRole('button', { name: 'Limpiar filtros' })).toBeInTheDocument();
+    });
+  });
+
+  describe('ver detalle en modal', () => {
+    it('el detalle de un comprobante muestra estado, cliente y montos', () => {
+      render(<FacturacionScreen />);
+      fireEvent.click(screen.getAllByRole('button', { name: 'Ver detalle del comprobante' })[0]);
+
+      const dialog = screen.getByRole('dialog', { name: 'Detalle del comprobante' });
+      expect(within(dialog).getByText('Boleta B001-5')).toBeInTheDocument();
+      expect(within(dialog).getByText('Aceptado por SUNAT')).toBeInTheDocument();
+      expect(within(dialog).getByText('Cliente varios')).toBeInTheDocument();
+      expect(within(dialog).getByText('S/ 30.00')).toBeInTheDocument();
+    });
+
+    it('el detalle de un comprobante RECHAZADO muestra el motivo', () => {
+      render(<FacturacionScreen />);
+      fireEvent.click(screen.getAllByRole('button', { name: 'Ver detalle del comprobante' })[1]);
+
+      const dialog = screen.getByRole('dialog', { name: 'Detalle del comprobante' });
+      expect(within(dialog).getByText('Factura F001-2')).toBeInTheDocument();
+      expect(within(dialog).getByText('RUC no habido')).toBeInTheDocument();
+      expect(within(dialog).getByText('CLIENTE SAC')).toBeInTheDocument();
+    });
+
+    it('el detalle de una nota muestra el documento que corrige y el motivo', () => {
+      const nota = { id: 'n1', tipo: 'NOTA_CREDITO', serie: 'FC01', correlativo: 1, clienteRuc: null, clienteDni: null, clienteRazonSocial: null, clienteNombre: null, motivoCodigo: '01', motivoDescripcion: 'Anulación de la operación', subtotal: '12.71', igv: '2.29', total: '15.00', estado: 'ACEPTADO', motivoRechazo: null, createdAt: '2026-08-12T10:00:00.000Z', comprobanteAfectado: { tipo: 'BOLETA', serie: 'B001', correlativo: 5 } };
+      vi.mocked(useFacturacionQuery).mockReturnValue(baseMock({ notas: [nota] }) as any);
+      render(<FacturacionScreen />);
+
+      fireEvent.click(screen.getByRole('button', { name: 'Ver detalle de la nota' }));
+
+      const dialog = screen.getByRole('dialog', { name: 'Detalle del comprobante' });
+      expect(within(dialog).getByText('Nota de crédito FC01-1')).toBeInTheDocument();
+      expect(within(dialog).getByText('Boleta B001-5')).toBeInTheDocument();
+      expect(within(dialog).getByText('01 · Anulación de la operación')).toBeInTheDocument();
+    });
+
+    it('desde el detalle de un comprobante ACEPTADO se puede pasar directo a emitir nota', () => {
+      render(<FacturacionScreen />);
+      fireEvent.click(screen.getAllByRole('button', { name: 'Ver detalle del comprobante' })[0]);
+      fireEvent.click(screen.getByRole('button', { name: 'Emitir nota' }));
+
+      expect(screen.getByText('Nota sobre boleta B001-5')).toBeInTheDocument();
+    });
+
+    it('cierra con el botón Cancelar', () => {
+      render(<FacturacionScreen />);
+      fireEvent.click(screen.getAllByRole('button', { name: 'Ver detalle del comprobante' })[0]);
+      const dialog = screen.getByRole('dialog', { name: 'Detalle del comprobante' });
+      fireEvent.click(within(dialog).getByRole('button', { name: 'Cancelar' }));
+
+      expect(screen.queryByRole('dialog', { name: 'Detalle del comprobante' })).not.toBeInTheDocument();
     });
   });
 

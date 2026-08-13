@@ -57,6 +57,10 @@ export interface NotaDto {
   tipo: TipoNota;
   serie: string;
   correlativo: number;
+  clienteRuc: string | null;
+  clienteDni: string | null;
+  clienteRazonSocial: string | null;
+  clienteNombre: string | null;
   motivoCodigo: string | null;
   motivoDescripcion: string | null;
   subtotal: number | string;
