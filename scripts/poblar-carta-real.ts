@@ -29,7 +29,7 @@ const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'nachopps123';
 const SEDE_ID = process.env.SEDE_ID || '';
 const DEV_HOSTS = new Set(['localhost', '127.0.0.1', '::1', 'kong']);
 
-interface Categoria { id: string; nombre: string; descripcion?: string }
+interface Categoria { id: string; nombre: string; descripcion?: string; area?: string }
 interface Producto { id: string; categoriaId: string; nombre: string; precio: number; stockActual?: number }
 interface Insumo { id: string; nombre: string }
 
@@ -48,9 +48,9 @@ async function login(): Promise<string> {
 
 const sedeQs = SEDE_ID ? `?sedeId=${SEDE_ID}` : '';
 
-async function crearCategoria(token: string, nombre: string, descripcion?: string): Promise<Categoria> {
+async function crearCategoria(token: string, nombre: string, descripcion?: string, area?: string): Promise<Categoria> {
   try {
-    const res = await axios.post(`${BASE}/inventario/categorias${sedeQs}`, { nombre, descripcion }, { headers: authHeaders(token) });
+    const res = await axios.post(`${BASE}/inventario/categorias${sedeQs}`, { nombre, descripcion, area }, { headers: authHeaders(token) });
     console.log(`   ✅ Categoría: ${nombre}`);
     return res.data.categoria;
   } catch (err: any) {
@@ -280,9 +280,12 @@ const TODAS_LAS_CATEGORIAS = [
   { nombre: 'Pasados por Agua Caliente' },
   { nombre: 'Bebidas de la Casa' },
   { nombre: 'Domingos y Feriados' },
-  { nombre: 'Cerveza' },
-  { nombre: 'Gaseosas' },
-  { nombre: 'Agua Mineral' },
+  // Área INVENTARIO: productos con control de stock, van directo a cuenta sin
+  // pasar por Cocina/Barra (ver assertStockCoincideConAreaCategoria en
+  // servicio-inventario — un producto con stockActual SOLO puede vivir acá).
+  { nombre: 'Cerveza', area: 'INVENTARIO' },
+  { nombre: 'Gaseosas', area: 'INVENTARIO' },
+  { nombre: 'Agua Mineral', area: 'INVENTARIO' },
   { nombre: 'Postres', descripcion: 'Variedad de postres — agregar cada uno desde la carta cuando esté definido el surtido' },
 ];
 
@@ -298,7 +301,7 @@ async function main() {
   console.log('\n📦 Creando categorías...');
   const categorias: Record<string, Categoria> = {};
   for (const c of TODAS_LAS_CATEGORIAS) {
-    categorias[c.nombre] = await crearCategoria(token, c.nombre, (c as any).descripcion);
+    categorias[c.nombre] = await crearCategoria(token, c.nombre, (c as any).descripcion, (c as any).area);
   }
 
   console.log('\n🍽️  Creando platos con Personal/Mediana/Familiar...');

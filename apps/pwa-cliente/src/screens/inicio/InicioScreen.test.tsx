@@ -44,10 +44,10 @@ vi.mock('../../hooks/useInicioData', () => ({
   useInicioData: () => mockUseInicioData(),
 }));
 
-// TopProductosPanel maneja su propia consulta (con filtro de período) —
-// se prueba por separado en TopProductosPanel.test.tsx.
-vi.mock('./TopProductosPanel', () => ({
-  TopProductosPanel: () => <div data-testid="top-productos-panel" />,
+// TopVentasPanel maneja su propia consulta (con filtro de período) —
+// se prueba por separado en TopVentasPanel.test.tsx.
+vi.mock('./TopVentasPanel', () => ({
+  TopVentasPanel: ({ titulo }: { titulo: string }) => <div data-testid="top-ventas-panel">{titulo}</div>,
 }));
 
 // Datos base vacíos/cero
@@ -164,9 +164,11 @@ describe('InicioScreen', () => {
     expect(mockNavigate).toHaveBeenCalledWith('/app/mesas');
   });
 
-  it('renderiza el panel de "Top productos"', () => {
+  it('renderiza los paneles "Top platos" y "Top productos" por separado', () => {
     render(<InicioScreen />);
-    expect(screen.getByTestId('top-productos-panel')).toBeInTheDocument();
+    const paneles = screen.getAllByTestId('top-ventas-panel');
+    expect(paneles).toHaveLength(2);
+    expect(paneles.map((p) => p.textContent)).toEqual(['Top platos', 'Top productos']);
   });
 
   it('renderiza sección "Requiere atención"', () => {

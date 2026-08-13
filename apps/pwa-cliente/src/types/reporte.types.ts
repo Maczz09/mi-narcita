@@ -6,14 +6,19 @@ export interface EstadisticasTicketDto {
   moda: number | null;
 }
 
+export type RankingProducto = Array<{ productoId?: string; nombre: string; cantidad: number; ingresos?: number }>;
+
 export interface ResumenDto {
   fecha: string;
   hasta?: string;
   totalVentas: number;
   ingresosTotales: number;
   ventasPorHora?: Array<{ hora: string; total: number; ingresos?: number }>;
-  topProductos?: Array<{ productoId?: string; nombre: string; cantidad: number; ingresos?: number }>;
-  productosMenosVendidos?: Array<{ productoId?: string; nombre: string; cantidad: number; ingresos?: number }>;
+  /** Carta/Menú — platos y tragos preparados (cocina + barra). */
+  topPlatos?: RankingProducto;
+  /** Inventario — productos con stock que se sirven directo, sin preparación. */
+  topProductos?: RankingProducto;
+  productosMenosVendidos?: RankingProducto;
   estadisticasTicket?: EstadisticasTicketDto;
 }
 
@@ -35,9 +40,10 @@ export interface ResumenVM {
   ticketPromedio: number | null;
   ticketPromedioLabel: string;
   ventasPorHora: Array<{ hora: string; total: number; ingresos?: number }>;
-  topProductos: Array<{ productoId?: string; nombre: string; cantidad: number; ingresos?: number }>;
+  topPlatos: RankingProducto;
+  topProductos: RankingProducto;
   /** Entre lo que sí se vendió al menos una vez — no es "productos sin ninguna venta". */
-  productosMenosVendidos: Array<{ productoId?: string; nombre: string; cantidad: number; ingresos?: number }>;
+  productosMenosVendidos: RankingProducto;
   estadisticasTicket: {
     media: number;
     mediana: number;

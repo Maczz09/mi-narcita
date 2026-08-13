@@ -3,6 +3,7 @@ import {
   IsArray,
   IsBoolean,
   IsDateString,
+  IsEnum,
   IsInt,
   IsNumber,
   IsOptional,
@@ -13,6 +14,18 @@ import {
   ValidateNested,
 } from 'class-validator';
 import { Transform, Type } from 'class-transformer';
+
+// Determina qué módulo administra la categoría (Carta vs Inventario) y, si es
+// Carta, a qué estación de producción se enruta un pedido — el dueño la elige
+// explícitamente al crear/editar la categoría (nunca se infiere del nombre),
+// para que el ruteo sea escalable sin tocar código (ver ItemArea en pedidos.ts).
+export const CategoriaArea = {
+  Cocina: 'COCINA',
+  Barra: 'BARRA',
+  Inventario: 'INVENTARIO',
+} as const;
+
+export type CategoriaArea = (typeof CategoriaArea)[keyof typeof CategoriaArea];
 
 export class StockBajoPayload {
   @IsString()
@@ -65,6 +78,8 @@ export class CategoriaDto {
   @IsOptional()
   @IsString()
   parentId?: string | null;
+  @IsEnum(CategoriaArea)
+  area: CategoriaArea;
 }
 
 export class CrearCategoriaCommand {
@@ -76,6 +91,9 @@ export class CrearCategoriaCommand {
   @IsOptional()
   @IsString()
   parentId?: string;
+  @IsOptional()
+  @IsEnum(CategoriaArea)
+  area?: CategoriaArea;
 }
 
 export class ActualizarCategoriaCommand {
@@ -88,6 +106,9 @@ export class ActualizarCategoriaCommand {
   @IsOptional()
   @IsString()
   parentId?: string | null;
+  @IsOptional()
+  @IsEnum(CategoriaArea)
+  area?: CategoriaArea;
 }
 
 export class ProductoDto {
@@ -331,6 +352,9 @@ export class ProductoCreadoPayload {
   @IsOptional()
   @IsString()
   categoriaNombre?: string;
+  @IsOptional()
+  @IsEnum(CategoriaArea)
+  categoriaArea?: CategoriaArea;
   @IsBoolean()
   disponible: boolean;
 }
@@ -351,6 +375,9 @@ export class ProductoActualizadoPayload {
   @IsOptional()
   @IsString()
   categoriaNombre?: string;
+  @IsOptional()
+  @IsEnum(CategoriaArea)
+  categoriaArea?: CategoriaArea;
   @IsBoolean()
   disponible: boolean;
   @IsOptional()

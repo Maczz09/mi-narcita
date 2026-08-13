@@ -42,6 +42,7 @@ export function mapResumen(dto: ResumenDto): ResumenVM {
     ticketPromedio,
     ticketPromedioLabel: ticketPromedio === null ? 'Sin ventas' : formatMoney(ticketPromedio),
     ventasPorHora: dto.ventasPorHora ?? [],
+    topPlatos: dto.topPlatos ?? [],
     topProductos: dto.topProductos ?? [],
     productosMenosVendidos: dto.productosMenosVendidos ?? [],
     estadisticasTicket: {

@@ -73,7 +73,9 @@ describe('AppService — Reportes', () => {
       hora: '13:00',
       total: 100,
     });
-    expect(resumen.topProductos[0]).toEqual({
+    // Ambos ítems sin `area` (legado/venta directa desde Comandero de prueba)
+    // caen en topPlatos por defecto — solo `area: 'DIRECTO'` va a topProductos.
+    expect(resumen.topPlatos[0]).toEqual({
       productoId: 'prod-1',
       nombre: 'Nachos',
       cantidad: 3,
@@ -88,6 +90,29 @@ describe('AppService — Reportes', () => {
     expect(resumen.estadisticasTicket).toEqual({ media: 50, mediana: 50, moda: null });
 
     jest.useRealTimers();
+  });
+
+  it('separa topPlatos (Carta/Menú) de topProductos (Inventario) según el área del ítem', async () => {
+    prisma.ventaDiaria.findMany.mockResolvedValue([
+      {
+        total: 58,
+        fecha: new Date('2026-01-02T18:00:00.000Z'),
+        items: [
+          { productoId: 'p1', nombre: 'Ceviche', cantidad: 2, precioUnitario: 25, area: 'COCINA' },
+          { productoId: 'p2', nombre: 'Mojito', cantidad: 1, precioUnitario: 20, area: 'BAR' },
+          { productoId: 'p3', nombre: 'Cristal', cantidad: 3, precioUnitario: 8, area: 'DIRECTO' },
+        ],
+      },
+    ]);
+
+    const resumen = await service.obtenerResumenDiario();
+
+    // Carta/Menú: cocina y barra van juntos a topPlatos (ambos pasan por producción).
+    expect(resumen.topPlatos.map((p) => p.productoId).sort()).toEqual(['p1', 'p2']);
+    // Inventario: solo lo que se sirve directo, sin preparación.
+    expect(resumen.topProductos).toEqual([
+      { productoId: 'p3', nombre: 'Cristal', cantidad: 3, ingresos: 24 },
+    ]);
   });
 
   it('resumen diario: productos menos vendidos y estadísticas de ticket (media/mediana/moda) del día', async () => {

@@ -5,6 +5,7 @@ import { useState } from 'react';
 import { useReportesQuery } from '../../hooks/queries/useReportesQuery';
 import { useSedesQuery } from '../../hooks/queries/useSedesQuery';
 import { useAuthStore } from '../../store/auth.store';
+import type { RankingProducto } from '../../types/reporte.types';
 
 export function ReportesScreen() {
   const [desde, setDesde] = useState('');
@@ -169,37 +170,8 @@ export function ReportesScreen() {
               )}
             </section>
 
-            <section className="panel">
-              <div className="panel-h"><h3>Top productos</h3></div>
-              {resumen.topProductos.length === 0 ? (
-                <div className="empty empty-compact">
-                  <div className="e-ic"><ListIcon /></div>
-                  <h3>Sin top productos</h3>
-                  <p>El backend actual no devuelve ranking de productos.</p>
-                </div>
-              ) : (
-                <div className="table-wrap table-wrap-flat">
-                  <table className="dt">
-                    <thead>
-                      <tr>
-                        <th>Producto</th>
-                        <th className="col-mobile-hidden">Cantidad</th>
-                        <th>Ingresos</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {resumen.topProductos.map((item) => (
-                        <tr key={item.productoId ?? item.nombre}>
-                          <td><strong>{item.nombre}</strong></td>
-                          <td className="col-mobile-hidden">{item.cantidad}</td>
-                          <td>{item.ingresos == null ? 'Sin dato' : `S/ ${item.ingresos.toFixed(2)}`}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </section>
+            <RankingPanel titulo="Top platos" hint="Carta/Menú: cocina y barra" items={resumen.topPlatos} />
+            <RankingPanel titulo="Top productos" hint="Inventario: se sirven directo, sin preparación" items={resumen.topProductos} />
 
             <section className="panel">
               <div className="panel-h"><h3>Productos menos vendidos</h3></div>
@@ -236,6 +208,42 @@ export function ReportesScreen() {
         </div>
       )}
     </div>
+  );
+}
+
+function RankingPanel({ titulo, hint, items }: Readonly<{ titulo: string; hint: string; items: RankingProducto }>) {
+  return (
+    <section className="panel">
+      <div className="panel-h"><h3>{titulo}</h3></div>
+      {items.length === 0 ? (
+        <div className="empty empty-compact">
+          <div className="e-ic"><ListIcon /></div>
+          <h3>Sin {titulo.toLowerCase()}</h3>
+          <p>Sin ventas registradas en el rango para este ranking. {hint}.</p>
+        </div>
+      ) : (
+        <div className="table-wrap table-wrap-flat">
+          <table className="dt">
+            <thead>
+              <tr>
+                <th>Producto</th>
+                <th className="col-mobile-hidden">Cantidad</th>
+                <th>Ingresos</th>
+              </tr>
+            </thead>
+            <tbody>
+              {items.map((item) => (
+                <tr key={item.productoId ?? item.nombre}>
+                  <td><strong>{item.nombre}</strong></td>
+                  <td className="col-mobile-hidden">{item.cantidad}</td>
+                  <td>{item.ingresos == null ? 'Sin dato' : `S/ ${item.ingresos.toFixed(2)}`}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </section>
   );
 }
 

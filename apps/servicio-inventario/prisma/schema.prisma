@@ -8,25 +8,38 @@ datasource db {
   provider = "postgresql"
 }
 
+// Determina TANTO qué módulo administra la categoría (Carta vs Inventario)
+// COMO, si es Carta, a qué estación de producción se enruta un pedido: nunca
+// se infiere del nombre (el dueño puede llamarla "Tragos", "Licores", lo que
+// sea) — el propio dueño la elige explícitamente al crear/editar la
+// categoría, así el ruteo es 100% escalable sin tocar código.
+enum CategoriaArea {
+  COCINA
+  BARRA
+  INVENTARIO
+}
+
 model Categoria {
-  id             String      @id @default(uuid())
+  id             String        @id @default(uuid())
   // T-23 (multi-sede): el nombre es único DENTRO de su sede, no globalmente
   // (dos locales pueden tener cada uno su "Bebidas").
   nombre         String
   sedeId         String
   descripcion    String?
   parentId       String?
+  area           CategoriaArea @default(COCINA)
   // Un solo nivel de subcategorías a propósito (parent no puede tener su
   // propio parent) — se valida en el servicio, no en el schema.
-  parent         Categoria?  @relation("Subcategorias", fields: [parentId], references: [id])
-  subcategorias  Categoria[] @relation("Subcategorias")
+  parent         Categoria?    @relation("Subcategorias", fields: [parentId], references: [id])
+  subcategorias  Categoria[]   @relation("Subcategorias")
   productos      Producto[]
-  createdAt      DateTime    @default(now())
-  updatedAt      DateTime    @updatedAt
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
 
   @@unique([sedeId, nombre])
   @@index([parentId])
   @@index([sedeId])
+  @@index([area])
   @@map("categorias")
 }
 

@@ -60,7 +60,7 @@ describe('InventarioScreen', () => {
     vi.clearAllMocks();
     vi.spyOn(onlineStatusHook, 'useOnlineStatus').mockReturnValue(true);
     vi.spyOn(inventarioQueryHook, 'useInventarioQuery').mockReturnValue({
-      categorias: [{ id: 'C1', nombre: 'Categoría 1' }],
+      categorias: [{ id: 'C1', nombre: 'Categoría 1', area: 'INVENTARIO' }],
       productos: [
         { id: 'P1', nombre: 'Producto 1', categoriaId: 'C1', stockActual: 10, disponible: true, precio: 10, minStock: 5 },
         { id: 'P2', nombre: 'Producto 2', categoriaId: 'C1', stockActual: 0, disponible: false, precio: 5, minStock: 2 }

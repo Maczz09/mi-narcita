@@ -84,6 +84,17 @@ describe('mapResumen', () => {
     expect(vm.topProductos).toEqual([]);
   });
 
+  it('propaga topPlatos tal cual', () => {
+    const platos = [{ nombre: 'Ceviche', cantidad: 3 }];
+    const vm = mapResumen(dto({ topPlatos: platos }));
+    expect(vm.topPlatos).toEqual(platos);
+  });
+
+  it('topPlatos es array vacío si no viene en el DTO', () => {
+    const vm = mapResumen(dto({ topPlatos: undefined }));
+    expect(vm.topPlatos).toEqual([]);
+  });
+
   it('rangoLabel coincide con fechaLabel cuando hasta es el mismo día (o no viene)', () => {
     const sinHasta = mapResumen(dto({ fecha: '2026-06-07' }));
     expect(sinHasta.rangoLabel).toBe(sinHasta.fechaLabel);

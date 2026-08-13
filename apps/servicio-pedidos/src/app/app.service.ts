@@ -14,6 +14,8 @@ import {
   ProductoCreadoPayload,
   ProductoActualizadoPayload,
   StockInsuficientePayload,
+  ItemArea,
+  EstadoItem,
 } from '@org/contracts';
 import { Prisma } from '../generated/prisma';
 import { resolveSedeId } from '@org/shared-auth';
@@ -151,6 +153,7 @@ export class AppService {
             precio: p.precio,
             stockActual: p.stockActual ?? null,
             categoriaNombre: p.categoria?.nombre ?? 'COCINA',
+            categoriaArea: p.categoria?.area ?? 'COCINA',
             disponible: p.disponible ?? true,
           },
           update: {
@@ -158,11 +161,22 @@ export class AppService {
             precio: p.precio,
             stockActual: p.stockActual ?? null,
             categoriaNombre: p.categoria?.nombre ?? 'COCINA',
+            categoriaArea: p.categoria?.area ?? 'COCINA',
             disponible: p.disponible ?? true,
           },
         })
       ));
     }
+  }
+
+  /** Mapea el área de la categoría del producto (COCINA/BARRA/INVENTARIO) al
+   * área de ítem de pedido: COCINA/BARRA pasan por producción (KDS), un valor
+   * desconocido/legado cae en Cocina por seguridad — nunca al revés
+   * (INVENTARIO por defecto ocultaría un plato de la vista de cocina). */
+  private mapearAreaCategoriaAItemArea(categoriaArea: string | null | undefined): ItemArea {
+    if (categoriaArea === 'BARRA') return ItemArea.Bar;
+    if (categoriaArea === 'INVENTARIO') return ItemArea.Directo;
+    return ItemArea.Cocina;
   }
 
   private async validarYMapearItems(itemsToProcess: PedidoItemInput[]): Promise<PedidoItemMapeado[]> {
@@ -190,7 +204,10 @@ export class AppService {
         cantidad: item.cantidad,
         precioUnitario: Number(p.precio),
         stockActual: p.stockActual,
-        area: p.categoriaNombre?.toLowerCase().includes('bebida') ? 'BAR' : 'COCINA',
+        // El área la elige el dueño en la categoría (nunca se infiere del
+        // nombre) — Cocina/Barra pasan por producción, Inventario va directo
+        // a cuenta (ver persistirPedido).
+        area: this.mapearAreaCategoriaAItemArea(p.categoriaArea),
         notas: item.notas,
         comensal: item.identificadorComensal || 1,
       } satisfies PedidoItemMapeado;
@@ -255,12 +272,21 @@ export class AppService {
         }
       }
 
+      // "Cocina manda": un ítem de Inventario (DIRECTO) no necesita
+      // preparación — el mesero lo sirve directo, así que nace ENTREGADO.
+      // Cocina Y Barra sí pasan por producción. Si el pedido no tiene NINGÚN
+      // ítem de producción, no hay nada que derive luego (nunca se llama a
+      // actualizarEstadoItem), así que el pedido entero arranca ya ENTREGADO
+      // en vez de quedar PENDIENTE para siempre.
+      const tieneItemDeProduccion = items.some((item) => item.area !== ItemArea.Directo);
+      const estadoInicialPedido = tieneItemDeProduccion ? PedidoEstado.Pendiente : PedidoEstado.Entregado;
+
       const pedido = await prisma.pedido.create({
         data: {
           mesaId,
           sedeId,
           numeroMesa,
-          estado: PedidoEstado.Pendiente,
+          estado: estadoInicialPedido,
           total,
           cliente,
           telefono,
@@ -276,6 +302,7 @@ export class AppService {
               cantidad: item.cantidad,
               precioUnitario: item.precioUnitario,
               area: item.area,
+              estado: item.area === ItemArea.Directo ? EstadoItem.Entregado : EstadoItem.Pendiente,
               notas: item.notas,
               comensal: item.comensal,
               meseroId: mesero?.id,
@@ -371,6 +398,7 @@ export class AppService {
     precio: number;
     stockActual: number | null;
     categoriaNombre: string;
+    categoriaArea?: string;
     disponible: boolean;
     allowStockIncrease?: boolean;
     stockDelta?: number;
@@ -389,6 +417,7 @@ export class AppService {
         precio: payload.precio,
         stockActual: payload.stockActual ?? null,
         categoriaNombre: payload.categoriaNombre ?? 'COCINA',
+        categoriaArea: payload.categoriaArea ?? 'COCINA',
         disponible: payload.disponible,
         allowStockIncrease: false,
       }),
@@ -407,6 +436,7 @@ export class AppService {
         stockDelta: payload.stockDelta,
         stockSyncMode: payload.stockSyncMode,
         categoriaNombre: payload.categoriaNombre ?? 'COCINA',
+        categoriaArea: payload.categoriaArea ?? 'COCINA',
         disponible: payload.disponible,
         allowStockIncrease: payload.stockSyncMode === 'REPOSICION' && (payload.stockDelta ?? 0) > 0,
       }),
@@ -454,6 +484,7 @@ export class AppService {
     stockDelta?: number;
     stockSyncMode?: 'REPOSICION' | 'CONSUMO_PEDIDO' | 'MERMA';
     categoriaNombre: string;
+    categoriaArea?: string;
     disponible: boolean;
     allowStockIncrease?: boolean;
   }): Promise<void> {
@@ -482,6 +513,7 @@ export class AppService {
         precio: producto.precio,
         stockActual,
         categoriaNombre: producto.categoriaNombre,
+        categoriaArea: producto.categoriaArea ?? 'COCINA',
         disponible: producto.disponible,
       },
       create: {
@@ -490,6 +522,7 @@ export class AppService {
         precio: producto.precio,
         stockActual,
         categoriaNombre: producto.categoriaNombre,
+        categoriaArea: producto.categoriaArea ?? 'COCINA',
         disponible: producto.disponible,
       },
     });

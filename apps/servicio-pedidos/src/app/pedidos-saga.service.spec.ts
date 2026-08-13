@@ -143,6 +143,25 @@ describe('PedidosSagaService — Pedidos', () => {
 
       expect(updateSpy).not.toHaveBeenCalled();
     });
+
+    it.each([
+      ['COCINA', true],
+      ['BAR', true],
+      ['DIRECTO', false],
+    ])('anular un ítem de área %s ¿avisa al KDS? → %s', async (area, avisa) => {
+      jest.spyOn(mockPrisma.pedidoItem, 'update').mockResolvedValue({ id: 'i-1', pedidoId: 'p-001', area, nombre: 'X' } as never);
+      jest.spyOn(mockPrisma.pedido, 'findUnique').mockResolvedValue({
+        ...basePedido,
+        estado: PedidoEstado.Pendiente,
+        items: [{ ...itemBase, id: 'i-1', area, estado: PedidoEstado.Cancelado }],
+      } as never);
+      jest.spyOn(mockPrisma.pedido, 'update').mockResolvedValue({ ...basePedido, items: [] } as never);
+
+      await service.actualizarEstadoItem('i-1', { estado: PedidoEstado.Cancelado });
+
+      const eventos = mockPrisma.outboxEvent.createMany.mock.calls.at(-1)[0].data;
+      expect(eventos.some((e: any) => e.routingKey === 'pedido.item_anulado')).toBe(avisa);
+    });
   });
 
   describe('procesarStockInsuficiente — compensación de saga', () => {

@@ -93,6 +93,11 @@ model ProductoLocal {
   precio          Decimal @db.Decimal(10, 2)
   stockActual     Int?
   categoriaNombre String  @default("COCINA")
+  // Área de la categoría del producto (COCINA/BARRA/INVENTARIO, ver
+  // CategoriaArea en servicio-inventario) — determina el ItemArea del pedido:
+  // COCINA/BARRA pasan por producción, INVENTARIO va directo a cuenta. Nunca
+  // se infiere de categoriaNombre (texto libre, no confiable para rutear).
+  categoriaArea   String  @default("COCINA")
   disponible      Boolean @default(true)
 
   @@map("productos_locales")

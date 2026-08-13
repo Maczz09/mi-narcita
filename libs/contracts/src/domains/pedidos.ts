@@ -30,6 +30,9 @@ export type PedidoEstado = (typeof PedidoEstado)[keyof typeof PedidoEstado];
 export const ItemArea = {
   Cocina: 'COCINA',
   Bar: 'BAR',
+  /** Producto de Inventario (con control de stock): el mesero lo sirve
+   * directo, sin pasar por ninguna estación de producción. */
+  Directo: 'DIRECTO',
 } as const;
 
 export type ItemArea = (typeof ItemArea)[keyof typeof ItemArea];

@@ -10,8 +10,8 @@ vi.mock('react-router-dom', () => ({
   useNavigate: () => vi.fn(),
 }));
 
-vi.mock('./TopProductosPanel', () => ({
-  TopProductosPanel: () => <div data-testid="top-productos-panel" />,
+vi.mock('./TopVentasPanel', () => ({
+  TopVentasPanel: ({ titulo }: { titulo: string }) => <div data-testid="top-ventas-panel">{titulo}</div>,
 }));
 
 vi.mock('../../hooks/useInicioData', () => ({

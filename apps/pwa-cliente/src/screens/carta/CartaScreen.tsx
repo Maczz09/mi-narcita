@@ -24,7 +24,7 @@ export function CartaScreen() {
   // COCINA solo puede marcar 86 (agotado/disponible), no crear ni editar platos.
   const soloDisponibilidad = rol === 'COCINA';
   const {
-    categorias,
+    categorias: todasLasCategorias,
     productos,
     loading,
     saving,
@@ -34,6 +34,10 @@ export function CartaScreen() {
   // La carta se muestra completa de una vez (tabs de categoría con conteos
   // en cliente), no paginada: limit alto para cubrir el menú real (~183 platos).
   } = useInventarioQuery(undefined, { conStock: false, limit: 500 });
+
+  // Categorías de Inventario (área INVENTARIO) no son de Carta — se
+  // gestionan y muestran aparte, en el módulo Inventario.
+  const categorias = useMemo(() => todasLasCategorias.filter((c) => c.area !== 'INVENTARIO'), [todasLasCategorias]);
 
   const [modo, setModo] = useState<'CARTA' | 'MENU_DIA'>('CARTA');
   const [cat, setCat] = useState<string>('TODAS');

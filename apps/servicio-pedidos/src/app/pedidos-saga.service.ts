@@ -214,9 +214,10 @@ export class PedidosSagaService {
           status: 'PENDING',
         });
       }
-      // Aviso a cocina (KDS): solo si el ítem anulado era de área COCINA (un
-      // plato, no una bebida de barra) — para que no sigan preparándolo.
-      if (seAnuloItem && item.area === ItemArea.Cocina) {
+      // Aviso al KDS (Cocina o Barra): solo si el ítem anulado pasaba por
+      // producción — uno de Inventario (DIRECTO) ya nació ENTREGADO, el
+      // mesero ya lo sirvió, no hay nada que "dejar de preparar".
+      if (seAnuloItem && item.area !== ItemArea.Directo) {
         const payload: PedidoItemAnuladoPayload = {
           pedidoId,
           itemId: item.id,

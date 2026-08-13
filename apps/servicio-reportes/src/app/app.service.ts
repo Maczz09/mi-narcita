@@ -2,7 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { OperableLog } from '@org/observabilidad';
 import { SEDE_PRINCIPAL_ID } from '@org/shared-auth';
 import { PrismaService } from '../prisma/prisma.service';
-import { CuentaCerradaPayload, PedidoSnapshotItem } from '@org/contracts';
+import { CuentaCerradaPayload, ItemArea, PedidoSnapshotItem } from '@org/contracts';
 import { calcularEstadisticasTicket } from './estadisticas';
 
 const MENOS_VENDIDOS_LIMITE = 5;
@@ -214,37 +214,45 @@ export class AppService {
       total,
     }));
 
-    // 2. Generar Ranking de Productos determinista según ventas reales del día
-    const productStats = new Map<string, { nombre: string; cantidad: number; ingresos: number }>();
+    // 2. Ranking de ventas determinista, separado por origen: un plato de
+    // Carta/Menú (área COCINA o BARRA, pasa por producción) es un negocio
+    // distinto de un producto de Inventario (área DIRECTO, reventa sin
+    // preparación) — mezclarlos en un solo ranking no le sirve al dueño para
+    // decidir qué cocinar más ni qué reponer más.
+    const platoStats = new Map<string, { nombre: string; cantidad: number; ingresos: number }>();
+    const inventarioStats = new Map<string, { nombre: string; cantidad: number; ingresos: number }>();
 
     for (const v of ventas) {
       if (Array.isArray(v.items)) {
         for (const item of v.items as PedidoSnapshotItem[]) {
           const pid = item.productoId;
           if (!pid) continue;
-          const current = productStats.get(pid) || { nombre: item.nombre || pid, cantidad: 0, ingresos: 0 };
+          const stats = item.area === ItemArea.Directo ? inventarioStats : platoStats;
+          const current = stats.get(pid) || { nombre: item.nombre || pid, cantidad: 0, ingresos: 0 };
           current.cantidad += Number(item.cantidad || 0);
           current.ingresos += Number(item.cantidad || 0) * Number(item.precioUnitario || 0);
-          productStats.set(pid, current);
+          stats.set(pid, current);
         }
       }
     }
 
-    const productosOrdenados = Array.from(productStats.entries())
-      .map(([productoId, stats]) => ({
-        productoId,
-        nombre: stats.nombre,
-        cantidad: stats.cantidad,
-        ingresos: stats.ingresos,
-      }))
-      .filter(p => p.cantidad > 0);
+    const ordenarStats = (stats: Map<string, { nombre: string; cantidad: number; ingresos: number }>) =>
+      Array.from(stats.entries())
+        .map(([productoId, s]) => ({ productoId, nombre: s.nombre, cantidad: s.cantidad, ingresos: s.ingresos }))
+        .filter((p) => p.cantidad > 0);
 
-    const topProductos = [...productosOrdenados].sort((a, b) => b.cantidad - a.cantidad).slice(0, 10);
-    // Menos vendidos: solo entre lo que SÍ se vendió al menos una vez — un
-    // producto que nunca se pidió no está en productStats (viene de items de
-    // ventas reales, no del catálogo completo de la carta), así que esto no
-    // reemplaza un reporte de "productos sin ninguna venta".
-    const productosMenosVendidos = [...productosOrdenados].sort((a, b) => a.cantidad - b.cantidad).slice(0, MENOS_VENDIDOS_LIMITE);
+    const platosOrdenados = ordenarStats(platoStats);
+    const inventarioOrdenado = ordenarStats(inventarioStats);
+
+    const topPlatos = [...platosOrdenados].sort((a, b) => b.cantidad - a.cantidad).slice(0, 10);
+    const topProductos = [...inventarioOrdenado].sort((a, b) => b.cantidad - a.cantidad).slice(0, 10);
+    // Menos vendidos: solo entre platos que SÍ se vendieron al menos una vez —
+    // uno que nunca se pidió no está en platoStats (viene de ventas reales,
+    // no del catálogo completo de la carta), así que esto no reemplaza un
+    // reporte de "platos sin ninguna venta". Queda acotado a Carta/Menú
+    // (igual que antes de separar los rankings): es la lista que sirve para
+    // decidir qué sacar de la carta, no para decidir stock de inventario.
+    const productosMenosVendidos = [...platosOrdenados].sort((a, b) => a.cantidad - b.cantidad).slice(0, MENOS_VENDIDOS_LIMITE);
 
     const estadisticasTicket = calcularEstadisticasTicket(ventas.map((v) => Number(v.total)));
 
@@ -256,6 +264,7 @@ export class AppService {
       ventasPorHora,
       productosMenosVendidos,
       estadisticasTicket,
+      topPlatos,
       topProductos,
     };
   }

@@ -81,6 +81,7 @@ describe('ReportesScreen', () => {
         totalVentas: 5,
         ticketPromedioLabel: 'S/ 20',
         ventasPorHora: [],
+        topPlatos: [],
         topProductos: [],
         productosMenosVendidos: [],
         estadisticasTicket: { media: 20, mediana: 0, moda: null, medianaLabel: 'Sin ventas', modaLabel: 'Sin moda repetida' },
@@ -96,6 +97,7 @@ describe('ReportesScreen', () => {
     expect(screen.getByText('S/ 20')).toBeInTheDocument();
 
     expect(screen.getByText('Sin desglose horario')).toBeInTheDocument();
+    expect(screen.getByText('Sin top platos')).toBeInTheDocument();
     expect(screen.getByText('Sin top productos')).toBeInTheDocument();
     expect(screen.getByText('Sin datos')).toBeInTheDocument();
   });
@@ -110,6 +112,9 @@ describe('ReportesScreen', () => {
         ventasPorHora: [
           { hora: '12:00', total: 50 },
           { hora: '13:00', total: 0 } // coverage for max || 1
+        ],
+        topPlatos: [
+          { productoId: 'P0', nombre: 'Ceviche', cantidad: 4, ingresos: 120 },
         ],
         topProductos: [
           { productoId: 'P1', nombre: 'Burger', cantidad: 2, ingresos: 50 },
@@ -129,6 +134,8 @@ describe('ReportesScreen', () => {
     expect(screen.getByText('12:00')).toBeInTheDocument();
     expect(screen.getByText('13:00')).toBeInTheDocument();
 
+    expect(screen.getByText('Ceviche')).toBeInTheDocument();
+    expect(screen.getByText('S/ 120.00')).toBeInTheDocument();
     expect(screen.getByText('Burger')).toBeInTheDocument();
     expect(screen.getByText('S/ 50.00')).toBeInTheDocument();
     expect(screen.getByText('Fries')).toBeInTheDocument();
@@ -194,7 +201,7 @@ describe('ReportesScreen', () => {
     vi.spyOn(reportesQueryHook, 'useReportesQuery').mockReturnValue({
       resumen: {
         ingresosLabel: 'S/ 100', fechaLabel: 'Hoy', rangoLabel: 'Hoy',
-        totalVentas: 5, ticketPromedioLabel: 'S/ 20', ventasPorHora: [], topProductos: [],
+        totalVentas: 5, ticketPromedioLabel: 'S/ 20', ventasPorHora: [], topPlatos: [], topProductos: [],
         productosMenosVendidos: [], estadisticasTicket: { media: 20, mediana: 0, moda: null, medianaLabel: 'Sin ventas', modaLabel: 'Sin moda repetida' },
       },
       loading: false,
@@ -213,7 +220,7 @@ describe('ReportesScreen', () => {
     vi.spyOn(reportesQueryHook, 'useReportesQuery').mockReturnValue({
       resumen: {
         ingresosLabel: 'S/ 100', fechaLabel: 'Hoy', rangoLabel: 'Hoy',
-        totalVentas: 5, ticketPromedioLabel: 'S/ 20', ventasPorHora: [], topProductos: [],
+        totalVentas: 5, ticketPromedioLabel: 'S/ 20', ventasPorHora: [], topPlatos: [], topProductos: [],
         productosMenosVendidos: [], estadisticasTicket: { media: 20, mediana: 0, moda: null, medianaLabel: 'Sin ventas', modaLabel: 'Sin moda repetida' },
       },
       loading: false,

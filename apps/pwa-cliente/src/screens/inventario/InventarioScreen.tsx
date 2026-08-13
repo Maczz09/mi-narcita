@@ -19,9 +19,13 @@ export function InventarioScreen() {
   const [categoriaId, setCategoriaId] = useState('');
   const [search, setSearch] = useState('');
   const {
-    categorias, productos, nextCursor, loading, loadingMore, saving, error, success,
+    categorias: todasLasCategorias, productos, nextCursor, loading, loadingMore, saving, error, success,
     fetch, fetchMore, crearProducto, actualizarProducto, reponerStock, clearFeedback,
   } = useInventarioQuery(categoriaId || undefined, { conStock: true, search: search.trim() || undefined });
+
+  // Categorías de Carta/Menú (Cocina/Barra) no son de Inventario — se
+  // gestionan y muestran aparte, en el módulo Carta.
+  const categorias = useMemo(() => todasLasCategorias.filter((c) => c.area === 'INVENTARIO'), [todasLasCategorias]);
 
   const { registrarMerma, saving: savingMerma } = useMermasQuery();
   const [productoForm, setProductoForm] = useState<CrearProductoPayload>(INITIAL_PRODUCT);

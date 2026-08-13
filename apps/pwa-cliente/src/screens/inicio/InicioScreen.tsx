@@ -4,7 +4,7 @@ import { Icons, type IconName } from '../../components/ui/icons';
 import { HeroStat } from '../../components/ui/Stat';
 import { fmt, elapsedMin } from '../../utils/format';
 import { useInicioData, type ActividadItem } from '../../hooks/useInicioData';
-import { TopProductosPanel } from './TopProductosPanel';
+import { TopVentasPanel } from './TopVentasPanel';
 
 export function InicioScreen() {
   const navigate = useNavigate();
@@ -83,7 +83,8 @@ export function InicioScreen() {
             </div>
           </section>
 
-          <TopProductosPanel />
+          <TopVentasPanel titulo="Top platos" campo="topPlatos" />
+          <TopVentasPanel titulo="Top productos" campo="topProductos" />
 
           <PanelActividad actividad={actividad} />
         </div>

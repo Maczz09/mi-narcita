@@ -25,7 +25,7 @@ import {
   CompraRecibidaPayload,
   CompraRecibidaLineaPayload,
 } from '@org/contracts';
-import { Prisma } from '../generated/prisma';
+import { Prisma, CategoriaArea } from '../generated/prisma';
 
 @Injectable()
 export class AppService {
@@ -56,7 +56,7 @@ export class AppService {
       await this.assertParentValido(command.parentId, sedeId);
     }
 
-    const categoria = await this.crearCategoriaSegura(sedeId, nombre, command.descripcion, command.parentId);
+    const categoria = await this.crearCategoriaSegura(sedeId, nombre, command.descripcion, command.parentId, command.area);
     return { message: 'Categoría creada exitosamente', categoria };
   }
 
@@ -87,12 +87,37 @@ export class AppService {
       await this.assertParentValido(command.parentId, existente.sedeId);
     }
 
+    if (command.area !== undefined && command.area !== existente.area) {
+      await this.assertCambioDeAreaSeguro(id);
+    }
+
     const categoria = await this.actualizarCategoriaSegura(id, {
       ...(nombre ? { nombre } : {}),
       ...(command.descripcion === undefined ? {} : { descripcion: command.descripcion }),
       ...(command.parentId === undefined ? {} : { parentId: command.parentId }),
+      ...(command.area === undefined ? {} : { area: command.area }),
     });
     return { message: 'Categoría actualizada', categoria };
+  }
+
+  /**
+   * Cambiar el área de una categoría con productos ya cambia su ruteo de
+   * pedidos retroactivamente (Carta↔Inventario, Cocina↔Barra) — no rompe
+   * nada técnicamente, pero mezclaría productos con/sin control de stock bajo
+   * la nueva área si no se valida. Se bloquea mientras tenga productos; el
+   * dueño primero los reasigna o el área nunca coincidiría con su
+   * `stockActual` (ver crearProducto/actualizarProducto).
+   */
+  private async assertCambioDeAreaSeguro(categoriaId: string): Promise<void> {
+    const conProductos = await this.prisma.categoria.findUnique({
+      where: { id: categoriaId },
+      include: { _count: { select: { productos: true } } },
+    });
+    if (conProductos && conProductos._count.productos > 0) {
+      throw new BadRequestException(
+        `No se puede cambiar el área: tiene ${conProductos._count.productos} producto(s) asociado(s). Reasígnalos a otra categoría primero.`,
+      );
+    }
   }
 
   async eliminarCategoria(id: string): Promise<{ message: string }> {
@@ -143,9 +168,9 @@ export class AppService {
   // El check de arriba no cierra una carrera entre dos requests simultáneos;
   // la constraint UNIQUE de la BD es la garantía real. P2002 aquí es ese
   // caso raro, traducido al mismo 409 que ya usa assertNombreDisponible.
-  private async crearCategoriaSegura(sedeId: string, nombre: string, descripcion?: string, parentId?: string): Promise<CategoriaDto> {
+  private async crearCategoriaSegura(sedeId: string, nombre: string, descripcion?: string, parentId?: string, area?: CategoriaArea): Promise<CategoriaDto> {
     try {
-      return await this.prisma.categoria.create({ data: { nombre, sedeId, descripcion, parentId } });
+      return await this.prisma.categoria.create({ data: { nombre, sedeId, descripcion, parentId, ...(area ? { area } : {}) } });
     } catch (error) {
       if (this.isUniqueConstraintViolation(error)) {
         throw new ConflictException(`Ya existe una categoría llamada "${nombre}"`);
@@ -156,7 +181,7 @@ export class AppService {
 
   private async actualizarCategoriaSegura(
     id: string,
-    data: { nombre?: string; descripcion?: string | null; parentId?: string | null },
+    data: { nombre?: string; descripcion?: string | null; parentId?: string | null; area?: CategoriaArea },
   ): Promise<CategoriaDto> {
     try {
       return await this.prisma.categoria.update({ where: { id }, data });
@@ -165,6 +190,28 @@ export class AppService {
         throw new ConflictException(`Ya existe una categoría llamada "${data.nombre}"`);
       }
       throw error;
+    }
+  }
+
+  /**
+   * Invariante que mantiene el ruteo de pedidos confiable sin mirar nunca el
+   * nombre de la categoría: un producto con control de stock (Inventario)
+   * SOLO puede vivir en una categoría de área INVENTARIO, y uno sin stock
+   * (Carta/Menú) nunca puede vivir ahí — si no, el área de Categoria dejaría
+   * de predecir de verdad si el producto pasa por producción o va directo a
+   * cuenta.
+   */
+  private assertStockCoincideConAreaCategoria(stockActual: number | null, categoriaArea: CategoriaArea): void {
+    const esInventario = categoriaArea === CategoriaArea.INVENTARIO;
+    if (stockActual != null && !esInventario) {
+      throw new BadRequestException(
+        'Un producto con stock (Inventario) debe estar en una categoría de área Inventario.',
+      );
+    }
+    if (stockActual == null && esInventario) {
+      throw new BadRequestException(
+        'Una categoría de área Inventario solo admite productos con control de stock.',
+      );
     }
   }
 
@@ -264,6 +311,7 @@ export class AppService {
     if (!categoria || categoria.sedeId !== sedeId) {
       throw new NotFoundException(`Categoría con ID ${command.categoriaId} no encontrada`);
     }
+    this.assertStockCoincideConAreaCategoria(command.stockActual ?? null, categoria.area);
 
     const producto = await this.prisma.$transaction(async (prisma) => {
       const p = await prisma.producto.create({
@@ -284,6 +332,7 @@ export class AppService {
         precio: p.precio.toNumber(),
         stockActual: p.stockActual,
         categoriaNombre: categoria.nombre,
+        categoriaArea: categoria.area,
         disponible: p.disponible,
       };
 
@@ -302,7 +351,7 @@ export class AppService {
   }
 
   async actualizarProducto(id: string, command: ActualizarProductoCommand): Promise<{ message: string; producto: ProductoDto }> {
-    let categoriaDestino: { id: string; sedeId: string } | null = null;
+    let categoriaDestino: { id: string; sedeId: string; area: CategoriaArea } | null = null;
     if (command.categoriaId) {
       categoriaDestino = await this.prisma.categoria.findUnique({ where: { id: command.categoriaId } });
       if (!categoriaDestino) {
@@ -315,6 +364,9 @@ export class AppService {
       if (!existente) throw new NotFoundException('Producto no encontrado');
       if (categoriaDestino && categoriaDestino.sedeId !== existente.sedeId) {
         throw new NotFoundException(`Categoría con ID ${command.categoriaId} no encontrada`);
+      }
+      if (categoriaDestino) {
+        this.assertStockCoincideConAreaCategoria(existente.stockActual, categoriaDestino.area);
       }
 
       const p = await prisma.producto.update({
@@ -335,6 +387,7 @@ export class AppService {
         precio: p.precio.toNumber(),
         stockActual: p.stockActual,
         categoriaNombre: p.categoria?.nombre,
+        categoriaArea: p.categoria?.area,
         disponible: p.disponible,
       };
 
@@ -378,6 +431,7 @@ export class AppService {
         precio: p.precio.toNumber(),
         stockActual: p.stockActual,
         categoriaNombre: producto.categoria?.nombre,
+        categoriaArea: producto.categoria?.area,
         disponible: disponibleFinal,
         stockSyncMode: cantidad > 0 ? 'REPOSICION' : 'CONSUMO_PEDIDO',
         stockDelta: cantidad,
@@ -481,6 +535,7 @@ export class AppService {
           precio: producto.precio.toNumber(),
           stockActual: productoFinal?.stockActual,
           categoriaNombre: producto.categoria?.nombre,
+          categoriaArea: producto.categoria?.area,
           disponible: productoFinal?.disponible ?? producto.disponible,
           stockSyncMode: 'CONSUMO_PEDIDO',
           stockDelta: -cantidad,
@@ -659,6 +714,7 @@ export class AppService {
             precio: productoActualizado.precio.toNumber(),
             stockActual: productoActualizado.stockActual,
             categoriaNombre: producto.categoria?.nombre,
+            categoriaArea: producto.categoria?.area,
             disponible: productoActualizado.disponible,
             stockSyncMode: 'MERMA',
             stockDelta: -command.cantidad,
@@ -809,6 +865,7 @@ export class AppService {
       precio: actualizado.precio.toNumber(),
       stockActual: actualizado.stockActual,
       categoriaNombre: producto.categoria?.nombre,
+      categoriaArea: producto.categoria?.area,
       disponible: disponibleFinal,
       stockSyncMode: 'REPOSICION',
       stockDelta: linea.cantidadStockVenta,
