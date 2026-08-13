@@ -348,7 +348,10 @@ docker compose --env-file ../.env -f docker-compose.prod.yml logs --tail=120 ser
 
 Las migraciones de Prisma se aplican solas al arrancar cada servicio
 (`infra/entrypoint.sh` corre `prisma migrate deploy` antes del `node main.js`)
-— no hay un paso manual de migraciones.
+— no hay un paso manual de migraciones. Las 11 historias de migraciones (una
+por servicio) se verificaron el 2026-08-13 aplicando cada una, de cero, contra
+una base de datos Postgres recién creada (exactamente lo que hace este primer
+despliegue) — las 11 corren limpio sin intervención manual.
 
 ---
 
@@ -363,7 +366,7 @@ const { Client } = require("pg");
   const client = new Client({ connectionString: process.env.DATABASE_URL });
   await client.connect();
 
-  const hash = await bcrypt.hash("CAMBIA-ESTA-CLAVE", 10);
+  const hash = await bcrypt.hash("J4vier2026", 10);
 
   await client.query(`
     INSERT INTO "Usuario" (id, nombre, email, password, rol, activo, "createdAt", "updatedAt")
@@ -373,7 +376,7 @@ const { Client } = require("pg");
         rol = EXCLUDED.rol,
         activo = true,
         "updatedAt" = NOW()
-  `, ["Admin", "admin@tu-dominio.pe", hash, "ADMIN"]);
+  `, ["Javier Quevedo", "javierquevedo123@mi-narcita.pe", hash, "ADMIN"]);
 
   await client.end();
   console.log("Admin listo");
@@ -381,9 +384,41 @@ const { Client } = require("pg");
 JS
 ```
 
-Cambia el correo y la contraseña en ese script antes de correrlo. Entra a
-`https://mi-narcita.duckdns.org`, inicia sesión, y cambia la contraseña desde
-la propia app apenas puedas (este script es solo para el primer acceso).
+Entra a `https://mi-narcita.duckdns.org`, inicia sesión con
+`javierquevedo123@mi-narcita.pe` / `J4vier2026`, y cambia la contraseña desde
+la propia app apenas puedas (este script es solo para el primer acceso —
+queda en el historial de comandos de la VPS, no es un secreto a largo plazo).
+
+### 9.1 Sembrar la carta real (una sola vez)
+
+`scripts/poblar-carta-real.ts` carga la carta real (ceviches, sudados,
+bebidas, etc. — transcrita del menú físico) con la separación
+Carta/Inventario/Barra vigente (cada categoría ya trae su `area`). Por
+defecto el script se niega a correr fuera de un host local — para el
+sembrado real en la VPS, pásale `ALLOW_PRODUCTION_SEED=yes` explícito:
+
+```bash
+cd ~/mi-narcita
+npm ci   # si no lo hiciste ya en el paso 5
+
+ALLOW_PRODUCTION_SEED=yes \
+NACHOPPS_BASE_URL=https://mi-narcita.duckdns.org/v1 \
+ADMIN_EMAIL=javierquevedo123@mi-narcita.pe \
+ADMIN_PASSWORD=J4vier2026 \
+npx tsx scripts/poblar-carta-real.ts
+```
+
+Es idempotente (categorías/productos que ya existen se detectan por nombre y
+se reusan, no se duplican) — puedes volver a correrlo sin miedo si agregas
+platos nuevos al script más adelante. Si el admin administra varias sedes,
+agrega `SEDE_ID=<uuid-de-la-sede>` (si no, la API responde 400 pidiendo que
+indiques la sede).
+
+Después de sembrar, entra a **Inventario** y carga el `stockActual` real de
+cerveza/gaseosas/agua (arrancan en 0 a propósito — el script no inventa
+stock inicial) y revisa en **Categorías** que ninguna categoría de tragos
+preparados haya quedado en COCINA por error (si el menú real usa una barra
+de cócteles, créala aparte con área BARRA).
 
 ---
 
@@ -481,7 +516,7 @@ Login por API:
 ```bash
 curl -i -X POST https://mi-narcita.duckdns.org/v1/identidad/auth/login \
   -H "Content-Type: application/json" \
-  -d '{"email":"admin@tu-dominio.pe","password":"CAMBIA-ESTA-CLAVE"}'
+  -d '{"email":"javierquevedo123@mi-narcita.pe","password":"J4vier2026"}'
 ```
 
 Caddy / certificados:

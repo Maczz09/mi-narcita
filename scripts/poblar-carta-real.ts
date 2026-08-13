@@ -1,12 +1,14 @@
 /**
  * Mi Narcita — Carga de la carta real del restaurante (Salitral 1)
  *
- * SOLO DESARROLLO. Reemplaza los datos de prueba de servicio-inventario
- * (categorías/productos) con la carta real transcrita de las fotos del menú
- * físico ("Restaurant Cevichería Mi Narcita", Carretera Panamericana
- * Salitral - Querecotillo). Para platos con Porción Personal/Mediana/Familiar
- * (PP/PM/PF), se crea un Producto por tamaño — el schema de Producto tiene
- * un solo precio, no variantes nativas (ver notas de la sesión 2026-08-13).
+ * Carga la carta real transcrita de las fotos del menú físico ("Restaurant
+ * Cevichería Mi Narcita", Carretera Panamericana Salitral - Querecotillo) en
+ * categorías/productos de servicio-inventario. Para platos con Porción
+ * Personal/Mediana/Familiar (PP/PM/PF), se crea un Producto por tamaño — el
+ * schema de Producto tiene un solo precio, no variantes nativas (ver notas
+ * de la sesión 2026-08-13). Las categorías ya vienen con su `area`
+ * (COCINA/BARRA/INVENTARIO — ver TODAS_LAS_CATEGORIAS) según el esquema
+ * Carta/Inventario/Barra vigente.
  *
  * Cerveza/Gaseosas/Agua Mineral se crean como Producto (con stockActual, así
  * aparecen en el módulo Inventario, no en Carta suelta) Y como Insumo en
@@ -14,9 +16,16 @@
  * llevar el stock real por compras/mermas. stockActual arranca en 0 a
  * propósito: el stock inicial lo carga el dueño, no se inventa acá.
  *
- * Uso: npx tsx scripts/poblar-carta-real.ts
- * Requiere: Stack Docker corriendo, admin@nachopps.pe con password real de
- * este entorno (pásala por ADMIN_PASSWORD si no es la default de dev).
+ * Por defecto SOLO corre contra un host local/dev (ver assertDevOnlyTarget) —
+ * es intencional, para que nadie reseedee producción sin querer con un
+ * NACHOPPS_BASE_URL mal puesto. Para el sembrado real en la VPS (una sola
+ * vez, ver docs/guia-despliegue-vps-contabo.md paso 9.1), pasa explícitamente
+ * ALLOW_PRODUCTION_SEED=yes.
+ *
+ * Uso (dev):  npx tsx scripts/poblar-carta-real.ts
+ * Uso (prod): ALLOW_PRODUCTION_SEED=yes NACHOPPS_BASE_URL=https://tu-dominio/v1 \
+ *             ADMIN_EMAIL=... ADMIN_PASSWORD=... SEDE_ID=... npx tsx scripts/poblar-carta-real.ts
+ * Requiere: admin con password real de ese entorno (pásala por ADMIN_PASSWORD).
  */
 
 import axios from 'axios';
@@ -28,6 +37,9 @@ const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'nachopps123';
 // ("indica la sede") porque no hay una sola sede implícita para asumir.
 const SEDE_ID = process.env.SEDE_ID || '';
 const DEV_HOSTS = new Set(['localhost', '127.0.0.1', '::1', 'kong']);
+// Opt-in explícito para el único caso legítimo de correr esto fuera de
+// dev: el sembrado inicial de producción en la VPS.
+const ALLOW_PRODUCTION_SEED = process.env.ALLOW_PRODUCTION_SEED === 'yes';
 
 interface Categoria { id: string; nombre: string; descripcion?: string; area?: string }
 interface Producto { id: string; categoriaId: string; nombre: string; precio: number; stockActual?: number }
@@ -354,12 +366,16 @@ async function main() {
 }
 
 function assertDevOnlyTarget() {
+  if (ALLOW_PRODUCTION_SEED) {
+    console.log('⚠️  ALLOW_PRODUCTION_SEED=yes — sembrando contra:', BASE);
+    return;
+  }
   if (process.env.NODE_ENV === 'production') {
-    throw new Error('Seed bloqueado: NODE_ENV=production');
+    throw new Error('Seed bloqueado: NODE_ENV=production. Si de verdad quieres sembrar producción, pasa ALLOW_PRODUCTION_SEED=yes.');
   }
   const url = new URL(BASE);
   if (!DEV_HOSTS.has(url.hostname) && !url.hostname.endsWith('.local')) {
-    throw new Error(`Seed bloqueado: ${BASE} no parece un endpoint local/dev`);
+    throw new Error(`Seed bloqueado: ${BASE} no parece un endpoint local/dev. Si de verdad quieres sembrar producción, pasa ALLOW_PRODUCTION_SEED=yes.`);
   }
 }
 
