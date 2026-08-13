@@ -118,9 +118,9 @@ describe('FacturacionScreen', () => {
 
   it('lista los emitidos con su estado SUNAT', () => {
     render(<FacturacionScreen />);
-    expect(screen.getByText('B B001-5')).toBeInTheDocument();
+    expect(screen.getByText('Boleta B001-5')).toBeInTheDocument();
     expect(screen.getByText('Aceptado por SUNAT')).toBeInTheDocument();
-    expect(screen.getByText('F F001-2')).toBeInTheDocument();
+    expect(screen.getByText('Factura F001-2')).toBeInTheDocument();
     expect(screen.getByText('Rechazado')).toBeInTheDocument();
   });
 
@@ -144,22 +144,22 @@ describe('FacturacionScreen', () => {
     it('el chip Boletas oculta las facturas', () => {
       render(<FacturacionScreen />);
       fireEvent.click(screen.getByRole('button', { name: 'Boletas' }));
-      expect(screen.getByText('B B001-5')).toBeInTheDocument();
-      expect(screen.queryByText('F F001-2')).not.toBeInTheDocument();
+      expect(screen.getByText('Boleta B001-5')).toBeInTheDocument();
+      expect(screen.queryByText('Factura F001-2')).not.toBeInTheDocument();
     });
 
     it('el chip Aceptados oculta los rechazados', () => {
       render(<FacturacionScreen />);
       fireEvent.click(screen.getByRole('button', { name: 'Aceptados' }));
-      expect(screen.getByText('B B001-5')).toBeInTheDocument();
-      expect(screen.queryByText('F F001-2')).not.toBeInTheDocument();
+      expect(screen.getByText('Boleta B001-5')).toBeInTheDocument();
+      expect(screen.queryByText('Factura F001-2')).not.toBeInTheDocument();
     });
 
     it('el filtro de fecha "Desde" excluye emitidos anteriores', () => {
       render(<FacturacionScreen />);
       fireEvent.change(screen.getByLabelText('Desde'), { target: { value: '2026-08-01' } });
-      expect(screen.getByText('B B001-5')).toBeInTheDocument();
-      expect(screen.queryByText('F F001-2')).not.toBeInTheDocument();
+      expect(screen.getByText('Boleta B001-5')).toBeInTheDocument();
+      expect(screen.queryByText('Factura F001-2')).not.toBeInTheDocument();
     });
 
     it('"Limpiar filtros" solo aparece con algún filtro activo y los resetea', () => {
@@ -167,10 +167,10 @@ describe('FacturacionScreen', () => {
       expect(screen.queryByRole('button', { name: 'Limpiar filtros' })).not.toBeInTheDocument();
 
       fireEvent.click(screen.getByRole('button', { name: 'Boletas' }));
-      expect(screen.queryByText('F F001-2')).not.toBeInTheDocument();
+      expect(screen.queryByText('Factura F001-2')).not.toBeInTheDocument();
 
       fireEvent.click(screen.getByRole('button', { name: 'Limpiar filtros' }));
-      expect(screen.getByText('F F001-2')).toBeInTheDocument();
+      expect(screen.getByText('Factura F001-2')).toBeInTheDocument();
     });
   });
 
@@ -259,7 +259,7 @@ describe('FacturacionScreen', () => {
       render(<FacturacionScreen />);
 
       expect(screen.getByText('NC FC01-2')).toBeInTheDocument();
-      expect(screen.getByText('B B002-9')).toBeInTheDocument();
+      expect(screen.getByText('Boleta B002-9')).toBeInTheDocument();
       expect(screen.getByText('Anulación de la operación')).toBeInTheDocument();
       expect(screen.getByText('S/ 30.00')).toBeInTheDocument();
       expect(screen.getByText('Aceptado por SUNAT')).toBeInTheDocument();

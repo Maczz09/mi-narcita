@@ -404,7 +404,7 @@ export function FacturacionScreen() {
                   const comprobante = c.comprobante;
                   return (
                     <tr key={c.id}>
-                      <td><strong>{comprobante ? `${comprobante.tipo === 'FACTURA' ? 'F' : 'B'} ${comprobante.serie}-${comprobante.correlativo}` : '—'}</strong></td>
+                      <td><strong>{comprobante ? `${comprobante.tipo === 'FACTURA' ? 'Factura' : 'Boleta'} ${comprobante.serie}-${comprobante.correlativo}` : '—'}</strong></td>
                       <td className="col-mobile-hidden muted">
                         {comprobante?.clienteRazonSocial ?? comprobante?.clienteNombre ?? comprobante?.clienteRuc ?? comprobante?.clienteDni ?? 'Cliente varios'}
                       </td>
@@ -511,7 +511,7 @@ export function FacturacionScreen() {
                     </td>
                     <td className="col-mobile-hidden muted">
                       {n.comprobanteAfectado
-                        ? `${n.comprobanteAfectado.tipo === 'FACTURA' ? 'F' : 'B'} ${n.comprobanteAfectado.serie}-${n.comprobanteAfectado.correlativo}`
+                        ? `${n.comprobanteAfectado.tipo === 'FACTURA' ? 'Factura' : 'Boleta'} ${n.comprobanteAfectado.serie}-${n.comprobanteAfectado.correlativo}`
                         : '—'}
                     </td>
                     <td className="col-mobile-hidden muted">{n.motivoDescripcion ?? '—'}</td>
