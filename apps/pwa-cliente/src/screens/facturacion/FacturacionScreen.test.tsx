@@ -85,6 +85,11 @@ function baseMock(overrides: Record<string, unknown> = {}) {
     clearFeedback: vi.fn(),
     crearEmpresa: vi.fn().mockResolvedValue({ id: 'e-2', slot: 2, ruc: '20999999999', razonSocial: 'Nueva SAC', activo: true }),
     clearFeedbackEmpresa: vi.fn(),
+    emitiendoNota: false,
+    errorNota: null,
+    emitirNotaCredito: vi.fn().mockResolvedValue({ id: 'nota-1', tipo: 'NOTA_CREDITO', serie: 'FC01', correlativo: 1 }),
+    emitirNotaDebito: vi.fn().mockResolvedValue({ id: 'nota-2', tipo: 'NOTA_DEBITO', serie: 'FD01', correlativo: 1 }),
+    clearFeedbackNota: vi.fn(),
     ...overrides,
   };
 }
@@ -231,6 +236,85 @@ describe('FacturacionScreen', () => {
           clienteNombre: undefined,
         });
       });
+    });
+  });
+
+  describe('emitir nota de crédito/débito', () => {
+    it('solo el comprobante ACEPTADO tiene botón de nota', () => {
+      render(<FacturacionScreen />);
+      expect(screen.getAllByRole('button', { name: 'Emitir nota de crédito o débito' })).toHaveLength(1);
+    });
+
+    it('abre el modal con nota de crédito por defecto, motivo y monto precargados del comprobante', () => {
+      render(<FacturacionScreen />);
+      fireEvent.click(screen.getByRole('button', { name: 'Emitir nota de crédito o débito' }));
+
+      expect(screen.getByText('Nota sobre boleta B001-5')).toBeInTheDocument();
+      expect(screen.getByLabelText('Descripción del ítem')).toHaveValue('Anulación de la operación');
+      expect(screen.getByLabelText('Monto (con IGV incluido)')).toHaveValue(30);
+    });
+
+    it('emite la nota de crédito con el motivo y monto elegidos', async () => {
+      const emitirNotaCredito = vi.fn().mockResolvedValue({ id: 'nota-1', tipo: 'NOTA_CREDITO', serie: 'FC01', correlativo: 1 });
+      vi.mocked(useFacturacionQuery).mockReturnValue(baseMock({ emitirNotaCredito }) as any);
+      render(<FacturacionScreen />);
+
+      fireEvent.click(screen.getByRole('button', { name: 'Emitir nota de crédito o débito' }));
+      fireEvent.change(screen.getByLabelText('Monto (con IGV incluido)'), { target: { value: '10' } });
+      fireEvent.click(screen.getByRole('button', { name: 'Emitir nota de crédito' }));
+
+      await waitFor(() => {
+        expect(emitirNotaCredito).toHaveBeenCalledWith('cb1', {
+          motivoCodigo: '01',
+          items: [{ descripcion: 'Anulación de la operación', cantidad: 1, precioUnitarioConIgv: 10 }],
+        });
+      });
+    });
+
+    it('cambiar a nota de débito usa el catálogo 10 y llama a emitirNotaDebito', async () => {
+      const emitirNotaDebito = vi.fn().mockResolvedValue({ id: 'nota-2', tipo: 'NOTA_DEBITO', serie: 'FD01', correlativo: 1 });
+      vi.mocked(useFacturacionQuery).mockReturnValue(baseMock({ emitirNotaDebito }) as any);
+      render(<FacturacionScreen />);
+
+      fireEvent.click(screen.getByRole('button', { name: 'Emitir nota de crédito o débito' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Nota de débito' }));
+      expect(screen.getByLabelText('Descripción del ítem')).toHaveValue('Intereses por mora');
+
+      fireEvent.click(screen.getByRole('button', { name: 'Emitir nota de débito' }));
+
+      await waitFor(() => {
+        expect(emitirNotaDebito).toHaveBeenCalledWith('cb1', {
+          motivoCodigo: '01',
+          items: [{ descripcion: 'Intereses por mora', cantidad: 1, precioUnitarioConIgv: 30 }],
+        });
+      });
+    });
+
+    it('rechaza un monto en cero o inválido sin llamar a la API', () => {
+      const emitirNotaCredito = vi.fn();
+      const toast = vi.fn();
+      vi.mocked(useToast).mockReturnValue({ toast } as any);
+      vi.mocked(useFacturacionQuery).mockReturnValue(baseMock({ emitirNotaCredito }) as any);
+      render(<FacturacionScreen />);
+
+      fireEvent.click(screen.getByRole('button', { name: 'Emitir nota de crédito o débito' }));
+      fireEvent.change(screen.getByLabelText('Monto (con IGV incluido)'), { target: { value: '0' } });
+      fireEvent.click(screen.getByRole('button', { name: 'Emitir nota de crédito' }));
+
+      expect(emitirNotaCredito).not.toHaveBeenCalled();
+      expect(toast).toHaveBeenCalledWith(expect.objectContaining({ kind: 'err' }));
+    });
+
+    it('cierra el modal con Cancelar sin llamar a la API', () => {
+      const emitirNotaCredito = vi.fn();
+      vi.mocked(useFacturacionQuery).mockReturnValue(baseMock({ emitirNotaCredito }) as any);
+      render(<FacturacionScreen />);
+
+      fireEvent.click(screen.getByRole('button', { name: 'Emitir nota de crédito o débito' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Cancelar' }));
+
+      expect(screen.queryByText('Nota sobre boleta B001-5')).not.toBeInTheDocument();
+      expect(emitirNotaCredito).not.toHaveBeenCalled();
     });
   });
 

@@ -5,6 +5,7 @@ import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { EmisionController } from './emision.controller';
 import { EmisionService } from './emision.service';
+import { NotasService } from './notas.service';
 import { PrismaModule } from '../prisma/prisma.module';
 import { PrismaService } from '../prisma/prisma.service';
 import { RabbitMQModule } from '@org/shared-rabbitmq';
@@ -40,6 +41,7 @@ import { CredencialesCryptoService } from '../sunat/credenciales-crypto.service'
   providers: [
     AppService,
     EmisionService,
+    NotasService,
     SunatConfigService,
     CertificadoService,
     CorrelativoService,

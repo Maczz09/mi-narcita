@@ -8,6 +8,7 @@
 // envuelven en Number(...) al renderizar.
 
 export type TipoComprobante = 'BOLETA' | 'FACTURA';
+export type TipoNota = 'NOTA_CREDITO' | 'NOTA_DEBITO';
 export type EstadoComprobantePago = 'DISPONIBLE' | 'EMITIDO';
 export type EstadoComprobante = 'FIRMADO' | 'ENVIADO' | 'ACEPTADO' | 'RECHAZADO' | 'OBSERVADO';
 
@@ -80,6 +81,53 @@ export interface EmitirComprobanteResultado {
   correlativo: number;
   estado: EstadoComprobante;
   total: number;
+}
+
+// Catálogos 09 (nota de crédito) y 10 (nota de débito) SUNAT — códigos
+// oficiales, duplicados desde servicio-facturacion/src/sunat/catalogos-notas.ts
+// (no comparten libs/contracts, mismo criterio que el resto de este módulo).
+// Es un catálogo externo estable, no lógica de negocio propia — bajo riesgo
+// de que se desincronicen.
+export interface MotivoNota {
+  codigo: string;
+  descripcion: string;
+}
+
+export const CATALOGO_MOTIVOS_NOTA_CREDITO: MotivoNota[] = [
+  { codigo: '01', descripcion: 'Anulación de la operación' },
+  { codigo: '02', descripcion: 'Anulación por error en el RUC' },
+  { codigo: '03', descripcion: 'Corrección por error en la descripción' },
+  { codigo: '04', descripcion: 'Descuento global' },
+  { codigo: '05', descripcion: 'Descuento por ítem' },
+  { codigo: '06', descripcion: 'Devolución total' },
+  { codigo: '07', descripcion: 'Devolución por ítem' },
+  { codigo: '08', descripcion: 'Bonificación' },
+  { codigo: '09', descripcion: 'Disminución en el valor' },
+  { codigo: '10', descripcion: 'Otros conceptos' },
+];
+
+export const CATALOGO_MOTIVOS_NOTA_DEBITO: MotivoNota[] = [
+  { codigo: '01', descripcion: 'Intereses por mora' },
+  { codigo: '02', descripcion: 'Aumento en el valor' },
+  { codigo: '03', descripcion: 'Penalidades / otros conceptos' },
+];
+
+export interface ItemNotaPayload {
+  descripcion: string;
+  cantidad: number;
+  precioUnitarioConIgv: number;
+}
+
+export interface EmitirNotaPayload {
+  motivoCodigo: string;
+  items: ItemNotaPayload[];
+}
+
+export interface EmitirNotaResultado {
+  id: string;
+  tipo: TipoNota;
+  serie: string;
+  correlativo: number;
 }
 
 // Alta de empresa emisora vía el formulario "Configurar SUNAT" — certificado

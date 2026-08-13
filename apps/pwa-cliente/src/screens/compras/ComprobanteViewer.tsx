@@ -5,6 +5,7 @@
 // la resolverían en una carga de imagen cruda del navegador.
 
 import { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Scrim } from '../../components/ui/Scrim';
 import { Icons } from '../../components/ui/icons';
 import * as comprasApi from '../../api/compras.api';
@@ -106,8 +107,8 @@ function ComprobanteVisorModal({ comprobante, onClose, onEliminar }: Readonly<Co
     }
   };
 
-  return (
-    <div className="modal-wrap">
+  return createPortal(
+    <div className="modal-wrap" style={{ zIndex: 80 }}>
       <Scrim onClose={onClose} />
       <div className="modal" style={{ width: 'min(520px, 100%)', position: 'relative', zIndex: 1 }}>
         <div className="panel-h" style={{ padding: '16px 20px' }}>
@@ -141,6 +142,7 @@ function ComprobanteVisorModal({ comprobante, onClose, onEliminar }: Readonly<Co
           )}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

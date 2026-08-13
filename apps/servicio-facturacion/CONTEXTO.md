@@ -12,6 +12,40 @@ desde otra cuenta/sesión de Claude Code en este mismo repo.
   Ceviche 2**, cada una con su propio RUC. Deben operar como emisores SUNAT
   independientes — nunca cruzar certificado ni numeración entre ambas.
 
+## 0.1 Actualización — sesión 2026-08-13: Notas de crédito/débito, validadas contra SUNAT BETA real
+
+Agregadas notas de crédito y débito electrónicas (`ubl.builder.ts` →
+`construirXmlNotaCredito`/`construirXmlNotaDebito`, `NotasService`, rutas
+`POST /comprobantes/:comprobanteId/nota-{credito,debito}`). Mismo patrón de
+dos fases que boleta/factura (firma acá, `EnvioProcessor` la manda a SUNAT).
+
+Numeración: 4 series independientes en `Empresa` (`serieNotaCreditoFactura`
+FC01, `serieNotaCreditoBoleta` BC01, `serieNotaDebitoFactura` FD01,
+`serieNotaDebitoBoleta` BD01) — SUNAT exige que la serie empiece con F o B
+según el tipo de documento afectado, no es una sola numeración por tipo de nota.
+
+**Bug real encontrado probando contra beta** (RUC 10417758432, nota FC01-2
+contra la Factura F001-2 del 2026-08-12): `<cac:PaymentTerms>` con
+`PaymentMeansID=Contado` — obligatorio en Invoice (sin él, error 3244) —
+SUNAT lo RECHAZA en CreditNote/DebitNote con error 3246 ("El tipo de
+transaccion... no cumple con el formato esperado"). Quitarlo del bloque
+compartido de notas fue el fix; no aparece en ningún schema/tipo, solo se
+detectó probando de verdad — mismo patrón que los 3 bugs de la sección 0.
+
+Validado ACEPTADO contra beta real, ambos tipos:
+- Nota de crédito FC01-2 (motivo 01, contra F001-2): `ResponseCode 0`, "ha sido aceptada".
+- Nota de débito FD01-1 (motivo 01, contra F001-2): `ResponseCode 0`, "ha sido aceptada".
+
+Scripts de prueba: `scripts/probar-beta-nota.ts` / `scripts/probar-beta-nota-debito.ts`
+(mismo patrón que `probar-beta.ts` — no tocan DB, correlativo fijo que hay
+que subir a mano antes de cada corrida, ver comentario en el propio archivo).
+
+Frontend: botón "nota de crédito/débito" en `FacturacionScreen.tsx`, visible
+solo sobre comprobantes `ACEPTADO` — selector de tipo, motivo (catálogo
+09/10 SUNAT) y monto, con el ítem de la nota generado como una sola línea
+(no hay desglose por ítem del comprobante original disponible — `Comprobante`
+solo guarda subtotal/igv/total agregados, no un detalle de líneas).
+
 ## 0. Actualización — sesión 2026-08-12: Fase 1 validada contra SUNAT BETA real
 
 El punto 5 de "Pendiente" de abajo ("cliente SOAP sin ejercitar contra el WSDL

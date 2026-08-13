@@ -16,7 +16,8 @@ import { fmt } from '../../utils/format';
 import { useFacturacionQuery } from '../../hooks/queries/useFacturacionQuery';
 import { abrirComprobanteParaImprimir } from '../../utils/comprobantePrint';
 import { ConfigurarEmpresaModal } from './ConfigurarEmpresaModal';
-import type { ComprobantePagoDto, EstadoComprobante, TipoComprobante } from '../../types/facturacion.types';
+import { CATALOGO_MOTIVOS_NOTA_CREDITO, CATALOGO_MOTIVOS_NOTA_DEBITO } from '../../types/facturacion.types';
+import type { ComprobanteDto, ComprobantePagoDto, EstadoComprobante, TipoComprobante, TipoNota } from '../../types/facturacion.types';
 
 const ESTADO_BADGE: Record<EstadoComprobante, string> = {
   FIRMADO: 'badge-info',
@@ -59,6 +60,7 @@ export function FacturacionScreen() {
   const {
     disponibles, emitidos, empresas, empresasLoading, loading, emitiendo, error, success, fetch,
     emitirComprobante, clearFeedback, crearEmpresa, configurandoEmpresa, errorEmpresa, clearFeedbackEmpresa,
+    emitiendoNota, errorNota, emitirNotaCredito, emitirNotaDebito, clearFeedbackNota,
   } = useFacturacionQuery();
 
   const [configurarSunat, setConfigurarSunat] = useState(false);
@@ -96,6 +98,62 @@ export function FacturacionScreen() {
 
   const cerrarModal = () => setEmitir(null);
   useFocusTrap(modalRef, { active: !!emitir, onClose: cerrarModal });
+
+  const [notaPara, setNotaPara] = useState<ComprobanteDto | null>(null);
+  const [tipoNota, setTipoNota] = useState<TipoNota>('NOTA_CREDITO');
+  const [motivoCodigo, setMotivoCodigo] = useState('');
+  const [montoNota, setMontoNota] = useState('');
+  const [descripcionNota, setDescripcionNota] = useState('');
+  const notaModalRef = useRef<HTMLDialogElement>(null);
+
+  const cerrarNotaModal = () => { setNotaPara(null); clearFeedbackNota(); };
+  useFocusTrap(notaModalRef, { active: !!notaPara, onClose: cerrarNotaModal });
+
+  const catalogoNota = tipoNota === 'NOTA_CREDITO' ? CATALOGO_MOTIVOS_NOTA_CREDITO : CATALOGO_MOTIVOS_NOTA_DEBITO;
+
+  const abrirNota = (comprobante: ComprobanteDto) => {
+    setNotaPara(comprobante);
+    setTipoNota('NOTA_CREDITO');
+    setMotivoCodigo(CATALOGO_MOTIVOS_NOTA_CREDITO[0].codigo);
+    setMontoNota(String(Number(comprobante.total)));
+    setDescripcionNota(CATALOGO_MOTIVOS_NOTA_CREDITO[0].descripcion);
+  };
+
+  const cambiarTipoNota = (t: TipoNota) => {
+    setTipoNota(t);
+    const catalogo = t === 'NOTA_CREDITO' ? CATALOGO_MOTIVOS_NOTA_CREDITO : CATALOGO_MOTIVOS_NOTA_DEBITO;
+    setMotivoCodigo(catalogo[0].codigo);
+    setDescripcionNota(catalogo[0].descripcion);
+  };
+
+  const confirmarNota = async () => {
+    if (!notaPara) return;
+    const monto = Number(montoNota);
+    if (!Number.isFinite(monto) || monto <= 0) {
+      toast({ title: 'Monto inválido', msg: 'Ingresa un monto mayor a cero.', icon: 'Alert', kind: 'err' });
+      return;
+    }
+    const payload = {
+      motivoCodigo,
+      items: [{ descripcion: descripcionNota.trim() || 'Ajuste', cantidad: 1, precioUnitarioConIgv: monto }],
+    };
+    try {
+      if (tipoNota === 'NOTA_CREDITO') {
+        await emitirNotaCredito(notaPara.id, payload);
+      } else {
+        await emitirNotaDebito(notaPara.id, payload);
+      }
+      toast({
+        title: tipoNota === 'NOTA_CREDITO' ? 'Nota de crédito firmada' : 'Nota de débito firmada',
+        msg: 'Enviándose a SUNAT — el estado se actualiza solo.',
+        icon: 'Check',
+        kind: 'ok',
+      });
+      cerrarNotaModal();
+    } catch {
+      toast({ title: 'No se pudo emitir la nota', msg: 'Revisa los datos e inténtalo de nuevo.', icon: 'Alert', kind: 'err' });
+    }
+  };
 
   const empresaUnica = empresas.length === 1 ? empresas[0] : null;
   const puedeEmitir = empresas.length > 0;
@@ -324,14 +382,24 @@ export function FacturacionScreen() {
                       </td>
                       <td className="cell-action">
                         {comprobante?.estado === 'ACEPTADO' && (
-                          <button
-                            className="btn btn-sm btn-ghost"
-                            title="Imprimir comprobante"
-                            aria-label="Imprimir comprobante"
-                            onClick={() => abrirComprobanteParaImprimir({ comprobante, items: c.items ?? [] })}
-                          >
-                            <Icons.Print s={15} />
-                          </button>
+                          <div className="row" style={{ gap: 6, justifyContent: 'flex-end' }}>
+                            <button
+                              className="btn btn-sm btn-ghost"
+                              title="Emitir nota de crédito/débito"
+                              aria-label="Emitir nota de crédito o débito"
+                              onClick={() => abrirNota(comprobante)}
+                            >
+                              <Icons.Edit s={15} />
+                            </button>
+                            <button
+                              className="btn btn-sm btn-ghost"
+                              title="Imprimir comprobante"
+                              aria-label="Imprimir comprobante"
+                              onClick={() => abrirComprobanteParaImprimir({ comprobante, items: c.items ?? [] })}
+                            >
+                              <Icons.Print s={15} />
+                            </button>
+                          </div>
                         )}
                       </td>
                     </tr>
@@ -424,6 +492,83 @@ export function FacturacionScreen() {
                 onClick={() => void confirmarEmision()}
               >
                 {emitiendo ? <span className="spinner" /> : <Icons.Check s={15} />} Emitir {tipo === 'FACTURA' ? 'factura' : 'boleta'}
+              </button>
+            </div>
+          </dialog>
+        </div>
+      )}
+
+      {notaPara && (
+        <div className="modal-wrap">
+          <Scrim onClose={cerrarNotaModal} />
+          <dialog open className="modal" ref={notaModalRef} aria-modal="true" aria-label="Emitir nota de crédito o débito" style={{ position: 'relative', zIndex: 1 }}>
+            <div className="panel-h" style={{ padding: '16px 20px' }}>
+              <h3 style={{ fontSize: 18 }}>Nota sobre {notaPara.tipo === 'FACTURA' ? 'factura' : 'boleta'} {notaPara.serie}-{notaPara.correlativo}</h3>
+              <span className="spacer" />
+              <button className="icon-btn" onClick={cerrarNotaModal} aria-label="Cerrar"><Icons.Close s={17} /></button>
+            </div>
+            <div className="modal-scroll" style={{ padding: '18px 20px' }}>
+              {errorNota && (
+                <div className="banner err module-feedback" style={{ marginBottom: 12 }}>
+                  <Icons.Alert s={16} />
+                  <span>{errorNota}</span>
+                </div>
+              )}
+
+              <div className="row" style={{ gap: 6, marginBottom: 12 }}>
+                {([{ v: 'NOTA_CREDITO', l: 'Nota de crédito' }, { v: 'NOTA_DEBITO', l: 'Nota de débito' }] as { v: TipoNota; l: string }[]).map((t) => (
+                  <button key={t.v} type="button" className={`chip ${tipoNota === t.v ? 'on' : ''}`} onClick={() => cambiarTipoNota(t.v)}>
+                    {t.l}
+                  </button>
+                ))}
+              </div>
+
+              <div className="field" style={{ marginBottom: 12 }}>
+                <label htmlFor="nota-motivo">Motivo (catálogo SUNAT)</label>
+                <div className="input">
+                  <select
+                    id="nota-motivo"
+                    value={motivoCodigo}
+                    onChange={(e) => {
+                      setMotivoCodigo(e.target.value);
+                      const motivo = catalogoNota.find((m) => m.codigo === e.target.value);
+                      if (motivo) setDescripcionNota(motivo.descripcion);
+                    }}
+                  >
+                    {catalogoNota.map((m) => (
+                      <option key={m.codigo} value={m.codigo}>{m.codigo} · {m.descripcion}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div className="field" style={{ marginBottom: 12 }}>
+                <label htmlFor="nota-descripcion">Descripción del ítem</label>
+                <div className="input">
+                  <input id="nota-descripcion" value={descripcionNota} onChange={(e) => setDescripcionNota(e.target.value)} />
+                </div>
+              </div>
+
+              <div className="field" style={{ marginBottom: 0 }}>
+                <label htmlFor="nota-monto">Monto (con IGV incluido)</label>
+                <div className="input">
+                  <input
+                    id="nota-monto"
+                    type="number"
+                    min="0.01"
+                    step="0.01"
+                    value={montoNota}
+                    onChange={(e) => setMontoNota(e.target.value)}
+                  />
+                </div>
+                <div className="hint" style={{ marginTop: 4 }}>Comprobante original: {fmt(Number(notaPara.total))}</div>
+              </div>
+            </div>
+            <div className="modal-foot" style={{ borderTop: '1px solid var(--border)', paddingTop: 14, padding: '14px 20px' }}>
+              <button className="btn btn-ghost" onClick={cerrarNotaModal}>Cancelar</button>
+              <span className="spacer" />
+              <button className="btn btn-primary" disabled={emitiendoNota} onClick={() => void confirmarNota()}>
+                {emitiendoNota ? <span className="spinner" /> : <Icons.Check s={15} />} Emitir {tipoNota === 'NOTA_CREDITO' ? 'nota de crédito' : 'nota de débito'}
               </button>
             </div>
           </dialog>

@@ -9,7 +9,7 @@ import * as facturacionApi from '../../api/facturacion.api';
 import { useSedeActualQuery } from './useSedesQuery';
 import { queryClient } from '../../api/queryClient';
 import { primerMensaje } from '../../utils/feedback';
-import type { ComprobantePagoDto, EmitirComprobantePayload, CrearEmpresaPayload } from '../../types/facturacion.types';
+import type { ComprobantePagoDto, EmitirComprobantePayload, EmitirNotaPayload, CrearEmpresaPayload } from '../../types/facturacion.types';
 
 const ESTADOS_PENDIENTES = new Set(['FIRMADO', 'ENVIADO']);
 
@@ -58,6 +58,18 @@ export function useFacturacionQuery() {
     onSuccess: invalidate,
   });
 
+  const mutationNotaCredito = useMutation({
+    mutationFn: ({ comprobanteId, payload }: { comprobanteId: string; payload: EmitirNotaPayload }) =>
+      facturacionApi.emitirNotaCredito(comprobanteId, payload),
+    onSuccess: invalidate,
+  });
+
+  const mutationNotaDebito = useMutation({
+    mutationFn: ({ comprobanteId, payload }: { comprobanteId: string; payload: EmitirNotaPayload }) =>
+      facturacionApi.emitirNotaDebito(comprobanteId, payload),
+    onSuccess: invalidate,
+  });
+
   return {
     disponibles: disponiblesQuery.data ?? [],
     emitidos: (todosQuery.data ?? []).filter((c) => c.estado === 'EMITIDO'),
@@ -79,6 +91,15 @@ export function useFacturacionQuery() {
     crearEmpresa: async (payload: CrearEmpresaPayload) => {
       return mutationCrearEmpresa.mutateAsync(payload);
     },
+    emitiendoNota: mutationNotaCredito.isPending || mutationNotaDebito.isPending,
+    errorNota: mutationNotaCredito.error?.message ?? mutationNotaDebito.error?.message ?? null,
+    emitirNotaCredito: async (comprobanteId: string, payload: EmitirNotaPayload) => {
+      return mutationNotaCredito.mutateAsync({ comprobanteId, payload });
+    },
+    emitirNotaDebito: async (comprobanteId: string, payload: EmitirNotaPayload) => {
+      return mutationNotaDebito.mutateAsync({ comprobanteId, payload });
+    },
+    clearFeedbackNota: () => { mutationNotaCredito.reset(); mutationNotaDebito.reset(); },
     clearFeedback: () => mutationEmitir.reset(),
     clearFeedbackEmpresa: () => mutationCrearEmpresa.reset(),
   };
