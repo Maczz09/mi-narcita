@@ -77,7 +77,17 @@ export function CobroMesaDrawer({ mesaId, mesaNumero, mesaUnidaCon, onClose, onP
   const totalCobro = totalBase + tip;
   const igv = totalBase - totalBase / 1.18;
 
-  const items = useMemo(() => cuentaActiva?.pedidos.flatMap((p) => p.items) ?? [], [cuentaActiva]);
+  // Solo ítems efectivamente cobrables: excluye pedidos enteros no cobrables
+  // (CANCELADO/RECHAZADO_SIN_STOCK) y, dentro de pedidos vigentes, los ítems
+  // anulados puntualmente (CU-01/CU-02) — no deben aparecer en el cobro ni en la boleta.
+  const items = useMemo(
+    () =>
+      (cuentaActiva?.pedidos ?? [])
+        .filter((p) => p.estado !== 'CANCELADO' && p.estado !== 'RECHAZADO_SIN_STOCK')
+        .flatMap((p) => p.items)
+        .filter((it) => it.estado !== 'CANCELADO'),
+    [cuentaActiva],
+  );
 
   // Configuración de división bloqueada una vez que la primera parte ya se cobró:
   // cambiar el modo/las asignaciones a mitad de camino descuadraría lo ya pagado.
@@ -210,7 +220,7 @@ export function CobroMesaDrawer({ mesaId, mesaNumero, mesaUnidaCon, onClose, onP
         <div className="panel-h" style={{ padding: '16px 20px' }}>
           <h3 style={{ fontSize: 18 }}>Cobrar cuenta</h3>
           <span className="tag-canal salon" style={{ marginLeft: 4 }}>Mesa {mesaNumero ?? cuentaActiva?.mesaId ?? ''}</span>
-          {cuentaActiva && <span className="muted" style={{ fontSize: 13 }}>· {cuentaActiva.cantidadItems} ítems</span>}
+          {cuentaActiva && <span className="muted" style={{ fontSize: 13 }}>· {items.length} ítems</span>}
           <span className="spacer" />
           <button className="icon-btn" onClick={onClose} aria-label="Cerrar cobro de cuenta"><Icons.Close s={17} /></button>
         </div>

@@ -304,7 +304,7 @@ describe('MesasScreen', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Mala digitación' }));
     fireEvent.click(screen.getByRole('button', { name: /Anular ítem/ }));
 
-    await waitFor(() => expect(avanzarItem).toHaveBeenCalledWith('i-1', 'CANCELADO', 'Mala digitación'));
+    await waitFor(() => expect(avanzarItem).toHaveBeenCalledWith('i-1', 'CANCELADO', 'Mala digitación', 'm1'));
     await waitFor(() => expect(toast).toHaveBeenCalledWith(expect.objectContaining({ title: 'Ítem anulado' })));
   });
 

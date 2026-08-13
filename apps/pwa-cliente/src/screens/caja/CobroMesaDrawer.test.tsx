@@ -81,6 +81,42 @@ describe('CobroMesaDrawer', () => {
     } as any);
   });
 
+  it('excluye ítems anulados y pedidos cancelados del detalle de cobro (bug: aparecían en la boleta)', async () => {
+    vi.mocked(useCuentasQuery).mockReturnValue({
+      cuentaActiva: {
+        ...mockCuenta,
+        pedidos: [
+          {
+            id: 'ped1',
+            estado: 'PENDIENTE',
+            items: [
+              { id: 'it1', nombre: 'Plato 1', cantidad: 1, subtotal: 60, estado: 'PENDIENTE' },
+              { id: 'it2', nombre: 'Plato 2 anulado', cantidad: 1, subtotal: 40, estado: 'CANCELADO' }
+            ]
+          },
+          {
+            id: 'ped-viejo',
+            estado: 'CANCELADO',
+            items: [
+              { id: 'it3', nombre: 'Ronda anterior cancelada', cantidad: 1, subtotal: 35, estado: 'CANCELADO' }
+            ]
+          }
+        ]
+      },
+      loading: false,
+      error: null,
+      success: null,
+      registrarPago: vi.fn(),
+      clearFeedback: vi.fn()
+    } as any);
+
+    render(<CobroMesaDrawer mesaId="mesa1" mesaNumero="12" onClose={vi.fn()} />);
+
+    expect(screen.getByText('Plato 1')).toBeDefined();
+    expect(screen.queryByText('Plato 2 anulado')).toBeNull();
+    expect(screen.queryByText('Ronda anterior cancelada')).toBeNull();
+  });
+
   it('renders and handles exact cash payment', async () => {
     const registrarPago = vi.fn();
     vi.mocked(useCuentasQuery).mockReturnValue({

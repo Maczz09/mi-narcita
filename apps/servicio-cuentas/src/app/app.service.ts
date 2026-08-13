@@ -17,6 +17,7 @@ import {
   PedidoSnapshot,
   PedidoSnapshotItem,
   PedidoEstado,
+  EstadoItem,
 } from '@org/contracts';
 import { Prisma } from '../generated/prisma';
 import { resolveSedeId, SEDE_PRINCIPAL_ID } from '@org/shared-auth';
@@ -246,7 +247,16 @@ export class AppService {
 
     try {
       await this.prisma.$transaction(async (prisma) => {
-        await prisma.idempotencyKey.create({ data: { key: `pedido.actualizado:${pedidoDto.id}:${pedidoDto.estado}` } });
+        // Bug: dedupear solo por (id, estado del pedido) hace que dos updates
+        // REALES y distintos (p. ej. anular un ítem puntual, que no cambia el
+        // estado del PEDIDO) colisionen en la misma key — el segundo evento se
+        // descarta como "ya procesado" y el snapshot queda desactualizado
+        // (el ítem anulado nunca se refleja en cuenta actual/boleta). La huella
+        // de items hace que cada estado real del pedido tenga su propia key.
+        const huellaItems = (pedidoDto.items ?? []).map((it) => `${it.id ?? ''}=${it.estado ?? ''}`).join(',');
+        await prisma.idempotencyKey.create({
+          data: { key: `pedido.actualizado:${pedidoDto.id}:${pedidoDto.estado}:${pedidoDto.total}:${huellaItems}` },
+        });
         // M5: advisory lock por mesa
       // classid 1234 compartido entre servicios A PROPOSITO: cada servicio tiene su propia BD (database-per-service), el espacio de locks no se cruza.
       await prisma.$executeRaw`SELECT pg_advisory_xact_lock(1234, ('x' || substr(md5(${pedidoDto.mesaId}), 1, 8))::bit(32)::int)`;
@@ -403,12 +413,16 @@ export class AppService {
         throw new BadRequestException('La cuenta ya fue cerrada por otra operación concurrente.');
       }
 
-      const allItems = pedidos.flatMap((p) => p.items || []);
+      const allItems = this.itemsCobrables(pedidos);
       const mappedItems = allItems.map((item) => ({
         productoId: item.productoId,
         nombre: item.nombre,
         cantidad: item.cantidad,
-        precioUnitario: Number(item.precioUnitario || 0)
+        precioUnitario: Number(item.precioUnitario || 0),
+        // Bug: sin esto, reportes no puede distinguir plato de Carta/Menú
+        // (COCINA/BAR) de producto de Inventario (DIRECTO) — todo caía en
+        // "Top platos" y "Top productos" quedaba vacío para siempre.
+        area: item.area,
       }));
       const meseroCuenta = this.obtenerMeseroCuenta(pedidos);
 
@@ -448,7 +462,7 @@ export class AppService {
       id: cierre.ticketId,
       cuentaId: id,
       mesaId: cierre.cuenta.mesaId,
-      items: cierre.pedidos.flatMap((p) => p.items || []),
+      items: this.itemsCobrables(cierre.pedidos),
       subtotal: cierre.subtotal.toNumber(),
       descuento: cierre.descuento.toNumber(),
       total: cierre.total.toNumber(),
@@ -488,7 +502,7 @@ export class AppService {
 
     if (command.metodo === 'POR_ITEMS') {
       const partes: Record<number, number> = {};
-      const allItems = pedidos.flatMap((p) => p.items || []);
+      const allItems = this.itemsCobrables(pedidos);
       allItems.forEach((item) => {
         const comensal = item.comensal ?? item.identificadorComensal ?? 1;
         // A3: aritmética Decimal por ítem
@@ -506,6 +520,19 @@ export class AppService {
     }
 
     throw new BadRequestException('Método de división no soportado');
+  }
+
+  /**
+   * Ítems efectivamente cobrables de un snapshot: excluye pedidos enteros no
+   * cobrables (CANCELADO/RECHAZADO_SIN_STOCK) y, dentro de pedidos vigentes,
+   * los ítems anulados puntualmente (CU-01/CU-02). Usado para boleta/ticket
+   * y división de cuenta — la vista "Cuenta actual" sí debe seguir mostrando
+   * los ítems anulados (con su estado), así que no se usa para el mapeo a DTO.
+   */
+  private itemsCobrables(pedidos: PedidoSnapshot[]): PedidoSnapshotItem[] {
+    return pedidos
+      .filter((p) => !ESTADOS_NO_COBRABLES.has(p.estado))
+      .flatMap((p) => (p.items || []).filter((item) => item.estado !== EstadoItem.Cancelado));
   }
 
   private mapToDto(c: CuentaRecord): CuentaDto {

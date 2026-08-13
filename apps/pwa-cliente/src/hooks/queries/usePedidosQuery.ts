@@ -18,7 +18,7 @@ import type { MesaVM } from '../../types/mesa.types';
 
 export const PEDIDOS_QUERY_KEY = ['pedidos'];
 const CUENTAS_QUERY_KEY = ['cuentas'];
-const POST_CREATE_REFETCH_DELAYS_MS = [800, 2500];
+const CONSISTENCY_REFETCH_DELAYS_MS = [800, 2500];
 
 interface PedidosPage {
   pedidos: PedidoVM[];
@@ -106,8 +106,13 @@ function invalidateOperationalData(mesaId?: string) {
   }
 }
 
-function schedulePostCreateConsistencyRefetch(mesaId?: string) {
-  POST_CREATE_REFETCH_DELAYS_MS.forEach((delay) => {
+// Cubre la ventana de eventual-consistency entre el 200 OK de la mutación y el
+// procesamiento asíncrono del evento (outbox → RabbitMQ → snapshot de cuentas):
+// un solo invalidate+refetch inmediato puede llegar antes de que el consumidor
+// haya escrito el nuevo estado, mostrando datos obsoletos (p. ej. un ítem que
+// ya se anuló pero la cuenta actual todavía no lo refleja).
+function scheduleConsistencyRefetch(mesaId?: string) {
+  CONSISTENCY_REFETCH_DELAYS_MS.forEach((delay) => {
     globalThis.setTimeout(() => invalidateOperationalData(mesaId), delay);
   });
 }
@@ -187,7 +192,7 @@ export function usePedidosQuery(mesaId?: string, options: UsePedidosOptions = {}
       // Crear pedido dispara efectos asíncronos en cuentas/mesas. Refrescamos
       // ahora y repetimos poco después para no depender sólo del socket.
       invalidateOperationalData(payload.mesaId);
-      schedulePostCreateConsistencyRefetch(payload.mesaId);
+      scheduleConsistencyRefetch(payload.mesaId);
     },
   });
 
@@ -289,7 +294,10 @@ export function useAnularAtencionMesaMutation() {
   const mutation = useMutation({
     mutationFn: async ({ mesaId, payload }: { mesaId: string; payload: AnularAtencionMesaPayload }): Promise<AnularAtencionMesaResultado> =>
       pedidosApi.anularAtencionMesa(mesaId, payload),
-    onSuccess: (_resultado, { mesaId }) => invalidateOperationalData(mesaId),
+    onSuccess: (_resultado, { mesaId }) => {
+      invalidateOperationalData(mesaId);
+      scheduleConsistencyRefetch(mesaId);
+    },
   });
 
   return {
@@ -308,10 +316,14 @@ export function useAnularAtencionMesaMutation() {
  */
 export function useAnularItemMutations() {
   const mutationAvanzarItem = useMutation({
-    mutationFn: async ({ itemId, estado, motivo }: { itemId: string; estado: EstadoItem; motivo?: string }) => {
+    mutationFn: async ({ itemId, estado, motivo, mesaId }: { itemId: string; estado: EstadoItem; motivo?: string; mesaId?: string }) => {
       await pedidosApi.avanzarItem(itemId, { estado, motivo });
+      return mesaId;
     },
-    onSuccess: () => invalidateOperationalData(),
+    onSuccess: (mesaId) => {
+      invalidateOperationalData(mesaId);
+      scheduleConsistencyRefetch(mesaId);
+    },
   });
 
   const mutationAnularItemPreparado = useMutation({
@@ -319,13 +331,16 @@ export function useAnularItemMutations() {
       const dto = await pedidosApi.anularItemPreparado(itemId, payload);
       return mapPedido(dto);
     },
-    onSuccess: (pedido) => invalidateOperationalData(pedido.mesaId),
+    onSuccess: (pedido) => {
+      invalidateOperationalData(pedido.mesaId);
+      scheduleConsistencyRefetch(pedido.mesaId);
+    },
   });
 
   return {
     saving: mutationAvanzarItem.isPending || mutationAnularItemPreparado.isPending,
-    avanzarItem: async (itemId: string, estado: EstadoItem, motivo?: string) => {
-      return mutationAvanzarItem.mutateAsync({ itemId, estado, motivo });
+    avanzarItem: async (itemId: string, estado: EstadoItem, motivo?: string, mesaId?: string) => {
+      return mutationAvanzarItem.mutateAsync({ itemId, estado, motivo, mesaId });
     },
     anularItemPreparado: async (itemId: string, payload: AnularItemPreparadoPayload) => {
       return mutationAnularItemPreparado.mutateAsync({ itemId, payload });

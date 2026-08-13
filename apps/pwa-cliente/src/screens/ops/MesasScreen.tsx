@@ -618,7 +618,7 @@ function MesaDrawer({ mesa: m, hermanas, online, onClose, onSeparar, onCobrar, o
           kind: 'ok',
         });
       } else {
-        await avanzarItem(anularItemSel.id, 'CANCELADO', motivo);
+        await avanzarItem(anularItemSel.id, 'CANCELADO', motivo, m.id);
         toast({ title: 'Ítem anulado', icon: 'Check', kind: 'ok' });
       }
       setAnularItemSel(null);

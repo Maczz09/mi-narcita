@@ -300,6 +300,70 @@ describe('AppService — Cuentas (comprehensive)', () => {
       expect(payload.meseroNombre).toBe('Ana Mesa');
     });
 
+    it('excluye del ticket los ítems anulados y los pedidos enteramente cancelados (bug: aparecían en la boleta)', async () => {
+      mockPrisma.cuenta.findUnique.mockResolvedValue({
+        ...cuentaAbierta,
+        pedidos: [
+          {
+            ...pedidoBase,
+            id: 'p-cancelado',
+            estado: PedidoEstado.Cancelado,
+            total: 0,
+            items: [{ id: 'i-viejo', productoId: 'prod-9', precioUnitario: 40, cantidad: 1, nombre: 'Ronda anterior cancelada', estado: 'CANCELADO' }],
+          },
+          {
+            ...pedidoBase,
+            id: 'p-vigente',
+            estado: PedidoEstado.Pendiente,
+            total: 25,
+            items: [
+              { id: 'i-anulado', productoId: 'prod-2', precioUnitario: 35, cantidad: 1, nombre: 'Ítem anulado del pedido vigente', estado: 'CANCELADO' },
+              { id: 'i-ok', productoId: 'prod-3', precioUnitario: 25, cantidad: 1, nombre: 'Ítem vigente', estado: 'PENDIENTE' },
+            ],
+          },
+        ],
+      });
+      mockPrisma.cuenta.updateMany.mockResolvedValue({ count: 1 });
+      mockPrisma.outboxEvent.createMany.mockResolvedValue({ count: 2 });
+
+      const result = await service.cerrarCuenta('c-001', {});
+
+      expect(result.ticket.items).toHaveLength(1);
+      expect(result.ticket.items[0].nombre).toBe('Ítem vigente');
+
+      const eventos = mockPrisma.outboxEvent.createMany.mock.calls.at(-1)[0].data as { routingKey: string; payload: string }[];
+      const cuentaCerrada = eventos.find((e) => e.routingKey === 'cuenta.cerrada');
+      const payload = JSON.parse(cuentaCerrada!.payload);
+      expect(payload.items).toHaveLength(1);
+      expect(payload.items[0].nombre).toBe('Ítem vigente');
+    });
+
+    it('propaga item.area al ticket y al evento cuenta.cerrada (bug: reportes no podía distinguir Carta de Inventario)', async () => {
+      mockPrisma.cuenta.findUnique.mockResolvedValue({
+        ...cuentaAbierta,
+        pedidos: [
+          {
+            ...pedidoBase,
+            items: [
+              { id: 'i-plato', productoId: 'prod-1', precioUnitario: 40, cantidad: 1, nombre: 'Arroz con Conchas', area: 'COCINA' },
+              { id: 'i-producto', productoId: 'prod-2', precioUnitario: 2, cantidad: 1, nombre: 'San Carlos 450ml', area: 'DIRECTO' },
+            ],
+          },
+        ],
+      });
+      mockPrisma.cuenta.updateMany.mockResolvedValue({ count: 1 });
+      mockPrisma.outboxEvent.createMany.mockResolvedValue({ count: 2 });
+
+      const result = await service.cerrarCuenta('c-001', {});
+
+      expect(result.ticket.items.find((i) => i.nombre === 'San Carlos 450ml')?.area).toBe('DIRECTO');
+      expect(result.ticket.items.find((i) => i.nombre === 'Arroz con Conchas')?.area).toBe('COCINA');
+
+      const eventos = mockPrisma.outboxEvent.createMany.mock.calls.at(-1)[0].data as { routingKey: string; payload: string }[];
+      const payload = JSON.parse(eventos.find((e) => e.routingKey === 'cuenta.cerrada')!.payload);
+      expect(payload.items.find((i: any) => i.nombre === 'San Carlos 450ml').area).toBe('DIRECTO');
+    });
+
     it('el descuento no puede hacer el total negativo (mínimo 0)', async () => {
       mockPrisma.cuenta.findUnique.mockResolvedValue(cuentaAbierta);
       mockPrisma.cuenta.updateMany.mockResolvedValue({ count: 1 });
@@ -363,6 +427,31 @@ describe('AppService — Cuentas (comprehensive)', () => {
         const comensal2 = result.partes.find((p) => p.comensal === 2);
         expect(comensal1?.monto).toBe(50);
         expect(comensal2?.monto).toBe(100);
+      }
+    });
+
+    it('POR_ITEMS excluye ítems anulados y pedidos cancelados de la división', async () => {
+      jest.spyOn(service, 'obtenerCuenta').mockResolvedValue({
+        ...cuentaConPedidos,
+        pedidos: [
+          ...cuentaConPedidos.pedidos,
+          {
+            id: 'p-cancelado',
+            mesaId: 'm-001',
+            estado: PedidoEstado.Cancelado,
+            total: 0,
+            items: [{ id: 'i-viejo', productoId: 'prod-9', precioUnitario: 999, cantidad: 1, nombre: 'Ronda anterior cancelada', comensal: 1 }],
+            createdAt: new Date().toISOString(),
+          },
+        ],
+      } as any);
+
+      const result = await service.dividirCuenta('c-001', { metodo: 'POR_ITEMS' });
+      expect(result.metodo).toBe('POR_ITEMS');
+      if (result.metodo === 'POR_ITEMS') {
+        expect(result.partes).toHaveLength(2);
+        const comensal1 = result.partes.find((p) => p.comensal === 1);
+        expect(comensal1?.monto).toBe(50);
       }
     });
 
@@ -568,6 +657,31 @@ describe('AppService — Cuentas (comprehensive)', () => {
 
       const data = mockPrisma.cuenta.update.mock.calls[0][0].data as any;
       expect(data.total.toNumber()).toBe(0);
+    });
+
+    it('bug: dos updates reales distintos (mismo pedido, mismo estado, ítem anulado) no deben compartir idempotencyKey', async () => {
+      // Antes: la key era `${id}:${estado}` — anular UN ítem de un pedido que
+      // se mantiene PENDIENTE en su conjunto generaba la MISMA key que el
+      // update anterior, y el segundo evento se descartaba como "duplicado"
+      // (P2002), dejando el snapshot de la cuenta desactualizado para siempre.
+      mockPrisma.cuenta.findFirst.mockResolvedValue({
+        id: 'c-001', mesaId: 'm-001', estado: CuentaEstado.Abierta, pedidos: [pedidoBase], total: 50,
+      });
+      mockPrisma.cuenta.update.mockResolvedValue({});
+
+      await service.procesarPedidoActualizado({ pedido: pedidoBase });
+      const key1 = mockPrisma.idempotencyKey.create.mock.calls[0][0].data.key;
+
+      const pedidoConItemAnulado = {
+        ...pedidoBase,
+        total: 0,
+        items: pedidoBase.items.map((it: any) => ({ ...it, estado: 'CANCELADO' })),
+      };
+      await service.procesarPedidoActualizado({ pedido: pedidoConItemAnulado });
+      const key2 = mockPrisma.idempotencyKey.create.mock.calls[1][0].data.key;
+
+      expect(pedidoBase.estado).toBe(pedidoConItemAnulado.estado);
+      expect(key1).not.toBe(key2);
     });
 
     it('trata P2002 como idempotente', async () => {
