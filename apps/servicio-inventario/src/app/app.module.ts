@@ -25,7 +25,7 @@ import { RoutingKeys } from '@org/contracts';
     RabbitMQModule.forRoot({
       uri: process.env['RABBITMQ_URI'],
       queue: 'inventario_queue',
-      bindings: ['pedido.creado', RoutingKeys.CompraRecibida]
+      bindings: ['pedido.creado', RoutingKeys.CompraRecibida, RoutingKeys.PedidoItemAnuladoConMerma, RoutingKeys.StockRestaurado]
     }),
   ],
   controllers: [AppController, EventsController],

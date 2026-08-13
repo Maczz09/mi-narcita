@@ -1,7 +1,11 @@
 // mappers/pedido.mapper.ts — PedidoDto → PedidoVM
 
-import type { PedidoDto, PedidoVM, PedidoItemDto, PedidoItemVM, EstadoPedido, EstadoItem } from '../types/pedido.types';
+import type { AnulacionAuditoriaDto, AnulacionAuditoriaVM, EstadoPlatoAnulacion, PedidoDto, PedidoVM, PedidoItemDto, PedidoItemVM, EstadoPedido, EstadoItem, TipoAnulacion } from '../types/pedido.types';
 import { canalFromModalidad } from '../domain/pedido.flow';
+
+function formatMoney(value: number): string {
+  return new Intl.NumberFormat('es-PE', { style: 'currency', currency: 'PEN' }).format(value);
+}
 
 const ESTADO_CSS: Record<EstadoPedido, string> = {
   PENDIENTE: 'badge-warn',
@@ -85,3 +89,46 @@ export function mapPedido(dto: PedidoDto): PedidoVM {
 export function mapPedidos(dtos: PedidoDto[]): PedidoVM[] {
   return dtos.map(mapPedido);
 }
+
+// ─── CU-05: Auditoría de Anulaciones ─────────────────────────────
+
+const TIPO_ANULACION_LABEL: Record<TipoAnulacion, string> = {
+  ITEM: 'Ítem',
+  MESA: 'Mesa completa',
+};
+
+const ESTADO_PLATO_LABEL: Record<EstadoPlatoAnulacion, string> = {
+  SIN_PREPARAR: 'Sin preparar',
+  PREPARADO: 'Ya preparado',
+};
+
+export function mapAnulacionAuditoria(dto: AnulacionAuditoriaDto): AnulacionAuditoriaVM {
+  return {
+    id: dto.id,
+    fechaLabel: new Date(dto.fecha).toLocaleString('es-PE', { dateStyle: 'short', timeStyle: 'short' }),
+    mesaNumero: dto.mesaNumero ?? null,
+    pedidoId: dto.pedidoId,
+    tipo: dto.tipo,
+    tipoLabel: TIPO_ANULACION_LABEL[dto.tipo] ?? dto.tipo,
+    productoNombre: dto.productoNombre ?? null,
+    cantidad: dto.cantidad ?? null,
+    estadoPlato: dto.estadoPlato,
+    cobrado: dto.cobrado,
+    montoAnulado: dto.montoAnulado,
+    montoLabel: formatMoney(dto.montoAnulado),
+    motivo: dto.motivo,
+    observacion: dto.observacion ?? null,
+    usuarioNombre: dto.usuarioNombre ?? null,
+    clienteNombre: dto.clienteNombre ?? null,
+    invalidada: dto.invalidada,
+    invalidadaMotivo: dto.invalidadaMotivo ?? null,
+    invalidadaPorNombre: dto.invalidadaPorNombre ?? null,
+  };
+}
+
+export function mapAnulacionesAuditoria(dtos: AnulacionAuditoriaDto[]): AnulacionAuditoriaVM[] {
+  return dtos.map(mapAnulacionAuditoria);
+}
+
+// ESTADO_PLATO_LABEL usado por la pantalla de Auditoría de Anulaciones.
+export { ESTADO_PLATO_LABEL };

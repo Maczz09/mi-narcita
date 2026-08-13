@@ -63,21 +63,44 @@ model Producto {
   @@map("productos")
 }
 
-// T-22: merma de inventario — botellas rotas/vencidas u otra pérdida de
-// stock que no viene de una venta. Queda como registro auditable (motivo +
-// quién la reportó), separado de la reposición/consumo normal.
+// Origen de una merma: descarte manual desde Inventario, o automática desde
+// una anulación de comanda (CU-01/CU-02) — cobrada o no al cliente. Ver
+// AnulacionAuditoria en servicio-pedidos para el detalle de esa anulación.
+enum MermaOrigen {
+  DESCARTE_MANUAL_INVENTARIO
+  ANULACION_COMANDA_NO_COBRADA
+  ANULACION_COMANDA_COBRADA
+}
+
+// T-22: merma de inventario — botellas rotas/vencidas, plato ya preparado
+// que se anuló, u otra pérdida de stock que no viene de una venta normal.
+// Queda como registro auditable (motivo + quién la reportó).
+//
+// Un producto de Carta/Menú (stockActual null, sin control de stock en este
+// sistema) SÍ puede tener merma — para dejar constancia del costo perdido —
+// pero no mueve ningún contador de stock porque no existe uno; solo los
+// productos de Inventario (stockActual no-null) descuentan/restauran stock.
 model Merma {
-  id            String   @id @default(uuid())
+  id            String      @id @default(uuid())
   productoId    String
-  producto      Producto @relation(fields: [productoId], references: [id])
+  producto      Producto    @relation(fields: [productoId], references: [id])
   cantidad      Int
   motivo        String
+  observacion   String?
+  origen        MermaOrigen @default(DESCARTE_MANUAL_INVENTARIO)
+  // Snapshot del precio al momento de la merma (protege el cálculo histórico
+  // de $ perdido aunque el precio del producto cambie después).
+  costoUnitario Decimal?    @db.Decimal(10, 2)
+  // Referencia laxa (sin FK: servicio-pedidos tiene su propia BD) al ítem de
+  // comanda que originó una merma automática — solo trazabilidad.
+  pedidoItemId  String?
   usuarioId     String?
   usuarioNombre String?
-  createdAt     DateTime @default(now())
+  createdAt     DateTime    @default(now())
 
   @@index([productoId])
   @@index([createdAt])
+  @@index([origen])
   @@map("mermas")
 }
 

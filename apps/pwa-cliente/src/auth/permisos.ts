@@ -26,6 +26,7 @@ export const TODAS_LAS_RUTAS = [
   'usuarios',
   'sedes',
   'facturacion',
+  'auditoria-anulaciones',
 ] as const;
 
 export type RutaApp = (typeof TODAS_LAS_RUTAS)[number];
@@ -43,7 +44,7 @@ export const ACCESO_POR_ROL: Record<RolUsuario, AccesoRol> = {
   SISTEMA: { home: 'usuarios', rutas: TODAS_LAS_RUTAS },
   GERENCIA: {
     home: 'reportes',
-    rutas: ['reportes', 'inventario', 'categorias', 'compras', 'carta', 'reservas', 'usuarios'],
+    rutas: ['reportes', 'inventario', 'categorias', 'compras', 'carta', 'reservas', 'usuarios', 'auditoria-anulaciones'],
   },
   CAJERO: { home: 'caja', rutas: ['caja', 'mesas', 'pedidos'] },
   COCINA: { home: 'cocina', rutas: ['cocina', 'carta'] },

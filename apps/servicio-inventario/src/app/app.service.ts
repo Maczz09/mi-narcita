@@ -21,11 +21,14 @@ import {
   ActualizarMenuDiarioCommand,
   MermaDto,
   RegistrarMermaCommand,
+  ActualizarMermaCommand,
   ListarMermasQuery,
   CompraRecibidaPayload,
   CompraRecibidaLineaPayload,
+  PedidoItemAnuladoConMermaPayload,
+  StockRestauradoPayload,
 } from '@org/contracts';
-import { Prisma, CategoriaArea } from '../generated/prisma';
+import { Prisma, CategoriaArea, MermaOrigen } from '../generated/prisma';
 
 @Injectable()
 export class AppService {
@@ -641,24 +644,34 @@ export class AppService {
     return { message: 'Quitado del menú del día' };
   }
 
-  // --- MERMA DE INVENTARIO (T-22) ---
+  // --- MERMA DE INVENTARIO (T-22, CU-01..CU-04) ---
 
   private toMermaDto(merma: {
     id: string;
     productoId: string;
     cantidad: number;
     motivo: string;
+    observacion: string | null;
+    origen: string;
+    costoUnitario: Prisma.Decimal | null;
+    pedidoItemId: string | null;
     usuarioId: string | null;
     usuarioNombre: string | null;
     createdAt: Date;
     producto?: Record<string, unknown>;
   }): MermaDto {
+    const costoUnitario = merma.costoUnitario == null ? null : merma.costoUnitario.toNumber();
     return {
       id: merma.id,
       productoId: merma.productoId,
       producto: merma.producto ? this.toProductoDto(merma.producto) : undefined,
       cantidad: merma.cantidad,
       motivo: merma.motivo,
+      observacion: merma.observacion,
+      origen: merma.origen as MermaDto['origen'],
+      costoUnitario,
+      costoTotal: costoUnitario == null ? null : costoUnitario * merma.cantidad,
+      pedidoItemId: merma.pedidoItemId,
       usuarioId: merma.usuarioId,
       usuarioNombre: merma.usuarioNombre,
       createdAt: merma.createdAt.toISOString(),
@@ -679,8 +692,11 @@ export class AppService {
 
       const producto = await prisma.producto.findUnique({ where: { id: command.productoId }, include: { categoria: true } });
       if (!producto || producto.sedeId !== sedeId) throw new NotFoundException('Producto no encontrado');
+      // La merma MANUAL (botón en Inventario) es solo para productos con
+      // stock — para platos de Carta/Menú ya preparados, la merma nace
+      // automática desde la anulación de comanda (ver procesarItemAnuladoConMerma).
       if (producto.stockActual === null) {
-        throw new BadRequestException('Este producto no lleva control de stock; no se le puede registrar merma.');
+        throw new BadRequestException('Este producto no lleva control de stock; no se le puede registrar merma manual. Para un plato ya preparado, anúlalo desde la comanda.');
       }
       if (command.cantidad > producto.stockActual) {
         throw new BadRequestException(`No puedes mermar ${command.cantidad}: solo hay ${producto.stockActual} en stock.`);
@@ -695,11 +711,15 @@ export class AppService {
         },
       });
 
+      const costoUnitario = command.costoUnitario ?? producto.precio.toNumber();
       const m = await prisma.merma.create({
         data: {
           productoId: command.productoId,
           cantidad: command.cantidad,
           motivo: command.motivo,
+          observacion: command.observacion,
+          origen: MermaOrigen.DESCARTE_MANUAL_INVENTARIO,
+          costoUnitario,
           usuarioId: usuarioId ?? undefined,
           usuarioNombre: usuarioNombre ?? undefined,
         },
@@ -738,12 +758,309 @@ export class AppService {
   async listarMermas(query: ListarMermasQuery = {}, usuarioSedeId?: string | null, sedeIdSolicitado?: string): Promise<{ mermas: MermaDto[] }> {
     const sedeId = resolveSedeId(usuarioSedeId, sedeIdSolicitado);
     const mermas = await this.prisma.merma.findMany({
-      where: { producto: { sedeId }, ...(query.productoId ? { productoId: query.productoId } : {}) },
+      where: {
+        producto: { sedeId },
+        ...(query.productoId ? { productoId: query.productoId } : {}),
+        ...(query.origen ? { origen: query.origen } : {}),
+        ...(query.desde || query.hasta
+          ? {
+              createdAt: {
+                ...(query.desde ? { gte: new Date(query.desde) } : {}),
+                ...(query.hasta ? { lte: new Date(query.hasta) } : {}),
+              },
+            }
+          : {}),
+      },
       include: { producto: { include: { categoria: true } } },
       orderBy: { createdAt: 'desc' },
       take: this.normalizeLimit(query.limit),
     });
     return { mermas: mermas.map((m) => this.toMermaDto(m)) };
+  }
+
+  /**
+   * CU-04 (Update): corrige cantidad/motivo/observación de una merma ya
+   * registrada. Si cambia la cantidad y el producto lleva stock, recalcula
+   * el stock por la DIFERENCIA (no vuelve a descontar todo) — así el ajuste
+   * es idempotente frente al valor anterior, no acumulativo.
+   */
+  async actualizarMerma(
+    id: string,
+    command: ActualizarMermaCommand,
+    usuarioSedeId?: string | null,
+    sedeIdSolicitado?: string,
+  ): Promise<{ message: string; merma: MermaDto }> {
+    const sedeId = resolveSedeId(usuarioSedeId, sedeIdSolicitado);
+    const merma = await this.prisma.$transaction(async (prisma) => {
+      const existente = await prisma.merma.findUnique({ where: { id }, include: { producto: { include: { categoria: true } } } });
+      if (!existente || existente.producto.sedeId !== sedeId) throw new NotFoundException('Merma no encontrada');
+
+      let productoFinal = existente.producto;
+      if (command.cantidad !== undefined && command.cantidad !== existente.cantidad && existente.producto.stockActual !== null) {
+        await prisma.$executeRaw`SELECT pg_advisory_xact_lock(1234, ('x' || substr(md5(${existente.productoId}), 1, 8))::bit(32)::int)`;
+        const producto = await prisma.producto.findUniqueOrThrow({ where: { id: existente.productoId } });
+        // Diferencia respecto a lo YA mermado: si antes se mermaron 3 y ahora
+        // se corrige a 5, hay que descontar 2 más (no 5 de nuevo).
+        const diferencia = command.cantidad - existente.cantidad;
+        const nuevoStock = (producto.stockActual ?? 0) - diferencia;
+        if (nuevoStock < 0) {
+          throw new BadRequestException(`No hay suficiente stock para aumentar la merma en ${diferencia}: quedarían ${nuevoStock} unidades.`);
+        }
+        productoFinal = await prisma.producto.update({
+          where: { id: existente.productoId },
+          data: { stockActual: nuevoStock, disponible: nuevoStock === 0 ? false : producto.disponible },
+          include: { categoria: true },
+        });
+
+        await prisma.outboxEvent.create({
+          data: {
+            routingKey: RoutingKeys.ProductoActualizado,
+            payload: JSON.stringify({
+              id: productoFinal.id,
+              nombre: productoFinal.nombre,
+              precio: productoFinal.precio.toNumber(),
+              stockActual: productoFinal.stockActual,
+              categoriaNombre: productoFinal.categoria?.nombre,
+              categoriaArea: productoFinal.categoria?.area,
+              disponible: productoFinal.disponible,
+              stockSyncMode: 'MERMA',
+              stockDelta: -diferencia,
+            } satisfies ProductoActualizadoPayload),
+            status: 'PENDING',
+          },
+        });
+      }
+
+      const actualizada = await prisma.merma.update({
+        where: { id },
+        data: {
+          ...(command.cantidad === undefined ? {} : { cantidad: command.cantidad }),
+          ...(command.motivo === undefined ? {} : { motivo: command.motivo }),
+          ...(command.observacion === undefined ? {} : { observacion: command.observacion }),
+        },
+      });
+
+      return { ...actualizada, producto: productoFinal };
+    });
+
+    this.logger.log({
+      operation: 'actualizarMerma',
+      aggregateId: merma.id,
+      message: `Merma ${merma.id} corregida.`,
+    } satisfies OperableLog);
+
+    return { message: 'Merma actualizada', merma: this.toMermaDto(merma) };
+  }
+
+  /**
+   * CU-04 (Delete): revierte una merma creada por error. Restaura el stock
+   * descontado (si el producto lo lleva) y exige justificación — nunca se
+   * borra en silencio algo que ya movió inventario.
+   */
+  async eliminarMerma(
+    id: string,
+    justificacion: string,
+    usuarioSedeId?: string | null,
+    sedeIdSolicitado?: string,
+  ): Promise<{ message: string }> {
+    if (!justificacion || justificacion.trim().length < 3) {
+      throw new BadRequestException('La justificación es obligatoria para eliminar una merma.');
+    }
+    const sedeId = resolveSedeId(usuarioSedeId, sedeIdSolicitado);
+    await this.prisma.$transaction(async (prisma) => {
+      const existente = await prisma.merma.findUnique({ where: { id }, include: { producto: { include: { categoria: true } } } });
+      if (!existente || existente.producto.sedeId !== sedeId) throw new NotFoundException('Merma no encontrada');
+
+      if (existente.producto.stockActual !== null) {
+        await prisma.$executeRaw`SELECT pg_advisory_xact_lock(1234, ('x' || substr(md5(${existente.productoId}), 1, 8))::bit(32)::int)`;
+        const producto = await prisma.producto.findUniqueOrThrow({ where: { id: existente.productoId } });
+        const nuevoStock = (producto.stockActual ?? 0) + existente.cantidad;
+        const productoActualizado = await prisma.producto.update({
+          where: { id: existente.productoId },
+          data: { stockActual: nuevoStock, disponible: true },
+          include: { categoria: true },
+        });
+
+        await prisma.outboxEvent.create({
+          data: {
+            routingKey: RoutingKeys.ProductoActualizado,
+            payload: JSON.stringify({
+              id: productoActualizado.id,
+              nombre: productoActualizado.nombre,
+              precio: productoActualizado.precio.toNumber(),
+              stockActual: productoActualizado.stockActual,
+              categoriaNombre: productoActualizado.categoria?.nombre,
+              categoriaArea: productoActualizado.categoria?.area,
+              disponible: productoActualizado.disponible,
+              stockSyncMode: 'REPOSICION',
+              stockDelta: existente.cantidad,
+            } satisfies ProductoActualizadoPayload),
+            status: 'PENDING',
+          },
+        });
+      }
+
+      await prisma.merma.delete({ where: { id } });
+
+      this.logger.log({
+        operation: 'eliminarMerma',
+        aggregateId: id,
+        message: `Merma ${id} eliminada y stock restaurado. Justificación: ${justificacion}`,
+      } satisfies OperableLog);
+    });
+
+    return { message: 'Merma eliminada y stock restaurado' };
+  }
+
+  /**
+   * CU-01/CU-02: consumidor del evento que emite Pedidos cuando se anula un
+   * ítem YA preparado/servido. La pérdida es real haya cobro o no (el plato
+   * ya salió) — el `origen` solo distingue si además se cobró al cliente.
+   * Si el producto no lleva stock (plato de Carta/Menú sin control), no hay
+   * ningún contador que tocar: la merma queda solo como registro de costo.
+   */
+  async procesarItemAnuladoConMerma(payload: PedidoItemAnuladoConMermaPayload): Promise<void> {
+    if (!payload?.productoId || !payload.cantidad) {
+      this.logger.warn({
+        operation: 'procesarItemAnuladoConMerma',
+        errorCode: 'PAYLOAD_INVALIDO',
+        message: 'Evento PedidoItemAnuladoConMerma sin productoId/cantidad — ignorado.',
+      } satisfies OperableLog);
+      return;
+    }
+    const idempotencyKey = `${RoutingKeys.PedidoItemAnuladoConMerma}:${payload.eventId ?? payload.itemId}`;
+    try {
+      await this.prisma.$transaction(async (prisma) => {
+        await prisma.idempotencyKey.create({ data: { key: idempotencyKey } });
+
+        const producto = await prisma.producto.findUnique({ where: { id: payload.productoId }, include: { categoria: true } });
+        if (!producto) {
+          this.logger.warn({
+            operation: 'procesarItemAnuladoConMerma',
+            aggregateId: payload.productoId,
+            errorCode: 'PRODUCTO_NO_ENCONTRADO',
+            message: `Producto ${payload.productoId} no encontrado — se registra la merma sin costoUnitario ni ajuste de stock.`,
+          } satisfies OperableLog);
+        }
+
+        let stockActual = producto?.stockActual ?? null;
+        if (producto && stockActual !== null) {
+          await prisma.$executeRaw`SELECT pg_advisory_xact_lock(1234, ('x' || substr(md5(${payload.productoId}), 1, 8))::bit(32)::int)`;
+          const fresco = await prisma.producto.findUniqueOrThrow({ where: { id: payload.productoId } });
+          // Ya se había descontado al crear el pedido (todo ítem con stock
+          // se reserva en ese momento) — este evento solo registra la
+          // merma, no vuelve a tocar el stock.
+          stockActual = fresco.stockActual;
+        }
+
+        await prisma.merma.create({
+          data: {
+            productoId: payload.productoId,
+            cantidad: payload.cantidad,
+            motivo: payload.motivo,
+            observacion: payload.observacion,
+            origen: payload.cobrado ? MermaOrigen.ANULACION_COMANDA_COBRADA : MermaOrigen.ANULACION_COMANDA_NO_COBRADA,
+            costoUnitario: producto?.precio.toNumber() ?? null,
+            pedidoItemId: payload.itemId,
+            usuarioId: payload.usuarioId ?? undefined,
+            usuarioNombre: payload.usuarioNombre ?? undefined,
+          },
+        });
+      });
+
+      this.logger.log({
+        operation: 'procesarItemAnuladoConMerma',
+        aggregateId: payload.itemId,
+        resultingState: payload.cobrado ? 'ANULACION_COMANDA_COBRADA' : 'ANULACION_COMANDA_NO_COBRADA',
+        message: `Merma automática registrada para "${payload.productoNombre}" (${payload.cantidad}): ${payload.motivo}`,
+      } satisfies OperableLog);
+    } catch (error: unknown) {
+      if ((error as { code?: string })?.code === 'P2002') {
+        this.logger.warn({
+          operation: 'procesarItemAnuladoConMerma',
+          aggregateId: payload.itemId,
+          idempotencyKey,
+          message: 'Evento PedidoItemAnuladoConMerma ya procesado — no se duplica la merma (idempotente).',
+        } satisfies OperableLog);
+        return;
+      }
+      throw error;
+    }
+  }
+
+  /**
+   * CU-02: un ítem de Inventario se reservó al crear el pedido pero la mesa
+   * se anuló antes de consumirlo — se le devuelve el stock (sin merma: no
+   * hubo pérdida real).
+   */
+  async procesarStockRestaurado(payload: StockRestauradoPayload): Promise<void> {
+    if (!payload?.productoId || !payload.cantidad) {
+      this.logger.warn({
+        operation: 'procesarStockRestaurado',
+        errorCode: 'PAYLOAD_INVALIDO',
+        message: 'Evento StockRestaurado sin productoId/cantidad — ignorado.',
+      } satisfies OperableLog);
+      return;
+    }
+    const idempotencyKey = `${RoutingKeys.StockRestaurado}:${payload.eventId ?? `${payload.productoId}:${payload.cantidad}:${Date.now()}`}`;
+    try {
+      await this.prisma.$transaction(async (prisma) => {
+        await prisma.idempotencyKey.create({ data: { key: idempotencyKey } });
+        await prisma.$executeRaw`SELECT pg_advisory_xact_lock(1234, ('x' || substr(md5(${payload.productoId}), 1, 8))::bit(32)::int)`;
+
+        const producto = await prisma.producto.findUnique({ where: { id: payload.productoId }, include: { categoria: true } });
+        if (!producto || producto.stockActual === null) {
+          this.logger.warn({
+            operation: 'procesarStockRestaurado',
+            aggregateId: payload.productoId,
+            errorCode: 'PRODUCTO_NO_APLICABLE',
+            message: 'Producto no existe o no lleva control de stock — se ignora la restauración.',
+          } satisfies OperableLog);
+          return;
+        }
+
+        const nuevoStock = producto.stockActual + payload.cantidad;
+        const productoActualizado = await prisma.producto.update({
+          where: { id: payload.productoId },
+          data: { stockActual: nuevoStock, disponible: true },
+        });
+
+        await prisma.outboxEvent.create({
+          data: {
+            routingKey: RoutingKeys.ProductoActualizado,
+            payload: JSON.stringify({
+              id: productoActualizado.id,
+              nombre: productoActualizado.nombre,
+              precio: productoActualizado.precio.toNumber(),
+              stockActual: productoActualizado.stockActual,
+              categoriaNombre: producto.categoria?.nombre,
+              categoriaArea: producto.categoria?.area,
+              disponible: productoActualizado.disponible,
+              stockSyncMode: 'REPOSICION',
+              stockDelta: payload.cantidad,
+            } satisfies ProductoActualizadoPayload),
+            status: 'PENDING',
+          },
+        });
+      });
+
+      this.logger.log({
+        operation: 'procesarStockRestaurado',
+        aggregateId: payload.productoId,
+        message: `Stock restaurado (+${payload.cantidad}) por: ${payload.motivo}`,
+      } satisfies OperableLog);
+    } catch (error: unknown) {
+      if ((error as { code?: string })?.code === 'P2002') {
+        this.logger.warn({
+          operation: 'procesarStockRestaurado',
+          aggregateId: payload.productoId,
+          idempotencyKey,
+          message: 'Evento StockRestaurado ya procesado — idempotente.',
+        } satisfies OperableLog);
+        return;
+      }
+      throw error;
+    }
   }
 
   // A2: idempotencia por pedido.id — reclama la clave atómicamente

@@ -11,8 +11,10 @@ import { fmt, elapsedLabel } from '../../utils/format';
 import { useMesasQuery } from '../../hooks/queries/useMesasQuery';
 import { useUbicacionesQuery } from '../../hooks/queries/useUbicacionesQuery';
 import { useCuentasQuery } from '../../hooks/queries/useCuentasQuery';
+import { useAnularAtencionMesaMutation } from '../../hooks/queries/usePedidosQuery';
 import { Comandero } from '../../components/comandero/Comandero';
 import { UbicacionesModal } from './UbicacionesModal';
+import { AnularAtencionMesaModal } from '../../components/mesas/AnularAtencionMesaModal';
 import { useFocusTrap } from '../../hooks/useFocusTrap';
 import { useNow } from '../../hooks/useNow';
 import { useOnlineStatus } from '../../hooks/useOnlineStatus';
@@ -509,15 +511,20 @@ interface MesaDrawerFootProps {
   onTomar: () => void;
   onAgregar: () => void;
   onClose: () => void;
+  onAnularAtencion: () => void;
 }
 
 /* Jerarquía de acción en mesa ocupada:
    - "Cobrar": acción de cierre económico → btn-primary (máximo énfasis)
-   - "Agregar a la cuenta": acción frecuente pero no de cierre → btn-soft */
-function MesaDrawerFoot({ ocupada, estado, onCobrar, onTomar, onAgregar, onClose }: Readonly<MesaDrawerFootProps>) {
+   - "Agregar a la cuenta": acción frecuente pero no de cierre → btn-soft
+   - "Anular atención": excepcional (desistimiento/abandono) → icon-btn discreto */
+function MesaDrawerFoot({ ocupada, estado, onCobrar, onTomar, onAgregar, onClose, onAnularAtencion }: Readonly<MesaDrawerFootProps>) {
   if (ocupada) {
     return (
       <>
+        <button className="icon-btn" title="Anular atención de mesa (cliente se retiró)" aria-label="Anular atención de esta mesa" onClick={onAnularAtencion}>
+          <Icons.Alert s={15} />
+        </button>
         <button className="btn btn-primary" onClick={onCobrar} aria-label="Cobrar cuenta de esta mesa"><Icons.Caja s={15} /> Cobrar</button>
         <span className="spacer" />
         <button className="btn btn-soft" onClick={onAgregar} aria-label="Agregar ítems a la cuenta"><Icons.Plus s={15} /> Agregar a la cuenta</button>
@@ -541,16 +548,38 @@ function MesaDrawerFoot({ ocupada, estado, onCobrar, onTomar, onAgregar, onClose
 }
 
 function MesaDrawer({ mesa: m, hermanas, online, onClose, onSeparar, onCobrar, onTomar, onAgregar }: Readonly<MesaDrawerProps>) {
+  const { toast } = useToast();
   const ocupada = m.estado === 'OCUPADA';
   const { cuentaActiva, loading } = useCuentasQuery(ocupada ? m.id : undefined);
+  const { saving: savingAnular, anularAtencionMesa } = useAnularAtencionMesaMutation();
   const now = useNow();
   const meta = EST_META[m.estado];
   const drawerRef = useRef<HTMLDialogElement>(null);
+  const [mostrarAnularAtencion, setMostrarAnularAtencion] = useState(false);
   useFocusTrap(drawerRef, { active: true, onClose });
 
   const items = cuentaActiva?.pedidos.flatMap((p) => p.items) ?? [];
   const atencion = cuentaActiva ? atencionDeCuenta(cuentaActiva) : null;
   const badgeCls = { OCUPADA: 'badge-accent', RESERVADA: 'badge-info', LIBRE: 'badge-muted' }[m.estado] ?? 'badge-muted';
+
+  const confirmarAnularAtencion = async (motivo: string, itemsConsumidos: string[]) => {
+    if (!online) return;
+    try {
+      const resultado = await anularAtencionMesa(m.id, { motivo, itemsConsumidos });
+      toast({
+        title: 'Atención de mesa anulada',
+        msg: resultado.mesaLiberada
+          ? 'La mesa quedó libre.'
+          : `Quedan ${resultado.itemsMantenidosParaCobro} ítem(s) pendientes de cobro.`,
+        icon: 'Check',
+        kind: 'ok',
+      });
+      setMostrarAnularAtencion(false);
+      onClose();
+    } catch (err) {
+      toast({ title: 'No se pudo anular la atención', msg: err instanceof Error ? err.message : 'Inténtalo de nuevo', icon: 'Alert', kind: 'err' });
+    }
+  };
 
   return (
     <div className="drawer-wrap">
@@ -591,9 +620,20 @@ function MesaDrawer({ mesa: m, hermanas, online, onClose, onSeparar, onCobrar, o
             onTomar={onTomar}
             onAgregar={onAgregar}
             onClose={onClose}
+            onAnularAtencion={() => setMostrarAnularAtencion(true)}
           />
         </div>
       </dialog>
+
+      {mostrarAnularAtencion && (
+        <AnularAtencionMesaModal
+          mesaNumero={m.numero}
+          items={items}
+          saving={savingAnular}
+          onClose={() => setMostrarAnularAtencion(false)}
+          onConfirm={(motivo, itemsConsumidos) => { void confirmarAnularAtencion(motivo, itemsConsumidos); }}
+        />
+      )}
     </div>
   );
 }

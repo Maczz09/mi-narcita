@@ -11,6 +11,7 @@ import {
   IsUUID,
   Max,
   Min,
+  MinLength,
   ValidateNested,
 } from 'class-validator';
 import { Transform, Type } from 'class-transformer';
@@ -65,6 +66,22 @@ export class StockInsuficientePayload {
   solicitado: number;
   @IsNumber()
   disponible: number;
+}
+
+/**
+ * CU-02: un ítem de Inventario se reservó al crear el pedido pero nunca se
+ * consumió (mesa anulada antes de abrirlo) — se le devuelve el stock.
+ */
+export class StockRestauradoPayload {
+  @IsOptional()
+  @IsString()
+  eventId?: string;
+  @IsString()
+  productoId: string;
+  @IsNumber()
+  cantidad: number;
+  @IsString()
+  motivo: string;
 }
 
 export class CategoriaDto {
@@ -278,6 +295,14 @@ export class ActualizarMenuDiarioCommand {
 // Pérdida de stock que no viene de una venta (botellas rotas, vencidas,
 // etc.). Queda como registro auditable con motivo obligatorio.
 
+export const MermaOrigen = {
+  DescarteManual: 'DESCARTE_MANUAL_INVENTARIO',
+  AnulacionNoCobrada: 'ANULACION_COMANDA_NO_COBRADA',
+  AnulacionCobrada: 'ANULACION_COMANDA_COBRADA',
+} as const;
+
+export type MermaOrigen = (typeof MermaOrigen)[keyof typeof MermaOrigen];
+
 export class MermaDto {
   @IsString()
   id: string;
@@ -291,6 +316,21 @@ export class MermaDto {
   cantidad: number;
   @IsString()
   motivo: string;
+  @IsOptional()
+  @IsString()
+  observacion?: string | null;
+  @IsEnum(MermaOrigen)
+  origen: MermaOrigen;
+  @IsOptional()
+  @IsNumber()
+  costoUnitario?: number | null;
+  /** cantidad × costoUnitario — se calcula en el servicio, no se persiste. */
+  @IsOptional()
+  @IsNumber()
+  costoTotal?: number | null;
+  @IsOptional()
+  @IsString()
+  pedidoItemId?: string | null;
   @IsOptional()
   @IsString()
   usuarioId?: string | null;
@@ -309,12 +349,49 @@ export class RegistrarMermaCommand {
   cantidad: number;
   @IsString()
   motivo: string;
+  @IsOptional()
+  @IsString()
+  observacion?: string;
+  @IsOptional()
+  @IsNumber()
+  costoUnitario?: number;
+}
+
+export class ActualizarMermaCommand {
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  cantidad?: number;
+  @IsOptional()
+  @IsString()
+  motivo?: string;
+  @IsOptional()
+  @IsString()
+  observacion?: string | null;
+}
+
+export class EliminarMermaCommand {
+  @IsString()
+  @MinLength(3)
+  justificacion: string;
 }
 
 export class ListarMermasQuery {
   @IsOptional()
   @IsString()
   productoId?: string;
+
+  @IsOptional()
+  @IsEnum(MermaOrigen)
+  origen?: MermaOrigen;
+
+  @IsOptional()
+  @IsDateString()
+  desde?: string;
+
+  @IsOptional()
+  @IsDateString()
+  hasta?: string;
 
   @IsOptional()
   @IsInt()

@@ -16,6 +16,9 @@ export const RoutingKeys = {
   PedidoListo: 'pedido.listo',
   PedidoActualizado: 'pedido.actualizado',
   PedidoItemAnulado: 'pedido.item_anulado',
+  // CU-01/CU-02: ítem ya preparado/servido que se anula — la pérdida física
+  // es real haya cobro o no, así que siempre genera merma en Inventario.
+  PedidoItemAnuladoConMerma: 'pedido.item_anulado_con_merma',
 
   // Cuentas
   CuentaAbierta: 'cuenta.abierta',
@@ -34,6 +37,9 @@ export const RoutingKeys = {
   StockInsuficiente: 'stock.insuficiente',
   ProductoCreado: 'producto.creado',
   ProductoActualizado: 'producto.actualizado',
+  // CU-02: un ítem de Inventario se reservó al crear el pedido pero la mesa
+  // se anuló sin haberlo consumido — se le devuelve el stock.
+  StockRestaurado: 'stock.restaurado',
 
   // Compras
   CompraRecibida: 'compra.recibida',

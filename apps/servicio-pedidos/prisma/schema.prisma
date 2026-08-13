@@ -103,6 +103,53 @@ model ProductoLocal {
   @@map("productos_locales")
 }
 
+// CU-05: registro inmutable (salvo motivo/observación) de cada anulación de
+// ítem o de atención de mesa — fiscalización y control de mermas/pérdidas.
+enum TipoAnulacion {
+  ITEM
+  MESA
+}
+
+enum EstadoPlatoAnulacion {
+  SIN_PREPARAR
+  PREPARADO
+}
+
+model AnulacionAuditoria {
+  id                  String               @id @default(uuid())
+  sedeId              String
+  fecha               DateTime             @default(now())
+  mesaId              String
+  mesaNumero          Int?
+  pedidoId            String
+  itemId              String?
+  tipo                TipoAnulacion
+  productoId          String?
+  productoNombre      String?
+  cantidad            Int?
+  estadoPlato         EstadoPlatoAnulacion
+  cobrado             Boolean
+  montoAnulado        Decimal              @db.Decimal(10, 2)
+  motivo              String
+  observacion         String?
+  usuarioId           String?
+  usuarioNombre       String?
+  clienteNombre       String?
+  // Soft-delete únicamente (CU-05): nunca se borra físicamente un registro
+  // de auditoría — se marca inválida y se conserva el motivo original.
+  invalidada          Boolean              @default(false)
+  invalidadaMotivo    String?
+  invalidadaPorNombre String?
+  invalidadaAt        DateTime?
+  createdAt           DateTime             @default(now())
+
+  @@index([sedeId])
+  @@index([pedidoId])
+  @@index([fecha])
+  @@index([tipo])
+  @@map("anulaciones_auditoria")
+}
+
 model IdempotencyKey {
   id          String    @id @default(uuid())
   key         String    @unique

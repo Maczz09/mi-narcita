@@ -21,6 +21,7 @@ import type {
   MenuDiarioItemResponse,
   MenuDiarioResponse,
   RegistrarMermaPayload,
+  ActualizarMermaPayload,
   MermaListQuery,
   MermaDto,
   MermaResponse,
@@ -153,4 +154,13 @@ export async function getMermas(query: MermaListQuery = {}): Promise<MermaDto[]>
 export async function registrarMerma(payload: RegistrarMermaPayload): Promise<MermaDto> {
   const response = await client.post<MermaResponse | MermaDto>('/inventario/mermas', payload);
   return unwrapEntity<MermaDto>(response, 'merma');
+}
+
+export async function actualizarMerma(id: string, payload: ActualizarMermaPayload): Promise<MermaDto> {
+  const response = await client.patch<MermaResponse | MermaDto>(`/inventario/mermas/${id}`, payload);
+  return unwrapEntity<MermaDto>(response, 'merma');
+}
+
+export async function eliminarMerma(id: string, justificacion: string): Promise<void> {
+  await client.post<unknown>(`/inventario/mermas/${id}/eliminar`, { justificacion });
 }

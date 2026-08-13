@@ -16,6 +16,11 @@ import {
   StockInsuficientePayload,
   ItemArea,
   EstadoItem,
+  AnularItemPreparadoCommand,
+  ListarAnulacionesQuery,
+  ActualizarAnulacionCommand,
+  InvalidarAnulacionCommand,
+  AnularAtencionMesaCommand,
 } from '@org/contracts';
 import { Prisma } from '../generated/prisma';
 import { resolveSedeId } from '@org/shared-auth';
@@ -382,6 +387,51 @@ export class AppService {
 
   async actualizarEstadoItem(itemId: string, command: ActualizarEstadoItemCommand): Promise<{ message: string }> {
     return this.saga.actualizarEstadoItem(itemId, command);
+  }
+
+  // CU-01/CU-05: anulación de ítems ya preparados y su auditoría, delegadas
+  // en PedidosSagaService (misma dueña de las transiciones de estado y del
+  // recálculo de total cobrable que ya usaba actualizarEstadoItem).
+  async anularItemPreparado(
+    itemId: string,
+    command: AnularItemPreparadoCommand,
+    usuarioSedeId?: string | null,
+    sedeIdSolicitado?: string,
+    usuarioId?: string | null,
+    usuarioNombre?: string | null,
+  ) {
+    return this.saga.anularItemPreparado(itemId, command, usuarioSedeId, sedeIdSolicitado, usuarioId, usuarioNombre);
+  }
+
+  // CU-02: delegada también en PedidosSagaService (necesita las mismas
+  // primitivas de cancelación/recálculo de total, más el HTTP client de mesas).
+  async anularAtencionMesa(
+    mesaId: string,
+    command: AnularAtencionMesaCommand,
+    usuarioSedeId?: string | null,
+    sedeIdSolicitado?: string,
+    usuarioId?: string | null,
+    usuarioNombre?: string | null,
+  ) {
+    return this.saga.anularAtencionMesa(mesaId, command, usuarioSedeId, sedeIdSolicitado, usuarioId, usuarioNombre);
+  }
+
+  async listarAnulaciones(query: ListarAnulacionesQuery, usuarioSedeId?: string | null, sedeIdSolicitado?: string) {
+    return this.saga.listarAnulaciones(query, usuarioSedeId, sedeIdSolicitado);
+  }
+
+  async actualizarAnulacion(id: string, command: ActualizarAnulacionCommand, usuarioSedeId?: string | null, sedeIdSolicitado?: string) {
+    return this.saga.actualizarAnulacion(id, command, usuarioSedeId, sedeIdSolicitado);
+  }
+
+  async invalidarAnulacion(
+    id: string,
+    command: InvalidarAnulacionCommand,
+    usuarioSedeId?: string | null,
+    sedeIdSolicitado?: string,
+    usuarioNombre?: string | null,
+  ) {
+    return this.saga.invalidarAnulacion(id, command, usuarioSedeId, sedeIdSolicitado, usuarioNombre);
   }
 
   async upsertMesaLocal(mesa: { id: string; numero: number; sedeId: string }): Promise<void> {

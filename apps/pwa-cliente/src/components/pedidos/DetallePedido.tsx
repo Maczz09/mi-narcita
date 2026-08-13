@@ -3,7 +3,7 @@ import { useEffect } from 'react';
 import { Icons } from '../ui/icons';
 import { fmt, elapsedLabel } from '../../utils/format';
 import { FLOW_PEDIDO } from '../../domain/pedido.flow';
-import type { PedidoVM } from '../../types/pedido.types';
+import type { PedidoVM, PedidoItemVM } from '../../types/pedido.types';
 import { CANAL_META, nextLabelFor } from './pedidos.meta';
 
 interface DetallePedidoProps {
@@ -11,13 +11,17 @@ interface DetallePedidoProps {
   onClose: () => void;
   onAvanzar: (p: PedidoVM) => void;
   onAnularItem: (itemId: string) => void;
+  onAnularPreparado: (item: PedidoItemVM) => void;
   actionLoading: string | null;
   online: boolean;
   now: number;
 }
 
-/** No tiene sentido anular un ítem ya entregado o ya anulado. */
-const NO_ANULABLE = new Set(['ENTREGADO', 'CANCELADO', 'RECHAZADO_SIN_STOCK']);
+/** Ya anulado o rechazado: no hay nada más que hacer con el ítem. */
+const NO_ANULABLE = new Set(['CANCELADO', 'RECHAZADO_SIN_STOCK']);
+/** Ya salió de cocina/barra (o es de Inventario, ya se sirvió): anular acá es
+ * CU-01 (decide cobrar o no), no el "anular ítem" simple de un ítem PENDIENTE. */
+const YA_PREPARADO = new Set(['ENTREGADO']);
 
 function flowStepCls(i: number, curIdx: number): string {
   if (i < curIdx) return 'done';
@@ -25,7 +29,7 @@ function flowStepCls(i: number, curIdx: number): string {
   return '';
 }
 
-export function DetallePedido({ pedido: p, onClose, onAvanzar, onAnularItem, actionLoading, online, now }: Readonly<DetallePedidoProps>) {
+export function DetallePedido({ pedido: p, onClose, onAvanzar, onAnularItem, onAnularPreparado, actionLoading, online, now }: Readonly<DetallePedidoProps>) {
   const meta = CANAL_META[p.canal];
   const Ic = Icons[meta.ic];
   const nextLabel = nextLabelFor(p);
@@ -90,15 +94,27 @@ export function DetallePedido({ pedido: p, onClose, onAvanzar, onAnularItem, act
                   </div>
                   <span className="mono muted">{fmt(it.subtotal)}</span>
                   {!NO_ANULABLE.has(it.estado) && (
-                    <button
-                      className="icon-btn"
-                      title="Anular ítem"
-                      aria-label={`Anular ${it.cantidad}× ${it.nombre}`}
-                      disabled={!online}
-                      onClick={() => onAnularItem(it.id)}
-                    >
-                      <Icons.Close s={14} />
-                    </button>
+                    YA_PREPARADO.has(it.estado) ? (
+                      <button
+                        className="icon-btn"
+                        title="Anular ítem ya preparado (decide si se cobra)"
+                        aria-label={`Anular ${it.cantidad}× ${it.nombre} (ya preparado)`}
+                        disabled={!online}
+                        onClick={() => onAnularPreparado(it)}
+                      >
+                        <Icons.Alert s={14} />
+                      </button>
+                    ) : (
+                      <button
+                        className="icon-btn"
+                        title="Anular ítem"
+                        aria-label={`Anular ${it.cantidad}× ${it.nombre}`}
+                        disabled={!online}
+                        onClick={() => onAnularItem(it.id)}
+                      >
+                        <Icons.Close s={14} />
+                      </button>
+                    )
                   )}
                 </div>
               );

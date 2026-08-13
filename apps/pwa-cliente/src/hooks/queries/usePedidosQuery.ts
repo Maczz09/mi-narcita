@@ -10,6 +10,9 @@ import type {
   EstadoPedido,
   EstadoItem,
   PedidoVM,
+  AnularItemPreparadoPayload,
+  AnularAtencionMesaPayload,
+  AnularAtencionMesaResultado,
 } from '../../types/pedido.types';
 import type { MesaVM } from '../../types/mesa.types';
 
@@ -236,6 +239,17 @@ export function usePedidosQuery(mesaId?: string, options: UsePedidosOptions = {}
     },
   });
 
+  // CU-01: anular un ítem ya preparado/servido (cobrar o no). Toca inventario
+  // (merma) y auditoría además del pedido — se invalida en vez de parchear
+  // optimista, el socket/refetch trae el estado final.
+  const mutationAnularItemPreparado = useMutation({
+    mutationFn: async ({ itemId, payload }: { itemId: string; payload: AnularItemPreparadoPayload }) => {
+      const dto = await pedidosApi.anularItemPreparado(itemId, payload);
+      return mapPedido(dto);
+    },
+    onSuccess: (pedido) => invalidateOperationalData(pedido.mesaId),
+  });
+
   return {
     pedidos: query.data?.pages.flatMap((page) => page.pedidos) ?? [],
     nextCursor: query.hasNextPage
@@ -257,6 +271,29 @@ export function usePedidosQuery(mesaId?: string, options: UsePedidosOptions = {}
     },
     avanzarItem: async (itemId: string, estado: EstadoItem) => {
       return mutationAvanzarItem.mutateAsync({ itemId, estado });
+    },
+    anularItemPreparado: async (itemId: string, payload: AnularItemPreparadoPayload) => {
+      return mutationAnularItemPreparado.mutateAsync({ itemId, payload });
+    },
+  };
+}
+
+/**
+ * CU-02: mutación aislada (sin la lista completa de pedidos) para anular la
+ * atención de una mesa desde MesasScreen — evita levantar el infinite query
+ * pesado de `usePedidosQuery` solo para disparar esta acción puntual.
+ */
+export function useAnularAtencionMesaMutation() {
+  const mutation = useMutation({
+    mutationFn: async ({ mesaId, payload }: { mesaId: string; payload: AnularAtencionMesaPayload }): Promise<AnularAtencionMesaResultado> =>
+      pedidosApi.anularAtencionMesa(mesaId, payload),
+    onSuccess: (_resultado, { mesaId }) => invalidateOperationalData(mesaId),
+  });
+
+  return {
+    saving: mutation.isPending,
+    anularAtencionMesa: async (mesaId: string, payload: AnularAtencionMesaPayload) => {
+      return mutation.mutateAsync({ mesaId, payload });
     },
   };
 }

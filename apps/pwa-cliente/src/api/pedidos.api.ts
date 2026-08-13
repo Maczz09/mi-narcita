@@ -9,6 +9,13 @@ import type {
   CrearPedidoPayload,
   ActualizarEstadoPedidoPayload,
   ActualizarEstadoItemPayload,
+  AnularItemPreparadoPayload,
+  AnularAtencionMesaPayload,
+  AnularAtencionMesaResultado,
+  AnulacionAuditoriaDto,
+  ListarAnulacionesPayload,
+  ActualizarAnulacionPayload,
+  InvalidarAnulacionPayload,
 } from '../types/pedido.types';
 
 function buildListQuery(query: PedidoListQuery = {}): string {
@@ -72,4 +79,60 @@ export async function avanzarEstado(
 /** PATCH /pedidos/items/:itemId/estado — Avanzar estado de un ítem individual */
 export function avanzarItem(itemId: string, payload: ActualizarEstadoItemPayload): Promise<void> {
   return client.patch<void>(`/pedidos/items/${itemId}/estado`, payload);
+}
+
+// ─── CU-01: anular ítem ya preparado/servido (cobrar o no) ────────────────
+
+export async function anularItemPreparado(itemId: string, payload: AnularItemPreparadoPayload): Promise<PedidoDto> {
+  const response = await client.post<PedidoDto | { pedido: PedidoDto }>(
+    `/pedidos/items/${itemId}/anular-preparado`,
+    payload,
+  );
+  return unwrapEntity<PedidoDto>(response, 'pedido');
+}
+
+// ─── CU-02: anular la atención completa de una mesa ───────────────────────
+
+export async function anularAtencionMesa(mesaId: string, payload: AnularAtencionMesaPayload): Promise<AnularAtencionMesaResultado> {
+  const response = await client.post<AnularAtencionMesaResultado | { resultado: AnularAtencionMesaResultado }>(
+    `/pedidos/mesas/${mesaId}/anular-atencion`,
+    payload,
+  );
+  return unwrapEntity<AnularAtencionMesaResultado>(response, 'resultado');
+}
+
+// ─── CU-05: Auditoría de Anulaciones ──────────────────────────────────────
+
+function buildAnulacionesQuery(query: ListarAnulacionesPayload = {}): string {
+  const params = new URLSearchParams();
+  if (query.tipo) params.set('tipo', query.tipo);
+  if (query.usuarioId) params.set('usuarioId', query.usuarioId);
+  if (query.desde) params.set('desde', query.desde);
+  if (query.hasta) params.set('hasta', query.hasta);
+  if (query.limit != null) params.set('limit', String(query.limit));
+  const serialized = params.toString();
+  return serialized ? `?${serialized}` : '';
+}
+
+export async function getAnulaciones(query: ListarAnulacionesPayload = {}): Promise<AnulacionAuditoriaDto[]> {
+  const response = await client.get<{ anulaciones: AnulacionAuditoriaDto[] } | AnulacionAuditoriaDto[]>(
+    `/pedidos/anulaciones${buildAnulacionesQuery(query)}`,
+  );
+  return unwrapArray<AnulacionAuditoriaDto>(response, 'anulaciones');
+}
+
+export async function actualizarAnulacion(id: string, payload: ActualizarAnulacionPayload): Promise<AnulacionAuditoriaDto> {
+  const response = await client.patch<AnulacionAuditoriaDto | { anulacion: AnulacionAuditoriaDto }>(
+    `/pedidos/anulaciones/${id}`,
+    payload,
+  );
+  return unwrapEntity<AnulacionAuditoriaDto>(response, 'anulacion');
+}
+
+export async function invalidarAnulacion(id: string, payload: InvalidarAnulacionPayload): Promise<AnulacionAuditoriaDto> {
+  const response = await client.post<AnulacionAuditoriaDto | { anulacion: AnulacionAuditoriaDto }>(
+    `/pedidos/anulaciones/${id}/invalidar`,
+    payload,
+  );
+  return unwrapEntity<AnulacionAuditoriaDto>(response, 'anulacion');
 }
