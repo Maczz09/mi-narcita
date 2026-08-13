@@ -217,10 +217,12 @@ export function usePedidosQuery(mesaId?: string, options: UsePedidosOptions = {}
   });
 
   // Avance/retroceso de un ítem (cocina). Optimista: parchea el ítem y deriva el
-  // estado de producción del pedido igual que el backend.
+  // estado de producción del pedido igual que el backend. `motivo` solo
+  // aplica cuando estado=CANCELADO (Caso A: aún no se preparó) — queda en el
+  // registro de Auditoría de Anulaciones igual que CU-01.
   const mutationAvanzarItem = useMutation({
-    mutationFn: async ({ itemId, estado }: { itemId: string; estado: EstadoItem }) => {
-      await pedidosApi.avanzarItem(itemId, { estado });
+    mutationFn: async ({ itemId, estado, motivo }: { itemId: string; estado: EstadoItem; motivo?: string }) => {
+      await pedidosApi.avanzarItem(itemId, { estado, motivo });
     },
     onMutate: async ({ itemId, estado }) => {
       await queryClient.cancelQueries({ queryKey: PEDIDOS_QUERY_KEY });
@@ -269,8 +271,8 @@ export function usePedidosQuery(mesaId?: string, options: UsePedidosOptions = {}
     avanzarEstado: async (id: string, estado: EstadoPedido) => {
       return mutationAvanzarEstado.mutateAsync({ id, estado });
     },
-    avanzarItem: async (itemId: string, estado: EstadoItem) => {
-      return mutationAvanzarItem.mutateAsync({ itemId, estado });
+    avanzarItem: async (itemId: string, estado: EstadoItem, motivo?: string) => {
+      return mutationAvanzarItem.mutateAsync({ itemId, estado, motivo });
     },
     anularItemPreparado: async (itemId: string, payload: AnularItemPreparadoPayload) => {
       return mutationAnularItemPreparado.mutateAsync({ itemId, payload });
@@ -294,6 +296,39 @@ export function useAnularAtencionMesaMutation() {
     saving: mutation.isPending,
     anularAtencionMesa: async (mesaId: string, payload: AnularAtencionMesaPayload) => {
       return mutation.mutateAsync({ mesaId, payload });
+    },
+  };
+}
+
+/**
+ * Anular un ítem puntual (Caso A: aún no se preparó, o Caso B: ya
+ * preparado/servido) desde cualquier pantalla que no quiera cargar el
+ * infinite query completo de `usePedidosQuery` — usado por MesasScreen
+ * (mismo flujo unificado que Pedidos/DetallePedido).
+ */
+export function useAnularItemMutations() {
+  const mutationAvanzarItem = useMutation({
+    mutationFn: async ({ itemId, estado, motivo }: { itemId: string; estado: EstadoItem; motivo?: string }) => {
+      await pedidosApi.avanzarItem(itemId, { estado, motivo });
+    },
+    onSuccess: () => invalidateOperationalData(),
+  });
+
+  const mutationAnularItemPreparado = useMutation({
+    mutationFn: async ({ itemId, payload }: { itemId: string; payload: AnularItemPreparadoPayload }) => {
+      const dto = await pedidosApi.anularItemPreparado(itemId, payload);
+      return mapPedido(dto);
+    },
+    onSuccess: (pedido) => invalidateOperationalData(pedido.mesaId),
+  });
+
+  return {
+    saving: mutationAvanzarItem.isPending || mutationAnularItemPreparado.isPending,
+    avanzarItem: async (itemId: string, estado: EstadoItem, motivo?: string) => {
+      return mutationAvanzarItem.mutateAsync({ itemId, estado, motivo });
+    },
+    anularItemPreparado: async (itemId: string, payload: AnularItemPreparadoPayload) => {
+      return mutationAnularItemPreparado.mutateAsync({ itemId, payload });
     },
   };
 }

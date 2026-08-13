@@ -50,6 +50,10 @@ export function CocinaScreen() {
   // (área BAR) nace ENTREGADO en el backend — el mesero ya lo sirvió — y
   // nunca debe aparecer en el tablero ni contar en sus métricas.
   const esCocina = (it: PedidoItemVM) => it.area === 'COCINA';
+  // "Aún pendiente de cocina": ni listo, ni anulado, ni rechazado por falta
+  // de stock — un ítem CANCELADO no debe seguir sumando en tickets
+  // activos/conteo del día solo porque su estado "no es LISTO".
+  const enProduccion = (it: PedidoItemVM) => it.estado === 'PENDIENTE' || it.estado === 'EN_PREPARACION';
 
   const activos = useMemo(
     () => pedidos.filter((p) => ESTADOS_PRODUCCION.has(p.estado)),
@@ -77,7 +81,7 @@ export function CocinaScreen() {
   };
 
   const metrics = useMemo(() => {
-    const act = activos.filter((p) => p.items.some((it) => esCocina(it) && it.estado !== 'LISTO'));
+    const act = activos.filter((p) => p.items.some((it) => esCocina(it) && enProduccion(it)));
     const tiempos = act.map((p) => elapsedMinF(p.createdAt, now));
     const prom = tiempos.length ? tiempos.reduce((a, b) => a + b, 0) / tiempos.length : 0;
     const demora = act.filter((p) => elapsedMinF(p.createdAt, now) >= SLA_MIN).length;
@@ -88,7 +92,7 @@ export function CocinaScreen() {
   const allday = useMemo(() => {
     const map: Record<string, number> = {};
     activos.forEach((p) => p.items.forEach((it) => {
-      if (esCocina(it) && it.estado !== 'LISTO') map[it.nombre] = (map[it.nombre] || 0) + it.cantidad;
+      if (esCocina(it) && enProduccion(it)) map[it.nombre] = (map[it.nombre] || 0) + it.cantidad;
     }));
     return Object.entries(map).map(([n, q]) => ({ n, q })).sort((a, b) => b.q - a.q);
   }, [activos]);

@@ -40,7 +40,7 @@ describe('DetallePedido', () => {
   it('renders correctly for SALON', () => {
     const onAvanzar = vi.fn();
     const onClose = vi.fn();
-    render(<DetallePedido pedido={mockPedido('SALON')} onClose={onClose} onAvanzar={onAvanzar} onAnularItem={noop} onAnularPreparado={noop} actionLoading={null} online={true} now={Date.now()} />);
+    render(<DetallePedido pedido={mockPedido('SALON')} onClose={onClose} onAvanzar={onAvanzar} onAnularItem={noop} actionLoading={null} online={true} now={Date.now()} />);
     expect(screen.getByText('Mesa 12')).toBeInTheDocument();
     expect(screen.getByText('12345678')).toBeInTheDocument();
 
@@ -52,7 +52,7 @@ describe('DetallePedido', () => {
   it('renders correctly for DELIVERY', () => {
     const onAvanzar = vi.fn();
     const onClose = vi.fn();
-    render(<DetallePedido pedido={mockPedido('DELIVERY')} onClose={onClose} onAvanzar={onAvanzar} onAnularItem={noop} onAnularPreparado={noop} actionLoading={null} online={true} now={Date.now()} />);
+    render(<DetallePedido pedido={mockPedido('DELIVERY')} onClose={onClose} onAvanzar={onAvanzar} onAnularItem={noop} actionLoading={null} online={true} now={Date.now()} />);
     expect(screen.getByText('Test Client')).toBeInTheDocument();
     expect(screen.getByText('1234')).toBeInTheDocument();
     expect(screen.getByText('Dir 1')).toBeInTheDocument();
@@ -64,59 +64,59 @@ describe('DetallePedido', () => {
     const onClose = vi.fn();
     const ped = mockPedido('LLEVAR');
     delete (ped as any).cliente;
-    render(<DetallePedido pedido={ped} onClose={onClose} onAvanzar={onAvanzar} onAnularItem={noop} onAnularPreparado={noop} actionLoading={null} online={true} now={Date.now()} />);
+    render(<DetallePedido pedido={ped} onClose={onClose} onAvanzar={onAvanzar} onAnularItem={noop} actionLoading={null} online={true} now={Date.now()} />);
     expect(screen.getByText('Cliente')).toBeInTheDocument();
   });
 
   it('calls onAvanzar', () => {
     const onAvanzar = vi.fn();
     const onClose = vi.fn();
-    render(<DetallePedido pedido={mockPedido('SALON')} onClose={onClose} onAvanzar={onAvanzar} onAnularItem={noop} onAnularPreparado={noop} actionLoading={null} online={true} now={Date.now()} />);
+    render(<DetallePedido pedido={mockPedido('SALON')} onClose={onClose} onAvanzar={onAvanzar} onAnularItem={noop} actionLoading={null} online={true} now={Date.now()} />);
     const btn = screen.getByRole('button', { name: /Avanzar Test/i });
     fireEvent.click(btn);
     expect(onAvanzar).toHaveBeenCalled();
   });
 
   it('shows spinner when actionLoading matches id', () => {
-    const { container } = render(<DetallePedido pedido={mockPedido('SALON')} onClose={vi.fn()} onAvanzar={vi.fn()} onAnularItem={noop} onAnularPreparado={noop} actionLoading="1234567890" online={true} now={Date.now()} />);
+    const { container } = render(<DetallePedido pedido={mockPedido('SALON')} onClose={vi.fn()} onAvanzar={vi.fn()} onAnularItem={noop} actionLoading="1234567890" online={true} now={Date.now()} />);
     expect(container.querySelector('.spinner')).toBeInTheDocument();
   });
 
   it('closes on Escape key', () => {
     const onClose = vi.fn();
-    render(<DetallePedido pedido={mockPedido('SALON')} onClose={onClose} onAvanzar={vi.fn()} onAnularItem={noop} onAnularPreparado={noop} actionLoading={null} online={true} now={Date.now()} />);
+    render(<DetallePedido pedido={mockPedido('SALON')} onClose={onClose} onAvanzar={vi.fn()} onAnularItem={noop} actionLoading={null} online={true} now={Date.now()} />);
     fireEvent.keyDown(globalThis, { key: 'Escape' });
     expect(onClose).toHaveBeenCalled();
   });
 
-  describe('CU-01: anular ítem ya preparado (ENTREGADO) vs anular simple (PENDIENTE)', () => {
+  describe('anular ítem: mismo botón para ya preparado (ENTREGADO) y para pendiente', () => {
     const items = [
       { id: '1', nombre: 'Pizza', cantidad: 1, subtotal: 50, estado: 'PENDIENTE', area: 'COCINA' },
       { id: '2', nombre: 'Coca', cantidad: 1, subtotal: 20, estado: 'ENTREGADO', area: 'BAR' },
       { id: '3', nombre: 'Torta', cantidad: 1, subtotal: 30, estado: 'CANCELADO', area: 'COCINA' },
     ];
 
-    it('un ítem PENDIENTE muestra "Anular ítem" y llama onAnularItem', () => {
+    it('un ítem PENDIENTE muestra "Anular" y llama onAnularItem con el ítem completo', () => {
       const onAnularItem = vi.fn();
       render(
-        <DetallePedido pedido={mockPedido('SALON', items)} onClose={noop} onAvanzar={noop} onAnularItem={onAnularItem} onAnularPreparado={noop} actionLoading={null} online={true} now={Date.now()} />,
+        <DetallePedido pedido={mockPedido('SALON', items)} onClose={noop} onAvanzar={noop} onAnularItem={onAnularItem} actionLoading={null} online={true} now={Date.now()} />,
       );
       fireEvent.click(screen.getByRole('button', { name: /Anular 1× Pizza/ }));
-      expect(onAnularItem).toHaveBeenCalledWith('1');
+      expect(onAnularItem).toHaveBeenCalledWith(expect.objectContaining({ id: '1', nombre: 'Pizza', estado: 'PENDIENTE' }));
     });
 
-    it('un ítem ENTREGADO muestra "Anular ítem ya preparado" y llama onAnularPreparado con el ítem completo', () => {
-      const onAnularPreparado = vi.fn();
+    it('un ítem ENTREGADO muestra "Anular (ya preparado)" y llama onAnularItem con el ítem completo', () => {
+      const onAnularItem = vi.fn();
       render(
-        <DetallePedido pedido={mockPedido('SALON', items)} onClose={noop} onAvanzar={noop} onAnularItem={noop} onAnularPreparado={onAnularPreparado} actionLoading={null} online={true} now={Date.now()} />,
+        <DetallePedido pedido={mockPedido('SALON', items)} onClose={noop} onAvanzar={noop} onAnularItem={onAnularItem} actionLoading={null} online={true} now={Date.now()} />,
       );
       fireEvent.click(screen.getByRole('button', { name: /Anular 1× Coca \(ya preparado\)/ }));
-      expect(onAnularPreparado).toHaveBeenCalledWith(expect.objectContaining({ id: '2', nombre: 'Coca', estado: 'ENTREGADO' }));
+      expect(onAnularItem).toHaveBeenCalledWith(expect.objectContaining({ id: '2', nombre: 'Coca', estado: 'ENTREGADO' }));
     });
 
     it('un ítem CANCELADO no muestra ningún botón de anular', () => {
       render(
-        <DetallePedido pedido={mockPedido('SALON', items)} onClose={noop} onAvanzar={noop} onAnularItem={noop} onAnularPreparado={noop} actionLoading={null} online={true} now={Date.now()} />,
+        <DetallePedido pedido={mockPedido('SALON', items)} onClose={noop} onAvanzar={noop} onAnularItem={noop} actionLoading={null} online={true} now={Date.now()} />,
       );
       expect(screen.queryByRole('button', { name: /Anular 1× Torta/ })).not.toBeInTheDocument();
     });

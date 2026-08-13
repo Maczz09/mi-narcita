@@ -167,7 +167,12 @@ export class PedidosSagaService {
     return { message: 'Estado del pedido actualizado', pedido: mapPedidoToDto(pedido) };
   }
 
-  async actualizarEstadoItem(itemId: string, command: ActualizarEstadoItemCommand): Promise<{ message: string }> {
+  async actualizarEstadoItem(
+    itemId: string,
+    command: ActualizarEstadoItemCommand,
+    usuarioId?: string | null,
+    usuarioNombre?: string | null,
+  ): Promise<{ message: string }> {
     return this.prisma.$transaction(async (prisma) => {
       const item = await prisma.pedidoItem.update({
         where: { id: itemId },
@@ -240,11 +245,37 @@ export class PedidosSagaService {
           itemId: item.id,
           productoNombre: item.nombre,
           mesaId: pedidoFinal.mesaId,
+          motivo: command.motivo,
         };
         outboxData.push({
           routingKey: RoutingKeys.PedidoItemAnulado,
           payload: JSON.stringify(payload),
           status: 'PENDING',
+        });
+      }
+      // CU-05 Caso A: un ítem que se anula sin haber salido de cocina/barra
+      // (nunca se cobró, nunca se preparó) también queda en la auditoría —
+      // no solo el Caso B (ya preparado) de anularItemPreparado.
+      if (seAnuloItem) {
+        await prisma.anulacionAuditoria.create({
+          data: {
+            sedeId: pedidoActual.sedeId,
+            mesaId: pedidoFinal.mesaId,
+            mesaNumero: pedidoFinal.numeroMesa,
+            pedidoId,
+            itemId: item.id,
+            tipo: TipoAnulacion.Item,
+            productoId: item.productoId,
+            productoNombre: item.nombre,
+            cantidad: item.cantidad,
+            estadoPlato: EstadoPlatoAnulacion.SinPreparar,
+            cobrado: false,
+            montoAnulado: Number(item.precioUnitario) * item.cantidad,
+            motivo: command.motivo?.trim() || 'Sin motivo especificado',
+            usuarioId: usuarioId ?? undefined,
+            usuarioNombre: usuarioNombre ?? undefined,
+            clienteNombre: pedidoFinal.cliente ?? undefined,
+          },
         });
       }
       outboxData.push({

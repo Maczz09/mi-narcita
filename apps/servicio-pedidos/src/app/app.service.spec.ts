@@ -681,8 +681,8 @@ describe('AppService — Pedidos', () => {
 
     it('actualizarEstadoItem delegates to saga', async () => {
       service['saga'].actualizarEstadoItem = jest.fn().mockResolvedValue({ message: 'ok' });
-      await service.actualizarEstadoItem('item-1', { estado: 'LISTO' } as any);
-      expect(service['saga'].actualizarEstadoItem).toHaveBeenCalledWith('item-1', { estado: 'LISTO' });
+      await service.actualizarEstadoItem('item-1', { estado: 'LISTO' } as any, 'u1', 'Ana');
+      expect(service['saga'].actualizarEstadoItem).toHaveBeenCalledWith('item-1', { estado: 'LISTO' }, 'u1', 'Ana');
     });
 
     it('procesarStockInsuficiente delegates to saga', async () => {

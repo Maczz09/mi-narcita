@@ -11,10 +11,11 @@ import { fmt, elapsedLabel } from '../../utils/format';
 import { useMesasQuery } from '../../hooks/queries/useMesasQuery';
 import { useUbicacionesQuery } from '../../hooks/queries/useUbicacionesQuery';
 import { useCuentasQuery } from '../../hooks/queries/useCuentasQuery';
-import { useAnularAtencionMesaMutation } from '../../hooks/queries/usePedidosQuery';
+import { useAnularAtencionMesaMutation, useAnularItemMutations } from '../../hooks/queries/usePedidosQuery';
 import { Comandero } from '../../components/comandero/Comandero';
 import { UbicacionesModal } from './UbicacionesModal';
 import { AnularAtencionMesaModal } from '../../components/mesas/AnularAtencionMesaModal';
+import { AnularItemModal } from '../../components/pedidos/AnularItemModal';
 import { useFocusTrap } from '../../hooks/useFocusTrap';
 import { useNow } from '../../hooks/useNow';
 import { useOnlineStatus } from '../../hooks/useOnlineStatus';
@@ -419,6 +420,7 @@ interface MesaDrawerBodyProps {
   hermanas: MesaVM[];
   online: boolean;
   onSeparar: () => void;
+  onAnularItem: (item: PedidoItemVM) => void;
   ocupada: boolean;
   loading: boolean;
   cuentaActiva: CuentaVM | null | undefined;
@@ -426,6 +428,9 @@ interface MesaDrawerBodyProps {
   atencion: { label: string; title: string } | null;
   now: number;
 }
+
+/** Ya anulado o rechazado: no hay nada más que hacer con el ítem. */
+const ITEM_NO_ANULABLE = new Set(['CANCELADO', 'RECHAZADO_SIN_STOCK']);
 
 function GrupoUnidoBanner({ hermanas, online, ocupada, onSeparar }: Readonly<{ hermanas: MesaVM[]; online: boolean; ocupada: boolean; onSeparar: () => void }>) {
   if (hermanas.length === 0) return null;
@@ -447,7 +452,7 @@ function GrupoUnidoBanner({ hermanas, online, ocupada, onSeparar }: Readonly<{ h
   );
 }
 
-function MesaDrawerBody({ mesa: m, hermanas, online, onSeparar, ocupada, loading, cuentaActiva, items, atencion, now }: Readonly<MesaDrawerBodyProps>) {
+function MesaDrawerBody({ mesa: m, hermanas, online, onSeparar, onAnularItem, ocupada, loading, cuentaActiva, items, atencion, now }: Readonly<MesaDrawerBodyProps>) {
   const grupoBanner = <GrupoUnidoBanner hermanas={hermanas} online={online} ocupada={ocupada} onSeparar={onSeparar} />;
 
   if (!ocupada) {
@@ -488,13 +493,31 @@ function MesaDrawerBody({ mesa: m, hermanas, online, onSeparar, ocupada, loading
       <div className="panel" style={{ padding: '4px 14px' }}>
         {items.length === 0 ? (
           <div className="muted" style={{ padding: 12, fontSize: 13 }}>Sin ítems registrados.</div>
-        ) : items.map((it) => (
-          <div className="dish-line" key={it.id}>
-            <span className="dish-q">{it.cantidad}</span>
-            <span style={{ flex: 1, fontWeight: 600 }}>{it.nombre}</span>
-            <span className="mono muted">{fmt(it.subtotal)}</span>
-          </div>
-        ))}
+        ) : items.map((it) => {
+          const anulado = it.estado === 'CANCELADO';
+          return (
+            <div className="dish-line" key={it.id} style={{ opacity: anulado ? 0.6 : undefined, gap: 8 }}>
+              <span className="dish-q">{it.cantidad}</span>
+              <div style={{ flex: 1 }}>
+                <span style={{ fontWeight: 600, textDecoration: anulado ? 'line-through' : undefined }}>{it.nombre}</span>
+                {anulado && <div className="cmd-line-mods" style={{ marginTop: 2, color: 'var(--danger)' }}><Icons.Alert s={11} /> Anulado</div>}
+              </div>
+              <span className="mono muted">{fmt(it.subtotal)}</span>
+              {!ITEM_NO_ANULABLE.has(it.estado) && (
+                <button
+                  className="btn btn-sm"
+                  style={{ background: 'var(--danger-soft)', color: 'var(--danger-text)', border: '1px solid var(--danger)', flex: 'none' }}
+                  disabled={!online}
+                  onClick={() => onAnularItem(it)}
+                  aria-label={`Anular ${it.cantidad}× ${it.nombre}`}
+                  title={it.estado === 'ENTREGADO' ? 'Anular ítem ya preparado (decide si se cobra)' : 'Anular ítem'}
+                >
+                  <Icons.Alert s={13} /> Anular
+                </button>
+              )}
+            </div>
+          );
+        })}
       </div>
       <div className="kv" style={{ marginTop: 12, paddingTop: 10, borderTop: '1px solid var(--border)' }}>
         <span className="k" style={{ fontSize: 15, fontWeight: 800, color: 'var(--text)' }}>Total</span>
@@ -551,11 +574,13 @@ function MesaDrawer({ mesa: m, hermanas, online, onClose, onSeparar, onCobrar, o
   const { toast } = useToast();
   const ocupada = m.estado === 'OCUPADA';
   const { cuentaActiva, loading } = useCuentasQuery(ocupada ? m.id : undefined);
-  const { saving: savingAnular, anularAtencionMesa } = useAnularAtencionMesaMutation();
+  const { saving: savingAnularAtencion, anularAtencionMesa } = useAnularAtencionMesaMutation();
+  const { saving: savingAnularItem, avanzarItem, anularItemPreparado } = useAnularItemMutations();
   const now = useNow();
   const meta = EST_META[m.estado];
   const drawerRef = useRef<HTMLDialogElement>(null);
   const [mostrarAnularAtencion, setMostrarAnularAtencion] = useState(false);
+  const [anularItemSel, setAnularItemSel] = useState<PedidoItemVM | null>(null);
   useFocusTrap(drawerRef, { active: true, onClose });
 
   const items = cuentaActiva?.pedidos.flatMap((p) => p.items) ?? [];
@@ -578,6 +603,27 @@ function MesaDrawer({ mesa: m, hermanas, online, onClose, onSeparar, onCobrar, o
       onClose();
     } catch (err) {
       toast({ title: 'No se pudo anular la atención', msg: err instanceof Error ? err.message : 'Inténtalo de nuevo', icon: 'Alert', kind: 'err' });
+    }
+  };
+
+  const confirmarAnularItem = async (motivo: string, cobrar: boolean, observacion?: string) => {
+    if (!anularItemSel || !online) return;
+    try {
+      if (anularItemSel.estado === 'ENTREGADO') {
+        await anularItemPreparado(anularItemSel.id, { motivo, cobrar, observacion });
+        toast({
+          title: 'Ítem anulado',
+          msg: cobrar ? 'Se mantiene en la cuenta.' : 'Se retiró de la cuenta.',
+          icon: 'Check',
+          kind: 'ok',
+        });
+      } else {
+        await avanzarItem(anularItemSel.id, 'CANCELADO', motivo);
+        toast({ title: 'Ítem anulado', icon: 'Check', kind: 'ok' });
+      }
+      setAnularItemSel(null);
+    } catch (err) {
+      toast({ title: 'No se pudo anular el ítem', msg: err instanceof Error ? err.message : 'Inténtalo de nuevo', icon: 'Alert', kind: 'err' });
     }
   };
 
@@ -604,6 +650,7 @@ function MesaDrawer({ mesa: m, hermanas, online, onClose, onSeparar, onCobrar, o
             hermanas={hermanas}
             online={online}
             onSeparar={onSeparar}
+            onAnularItem={setAnularItemSel}
             ocupada={ocupada}
             loading={loading}
             cuentaActiva={cuentaActiva}
@@ -629,9 +676,18 @@ function MesaDrawer({ mesa: m, hermanas, online, onClose, onSeparar, onCobrar, o
         <AnularAtencionMesaModal
           mesaNumero={m.numero}
           items={items}
-          saving={savingAnular}
+          saving={savingAnularAtencion}
           onClose={() => setMostrarAnularAtencion(false)}
           onConfirm={(motivo, itemsConsumidos) => { void confirmarAnularAtencion(motivo, itemsConsumidos); }}
+        />
+      )}
+
+      {anularItemSel && (
+        <AnularItemModal
+          item={anularItemSel}
+          saving={savingAnularItem}
+          onClose={() => setAnularItemSel(null)}
+          onConfirm={(motivo, cobrar, observacion) => { void confirmarAnularItem(motivo, cobrar, observacion); }}
         />
       )}
     </div>

@@ -385,8 +385,13 @@ export class AppService {
     return this.saga.actualizarEstado(id, command);
   }
 
-  async actualizarEstadoItem(itemId: string, command: ActualizarEstadoItemCommand): Promise<{ message: string }> {
-    return this.saga.actualizarEstadoItem(itemId, command);
+  async actualizarEstadoItem(
+    itemId: string,
+    command: ActualizarEstadoItemCommand,
+    usuarioId?: string | null,
+    usuarioNombre?: string | null,
+  ): Promise<{ message: string }> {
+    return this.saga.actualizarEstadoItem(itemId, command, usuarioId, usuarioNombre);
   }
 
   // CU-01/CU-05: anulación de ítems ya preparados y su auditoría, delegadas

@@ -89,9 +89,9 @@ describe('AppController', () => {
   describe('actualizarEstadoItem', () => {
     it('should update item state', async () => {
       appService.actualizarEstadoItem.mockResolvedValue('item_updated' as any);
-      const result = await controller.actualizarEstadoItem('itemId1', { estado: 'LISTO' } as any);
+      const result = await controller.actualizarEstadoItem('itemId1', { estado: 'LISTO' } as any, 'u1', 'Ana');
       expect(result).toBe('item_updated');
-      expect(appService.actualizarEstadoItem).toHaveBeenCalledWith('itemId1', { estado: 'LISTO' });
+      expect(appService.actualizarEstadoItem).toHaveBeenCalledWith('itemId1', { estado: 'LISTO' }, 'u1', 'Ana');
     });
   });
 

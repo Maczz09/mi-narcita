@@ -100,6 +100,26 @@ describe('CocinaScreen', () => {
     expect(screen.queryByText('Salir')).not.toBeInTheDocument();
   });
 
+  it('un ítem CANCELADO no cuenta en el conteo del día ni en tickets activos', () => {
+    const p: PedidoVM = {
+      id: 'p1', estado: 'EN_PREPARACION', canal: 'SALON',
+      createdAt: new Date(Date.now() - 1000 * 60 * 5).toISOString(),
+      items: [
+        { id: 'i1', nombre: 'Arroz con Mariscos (Mediana)', cantidad: 1, estado: 'CANCELADO', area: 'COCINA' },
+        { id: 'i2', nombre: 'Caballa en Agua Caliente (Mediana)', cantidad: 1, estado: 'PENDIENTE', area: 'COCINA' },
+      ],
+    } as any;
+
+    (usePedidosQuery as any).mockReturnValue({
+      pedidos: [p], loading: false, error: null, fetch: vi.fn(), avanzarItem: vi.fn(),
+    });
+
+    render(<CocinaScreen />);
+
+    expect(screen.queryByText(/Arroz con Mariscos/)).not.toBeInTheDocument();
+    expect(screen.getByText(/Caballa en Agua Caliente/)).toBeInTheDocument();
+  });
+
   it('handles offline correctly', () => {
     const avanzarItem = vi.fn();
     (useOnlineStatus as any).mockReturnValue(false);

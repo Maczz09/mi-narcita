@@ -254,6 +254,12 @@ export class ActualizarEstadoPedidoCommand {
 export class ActualizarEstadoItemCommand {
   @IsEnum(EstadoItem)
   estado: EstadoItem;
+  /** Solo aplica cuando estado=CANCELADO (Caso A: aún no se preparó) — queda
+   * en el registro de Auditoría de Anulaciones igual que CU-01. Opcional
+   * para no romper el resto de transiciones, que no usan este campo. */
+  @IsOptional()
+  @IsString()
+  motivo?: string;
 }
 
 export class PedidoCreadoPayload {
@@ -287,6 +293,9 @@ export class PedidoItemAnuladoPayload {
   @IsOptional()
   @IsString()
   mesaId?: string | null;
+  @IsOptional()
+  @IsString()
+  motivo?: string | null;
 }
 
 /**

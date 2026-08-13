@@ -8,7 +8,7 @@ import { useAuthStore } from '../../store/auth.store';
 import { useMesasQuery } from '../../hooks/queries/useMesasQuery';
 import { useUbicacionesQuery } from '../../hooks/queries/useUbicacionesQuery';
 import { useCuentasQuery } from '../../hooks/queries/useCuentasQuery';
-import { useAnularAtencionMesaMutation } from '../../hooks/queries/usePedidosQuery';
+import { useAnularAtencionMesaMutation, useAnularItemMutations } from '../../hooks/queries/usePedidosQuery';
 import { useToast } from '../../components/ui/ToastProvider';
 import { BrowserRouter } from 'react-router-dom';
 
@@ -47,6 +47,7 @@ describe('MesasScreen', () => {
     });
     (useCuentasQuery as any).mockReturnValue({ cuentaActiva: null, loading: false });
     (useAnularAtencionMesaMutation as any).mockReturnValue({ saving: false, anularAtencionMesa: vi.fn().mockResolvedValue({ itemsCancelados: 0, itemsConMerma: 0, itemsMantenidosParaCobro: 0, mesaLiberada: true }) });
+    (useAnularItemMutations as any).mockReturnValue({ saving: false, avanzarItem: vi.fn().mockResolvedValue(undefined), anularItemPreparado: vi.fn().mockResolvedValue({}) });
     (useToast as any).mockReturnValue({ toast: vi.fn() });
   });
 
@@ -274,6 +275,37 @@ describe('MesasScreen', () => {
 
     await waitFor(() => expect(anularAtencionMesa).toHaveBeenCalledWith('m1', { motivo: 'Cliente se retiró', itemsConsumidos: [] }));
     await waitFor(() => expect(toast).toHaveBeenCalledWith(expect.objectContaining({ title: 'Atención de mesa anulada' })));
+  });
+
+  it('anula un ítem puntual desde el panel "Cuenta actual" de la mesa (mismo flujo que Pedidos)', async () => {
+    const avanzarItem = vi.fn().mockResolvedValue(undefined);
+    const toast = vi.fn();
+    (useAnularItemMutations as any).mockReturnValue({ saving: false, avanzarItem, anularItemPreparado: vi.fn() });
+    (useToast as any).mockReturnValue({ toast });
+    (useMesasQuery as any).mockReturnValue({
+      mesas: [{ id: 'm1', numero: '01', numeroRaw: 1, capacidad: 4, ubicacion: 'Terraza', estado: 'OCUPADA' }],
+      fetch: vi.fn(), crearMesa: vi.fn(), unirMesas: vi.fn(), separarMesas: vi.fn(), clearFeedback: vi.fn(),
+    });
+    (useCuentasQuery as any).mockReturnValue({
+      cuentaActiva: {
+        pedidos: [{
+          meseroNombre: 'Ana', createdAt: new Date().toISOString(),
+          items: [{ id: 'i-1', nombre: 'Ceviche', cantidad: 1, subtotal: 30, estado: 'PENDIENTE', area: 'COCINA' }],
+        }],
+      },
+      loading: false,
+    });
+
+    renderScreen();
+    const tiles = screen.getAllByRole('button').filter((b) => b.className.includes('mesa-tile'));
+    fireEvent.click(tiles[0]);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Anular 1× Ceviche' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Mala digitación' }));
+    fireEvent.click(screen.getByRole('button', { name: /Anular ítem/ }));
+
+    await waitFor(() => expect(avanzarItem).toHaveBeenCalledWith('i-1', 'CANCELADO', 'Mala digitación'));
+    await waitFor(() => expect(toast).toHaveBeenCalledWith(expect.objectContaining({ title: 'Ítem anulado' })));
   });
 
   it('atencion multiple waiters', () => {

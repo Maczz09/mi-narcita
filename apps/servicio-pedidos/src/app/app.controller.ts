@@ -64,8 +64,13 @@ export class AppController {
   @UseGuards(RolesGuard)
   @Roles('ADMIN', 'SISTEMA', 'CAJERO', 'MESERO', 'COCINA')
   @Patch('items/:itemId/estado')
-  actualizarEstadoItem(@Param('itemId') itemId: string, @Body() body: ActualizarEstadoItemCommand) {
-    return this.appService.actualizarEstadoItem(itemId, body);
+  actualizarEstadoItem(
+    @Param('itemId') itemId: string,
+    @Body() body: ActualizarEstadoItemCommand,
+    @UsuarioActual() usuarioId: string | null,
+    @UsuarioActual('nombre') usuarioNombre: string | null,
+  ) {
+    return this.appService.actualizarEstadoItem(itemId, body, usuarioId, usuarioNombre);
   }
 
   // CU-01 (Caso B): anular un ítem ya preparado/servido — cobrar o no al

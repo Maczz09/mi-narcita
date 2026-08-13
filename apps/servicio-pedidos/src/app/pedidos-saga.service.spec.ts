@@ -176,6 +176,52 @@ describe('PedidosSagaService — Pedidos', () => {
       const eventos = mockPrisma.outboxEvent.createMany.mock.calls.at(-1)[0].data;
       expect(eventos.some((e: any) => e.routingKey === 'pedido.item_anulado')).toBe(avisa);
     });
+
+    it('CU-05 Caso A: anular un ítem PENDIENTE crea el registro de auditoría con el motivo capturado', async () => {
+      jest.spyOn(mockPrisma.pedidoItem, 'update').mockResolvedValue({
+        id: 'i-1', pedidoId: 'p-001', productoId: 'prod-1', nombre: 'Ceviche', cantidad: 2, precioUnitario: 30, area: 'COCINA',
+      } as never);
+      jest.spyOn(mockPrisma.pedido, 'findUnique').mockResolvedValue({
+        ...basePedido,
+        estado: PedidoEstado.Pendiente,
+        items: [{ ...itemBase, id: 'i-1', productoId: 'prod-1', nombre: 'Ceviche', cantidad: 2, precioUnitario: 30, estado: PedidoEstado.Cancelado }],
+      } as never);
+      jest.spyOn(mockPrisma.pedido, 'update').mockResolvedValue({ ...basePedido, items: [] } as never);
+
+      await service.actualizarEstadoItem('i-1', { estado: PedidoEstado.Cancelado, motivo: 'Cliente se equivocó al pedir' }, 'u-1', 'Ana');
+
+      expect(mockPrisma.anulacionAuditoria.create).toHaveBeenCalledWith(expect.objectContaining({
+        data: expect.objectContaining({
+          tipo: 'ITEM',
+          estadoPlato: 'SIN_PREPARAR',
+          cobrado: false,
+          montoAnulado: 60,
+          motivo: 'Cliente se equivocó al pedir',
+          productoId: 'prod-1',
+          productoNombre: 'Ceviche',
+          usuarioId: 'u-1',
+          usuarioNombre: 'Ana',
+        }),
+      }));
+    });
+
+    it('CU-05 Caso A: sin motivo, usa un texto por defecto en vez de dejarlo vacío', async () => {
+      jest.spyOn(mockPrisma.pedidoItem, 'update').mockResolvedValue({
+        id: 'i-1', pedidoId: 'p-001', productoId: 'prod-1', nombre: 'Ceviche', cantidad: 1, precioUnitario: 30, area: 'COCINA',
+      } as never);
+      jest.spyOn(mockPrisma.pedido, 'findUnique').mockResolvedValue({
+        ...basePedido,
+        estado: PedidoEstado.Pendiente,
+        items: [{ ...itemBase, id: 'i-1', estado: PedidoEstado.Cancelado }],
+      } as never);
+      jest.spyOn(mockPrisma.pedido, 'update').mockResolvedValue({ ...basePedido, items: [] } as never);
+
+      await service.actualizarEstadoItem('i-1', { estado: PedidoEstado.Cancelado });
+
+      expect(mockPrisma.anulacionAuditoria.create).toHaveBeenCalledWith(expect.objectContaining({
+        data: expect.objectContaining({ motivo: 'Sin motivo especificado' }),
+      }));
+    });
   });
 
   describe('procesarStockInsuficiente — compensación de saga', () => {
