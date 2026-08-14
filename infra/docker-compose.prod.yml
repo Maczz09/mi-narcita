@@ -635,11 +635,28 @@ services:
     restart: unless-stopped
     # Sin puertos al host: los servicios lo alcanzan por la red interna.
 
+  # La imagen :latest corre como UID 10001 no-root; un volumen nombrado nuevo
+  # se crea con dueño root, así que sin este init jaeger truena en el primer
+  # deploy con "mkdir /badger/key: permission denied" (visto en el despliegue
+  # real a la VPS del 2026-08-14). El compose de dev usa `user: root` como
+  # atajo — en prod se evita correr el propio Jaeger como root, y en cambio
+  # se corrige el dueño del volumen una sola vez antes de arrancarlo.
+  jaeger-init:
+    image: alpine:3
+    container_name: nachopps-jaeger-init
+    volumes:
+      - jaeger_data:/badger
+    command: ['chown', '-R', '10001:10001', '/badger']
+    restart: 'no'
+
   # Backend de trazas persistente (Badger en volumen). UI 16686 solo por red
   # interna / túnel SSH (sin publicar al host en prod).
   jaeger:
     image: jaegertracing/all-in-one:latest
     container_name: nachopps-jaeger
+    depends_on:
+      jaeger-init:
+        condition: service_completed_successfully
     environment:
       SPAN_STORAGE_TYPE: badger
       BADGER_EPHEMERAL: 'false'
