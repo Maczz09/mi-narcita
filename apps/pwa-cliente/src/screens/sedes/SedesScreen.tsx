@@ -14,7 +14,7 @@ import { useSedesQuery } from '../../hooks/queries/useSedesQuery';
 import { useFacturacionQuery } from '../../hooks/queries/useFacturacionQuery';
 import type { SedeDto } from '../../types/sede.types';
 
-const INITIAL_FORM = { nombre: '', direccion: '', ruc: '' };
+const INITIAL_FORM = { nombre: '', direccion: '', ruc: '', telefono: '' };
 const INITIAL_SUNAT = { solUsuario: '', solClave: '', certificadoPass: '' };
 
 export function SedesScreen() {
@@ -42,6 +42,7 @@ export function SedesScreen() {
   const [editNombre, setEditNombre] = useState('');
   const [editDireccion, setEditDireccion] = useState('');
   const [editRuc, setEditRuc] = useState('');
+  const [editTelefono, setEditTelefono] = useState('');
 
   const activas = sedes.filter((s) => s.activa).length;
 
@@ -57,6 +58,7 @@ export function SedesScreen() {
       nombre: form.nombre.trim(),
       direccion: form.direccion.trim() || undefined,
       ruc: rucSede || undefined,
+      telefono: form.telefono.trim() || undefined,
     });
 
     // La sede ya se creó; configurar SUNAT es aparte (otro servicio) y no
@@ -95,6 +97,7 @@ export function SedesScreen() {
     setEditNombre(sede.nombre);
     setEditDireccion(sede.direccion ?? '');
     setEditRuc(sede.ruc ?? '');
+    setEditTelefono(sede.telefono ?? '');
   };
 
   const guardarEdicion = async () => {
@@ -103,6 +106,7 @@ export function SedesScreen() {
       nombre: editNombre.trim(),
       direccion: editDireccion.trim() || null,
       ruc: editRuc.trim() || null,
+      telefono: editTelefono.trim() || null,
     });
     setEdit(null);
   };
@@ -187,6 +191,7 @@ export function SedesScreen() {
                     <th>Nombre</th>
                     <th className="col-mobile-hidden">Dirección</th>
                     <th className="col-mobile-hidden">RUC</th>
+                    <th className="col-mobile-hidden">Teléfono</th>
                     <th>Estado</th>
                     <th className="cell-action">Acciones</th>
                   </tr>
@@ -197,6 +202,7 @@ export function SedesScreen() {
                       <td><strong>{sede.nombre}</strong></td>
                       <td className="col-mobile-hidden muted">{sede.direccion || '—'}</td>
                       <td className="col-mobile-hidden muted">{sede.ruc || '—'}</td>
+                      <td className="col-mobile-hidden muted">{sede.telefono || '—'}</td>
                       <td>
                         <button
                           className={`toggle ${sede.activa ? 'on' : ''}`}
@@ -277,6 +283,17 @@ export function SedesScreen() {
                   />
                 </div>
               </div>
+              <div className="field">
+                <label htmlFor="sede-telefono">Teléfono</label>
+                <div className="input">
+                  <input
+                    id="sede-telefono"
+                    value={form.telefono}
+                    onChange={(e) => setForm((f) => ({ ...f, telefono: e.target.value }))}
+                    placeholder="Opcional · se muestra en la carta pública"
+                  />
+                </div>
+              </div>
 
               <label className="row" style={{ gap: 8, marginBottom: 12, cursor: 'pointer' }}>
                 <input type="checkbox" checked={configurarSunat} onChange={(e) => setConfigurarSunat(e.target.checked)} />
@@ -353,6 +370,12 @@ export function SedesScreen() {
                 <label htmlFor="sede-edit-ruc">RUC</label>
                 <div className="input">
                   <input id="sede-edit-ruc" value={editRuc} onChange={(e) => setEditRuc(e.target.value)} />
+                </div>
+              </div>
+              <div className="field" style={{ marginBottom: 12 }}>
+                <label htmlFor="sede-edit-telefono">Teléfono</label>
+                <div className="input">
+                  <input id="sede-edit-telefono" value={editTelefono} onChange={(e) => setEditTelefono(e.target.value)} placeholder="Opcional · se muestra en la carta pública" />
                 </div>
               </div>
             </div>

@@ -20,6 +20,7 @@ import {
   ListarUsuariosQuery,
   UsuarioListResponse,
   SedeDto,
+  SedePublicaDto,
   CrearSedeCommand,
   ActualizarSedeCommand,
 } from '@org/contracts';
@@ -526,8 +527,8 @@ export class AuthService {
 
   /* ── Sedes (T-23: multi-sede, solo ADMIN) ──────────── */
 
-  private toSedeDto(sede: { id: string; nombre: string; direccion: string | null; ruc: string | null; activa: boolean }): SedeDto {
-    return { id: sede.id, nombre: sede.nombre, direccion: sede.direccion, ruc: sede.ruc, activa: sede.activa };
+  private toSedeDto(sede: { id: string; nombre: string; direccion: string | null; ruc: string | null; telefono: string | null; activa: boolean }): SedeDto {
+    return { id: sede.id, nombre: sede.nombre, direccion: sede.direccion, ruc: sede.ruc, telefono: sede.telefono, activa: sede.activa };
   }
 
   async listarSedes(): Promise<{ sedes: SedeDto[] }> {
@@ -545,6 +546,17 @@ export class AuthService {
     if (!sedeId) return { sede: null };
     const sede = await this.prisma.sede.findUnique({ where: { id: sedeId } });
     return { sede: sede ? this.toSedeDto(sede) : null };
+  }
+
+  // Carta pública/QR (T-XX): SIN autenticación, cualquiera con el link la
+  // llama — por eso expone solo lo estrictamente necesario para el header de
+  // la carta (ni ruc, ni activa) y no filtra por sede del llamante (no hay
+  // llamante). Una sede desactivada devuelve null: el QR simplemente deja de
+  // funcionar en vez de mostrar datos de un local que ya cerró.
+  async sedePublica(sedeId: string): Promise<{ sede: SedePublicaDto | null }> {
+    const sede = await this.prisma.sede.findUnique({ where: { id: sedeId } });
+    if (!sede || !sede.activa) return { sede: null };
+    return { sede: { id: sede.id, nombre: sede.nombre, direccion: sede.direccion, telefono: sede.telefono } };
   }
 
   // Consumido desde EventsController (turno.abierto / turno.cerrado): el
@@ -571,7 +583,7 @@ export class AuthService {
     if (existe) throw new ConflictException(`Ya existe una sede llamada "${command.nombre}".`);
 
     const sede = await this.prisma.sede.create({
-      data: { nombre: command.nombre, direccion: command.direccion, ruc: command.ruc },
+      data: { nombre: command.nombre, direccion: command.direccion, ruc: command.ruc, telefono: command.telefono },
     });
 
     this.logger.log({
@@ -593,7 +605,7 @@ export class AuthService {
 
     const sede = await this.prisma.sede.update({
       where: { id },
-      data: { nombre: command.nombre, direccion: command.direccion, ruc: command.ruc, activa: command.activa },
+      data: { nombre: command.nombre, direccion: command.direccion, ruc: command.ruc, telefono: command.telefono, activa: command.activa },
     });
 
     return { message: 'Sede actualizada', sede: this.toSedeDto(sede) };

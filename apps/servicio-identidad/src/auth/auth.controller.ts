@@ -85,6 +85,13 @@ export class AuthController {
     });
   }
 
+  // Carta pública/QR (T-XX): sin JWT, cualquiera con el link la llama —
+  // igual que login/refresh, sin @UseGuards a propósito.
+  @Get('sedes/publica')
+  async sedePublica(@Query('sedeId') sedeId: string) {
+    return this.authService.sedePublica(sedeId);
+  }
+
   @HttpCode(200)
   @Post('auth/login')
   async login(

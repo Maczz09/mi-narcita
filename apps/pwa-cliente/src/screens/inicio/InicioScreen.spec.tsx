@@ -14,6 +14,10 @@ vi.mock('./TopVentasPanel', () => ({
   TopVentasPanel: ({ titulo }: { titulo: string }) => <div data-testid="top-ventas-panel">{titulo}</div>,
 }));
 
+vi.mock('./CartaQrPanel', () => ({
+  CartaQrPanel: () => <div data-testid="carta-qr-panel" />,
+}));
+
 vi.mock('../../hooks/useInicioData', () => ({
   useInicioData: () => ({
     totalVentas: 1500,

@@ -701,6 +701,30 @@ describe('AuthService — Identidad', () => {
     });
   });
 
+  describe('sedePublica (carta pública/QR, sin auth)', () => {
+    it('devuelve solo id/nombre/direccion/telefono de una sede activa', async () => {
+      mockPrisma.sede.findUnique.mockResolvedValue({
+        id: 's1', nombre: 'Salitral 1', direccion: 'Av. X 123', ruc: '12345678901', telefono: '987654321', activa: true,
+      });
+      const result = await service.sedePublica('s1');
+      expect(result.sede).toEqual({ id: 's1', nombre: 'Salitral 1', direccion: 'Av. X 123', telefono: '987654321' });
+      expect(result.sede).not.toHaveProperty('ruc');
+      expect(result.sede).not.toHaveProperty('activa');
+    });
+
+    it('devuelve sede null si la sede no existe', async () => {
+      mockPrisma.sede.findUnique.mockResolvedValue(null);
+      const result = await service.sedePublica('no-existe');
+      expect(result.sede).toBeNull();
+    });
+
+    it('devuelve sede null si la sede está desactivada (el QR deja de funcionar)', async () => {
+      mockPrisma.sede.findUnique.mockResolvedValue({ id: 's1', nombre: 'Salitral 1', direccion: null, ruc: null, telefono: null, activa: false });
+      const result = await service.sedePublica('s1');
+      expect(result.sede).toBeNull();
+    });
+  });
+
   describe('activarMeserosPorSede', () => {
     it('activa solo a los MESERO de la sede indicada', async () => {
       mockPrisma.usuario.updateMany.mockResolvedValue({ count: 4 });

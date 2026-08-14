@@ -449,6 +449,48 @@ describe('AppService — Inventario (comprehensive)', () => {
     });
   });
 
+  // ─── listarCartaPublica (carta pública/QR, sin auth) ───────────────────────
+
+  describe('listarCartaPublica', () => {
+    it('filtra categorías a COCINA/BARRA en la query de Prisma', async () => {
+      mockPrisma.categoria.findMany.mockResolvedValue([]);
+      mockPrisma.producto.findMany.mockResolvedValue([]);
+      await service.listarCartaPublica(SEDE);
+      expect(mockPrisma.categoria.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { sedeId: SEDE, area: { in: ['COCINA', 'BARRA'] } } }),
+      );
+    });
+
+    it('filtra productos a disponible=true, stockActual=null (Carta, no Inventario) y área COCINA/BARRA', async () => {
+      mockPrisma.categoria.findMany.mockResolvedValue([]);
+      mockPrisma.producto.findMany.mockResolvedValue([]);
+      await service.listarCartaPublica(SEDE);
+      expect(mockPrisma.producto.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            sedeId: SEDE,
+            disponible: true,
+            stockActual: null,
+            categoria: { area: { in: ['COCINA', 'BARRA'] } },
+          },
+        }),
+      );
+    });
+
+    it('devuelve las categorías y productos ya mapeados a DTO', async () => {
+      mockPrisma.categoria.findMany.mockResolvedValue([
+        { id: 'cat-001', nombre: 'Ceviches', descripcion: null, sedeId: SEDE, area: 'COCINA' },
+      ]);
+      mockPrisma.producto.findMany.mockResolvedValue([{ ...productoBase, precio: 40, disponible: true, stockActual: null }]);
+
+      const result = await service.listarCartaPublica(SEDE);
+
+      expect(result.categorias).toHaveLength(1);
+      expect(result.productos).toHaveLength(1);
+      expect(result.productos[0].precio).toBe(40);
+    });
+  });
+
   // ─── obtenerProducto ──────────────────────────────────────────────────────
 
   describe('obtenerProducto', () => {

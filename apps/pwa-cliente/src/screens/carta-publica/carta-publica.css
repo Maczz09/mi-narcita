@@ -1,0 +1,223 @@
+/* screens/carta-publica/carta-publica.css — carta pública/QR.
+   Paleta e identidad visual propias, deliberadamente independientes del
+   tema claro/oscuro del resto de la app (ver PublicCartaScreen.tsx) — la
+   carta pública siempre se ve igual, sin importar la preferencia de tema
+   del dispositivo del cliente. */
+
+.carta-publica {
+  --cp-bg: #14100e;
+  --cp-bg-elevada: #1c1613;
+  --cp-borde: #33281f;
+  --cp-texto: #f2e9dd;
+  --cp-texto-tenue: #b8a993;
+  --cp-acento: #c9a15a;
+  --cp-acento-fuerte: #e0b96a;
+
+  min-height: 100vh;
+  background: var(--cp-bg);
+  color: var(--cp-texto);
+  font-family: 'Georgia', 'Playfair Display', serif;
+  display: flex;
+  flex-direction: column;
+}
+
+.carta-publica * {
+  box-sizing: border-box;
+}
+
+.cp-header {
+  padding: 32px 20px 24px;
+  text-align: center;
+  border-bottom: 1px solid var(--cp-borde);
+}
+
+.cp-marca {
+  font-size: 13px;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  color: var(--cp-acento);
+  margin: 0 0 6px;
+}
+
+.cp-nombre-sede {
+  font-family: 'Playfair Display', 'Georgia', serif;
+  font-size: clamp(28px, 6vw, 40px);
+  font-weight: 700;
+  margin: 0 0 10px;
+  letter-spacing: 0.02em;
+}
+
+.cp-datos-sede {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 4px 16px;
+  color: var(--cp-texto-tenue);
+  font-family: system-ui, sans-serif;
+  font-size: 13px;
+}
+
+.cp-tabs {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--cp-borde);
+  scrollbar-width: none;
+}
+
+.cp-tabs::-webkit-scrollbar {
+  display: none;
+}
+
+.cp-tab {
+  flex: none;
+  padding: 8px 16px;
+  border-radius: 999px;
+  border: 1px solid var(--cp-borde);
+  background: transparent;
+  color: var(--cp-texto-tenue);
+  font-family: system-ui, sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.cp-tab.activo {
+  background: var(--cp-acento);
+  border-color: var(--cp-acento);
+  color: #1a1410;
+}
+
+.cp-main {
+  flex: 1;
+  max-width: 720px;
+  width: 100%;
+  margin: 0 auto;
+  padding: 24px 20px 48px;
+}
+
+.cp-categoria-titulo {
+  font-family: 'Playfair Display', 'Georgia', serif;
+  font-size: 22px;
+  color: var(--cp-acento-fuerte);
+  margin: 0 0 4px;
+}
+
+.cp-categoria-desc {
+  color: var(--cp-texto-tenue);
+  font-family: system-ui, sans-serif;
+  font-size: 13px;
+  margin: 0 0 20px;
+}
+
+/* Animación "pasar página": el panel se remonta por key={categoriaId} en
+   PublicCartaScreen.tsx, así que el keyframe se dispara solo al navegar de
+   categoría — no hace falta orquestarlo en JS. */
+.cp-panel {
+  animation: cp-page-turn 0.45s cubic-bezier(0.22, 0.61, 0.36, 1);
+  transform-origin: left center;
+}
+
+@keyframes cp-page-turn {
+  from {
+    transform: rotateY(-6deg) translateX(-16px);
+    opacity: 0;
+  }
+  to {
+    transform: rotateY(0) translateX(0);
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cp-panel {
+    animation: none;
+  }
+}
+
+.cp-plato {
+  padding: 16px 0;
+  border-bottom: 1px solid var(--cp-borde);
+}
+
+.cp-plato:last-child {
+  border-bottom: none;
+}
+
+.cp-plato-cabecera {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+}
+
+.cp-plato-nombre {
+  font-family: 'Playfair Display', 'Georgia', serif;
+  font-size: 17px;
+  font-weight: 700;
+}
+
+.cp-plato-precio-unico {
+  font-family: system-ui, sans-serif;
+  font-weight: 700;
+  color: var(--cp-acento-fuerte);
+  white-space: nowrap;
+}
+
+.cp-plato-desc {
+  color: var(--cp-texto-tenue);
+  font-family: system-ui, sans-serif;
+  font-size: 13px;
+  margin-top: 4px;
+}
+
+.cp-tabla-tallas {
+  margin-top: 10px;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  font-family: system-ui, sans-serif;
+}
+
+.cp-talla {
+  text-align: center;
+  padding: 8px 4px;
+  border: 1px solid var(--cp-borde);
+  border-radius: 6px;
+  background: var(--cp-bg-elevada);
+}
+
+.cp-talla-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--cp-texto-tenue);
+}
+
+.cp-talla-precio {
+  font-weight: 700;
+  color: var(--cp-acento-fuerte);
+  margin-top: 2px;
+}
+
+.cp-vacio,
+.cp-estado {
+  text-align: center;
+  padding: 60px 20px;
+  color: var(--cp-texto-tenue);
+  font-family: system-ui, sans-serif;
+}
+
+.cp-footer {
+  text-align: center;
+  padding: 18px;
+  color: var(--cp-texto-tenue);
+  font-family: system-ui, sans-serif;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  border-top: 1px solid var(--cp-borde);
+}

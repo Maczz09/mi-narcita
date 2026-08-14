@@ -3,6 +3,7 @@ import { APP_GUARD } from '@nestjs/core';
 import { ScheduleModule } from '@nestjs/schedule';
 import { AppController } from './app.controller';
 import { EventsController } from './events.controller';
+import { PublicCartaController } from './public-carta.controller';
 import { AppService } from './app.service';
 import { PrismaModule } from '../prisma/prisma.module';
 import { OutboxAdminModule, OutboxModule, IdempotencyPurgeModule } from '@org/resiliencia';
@@ -28,7 +29,7 @@ import { RoutingKeys } from '@org/contracts';
       bindings: ['pedido.creado', RoutingKeys.CompraRecibida, RoutingKeys.PedidoItemAnuladoConMerma, RoutingKeys.StockRestaurado]
     }),
   ],
-  controllers: [AppController, EventsController],
+  controllers: [AppController, EventsController, PublicCartaController],
   providers: [
     AppService,
     { provide: APP_GUARD, useClass: JwtAuthGuard },

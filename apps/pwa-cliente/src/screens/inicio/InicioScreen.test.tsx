@@ -50,6 +50,12 @@ vi.mock('./TopVentasPanel', () => ({
   TopVentasPanel: ({ titulo }: { titulo: string }) => <div data-testid="top-ventas-panel">{titulo}</div>,
 }));
 
+// CartaQrPanel maneja su propia consulta de sede — se prueba por separado
+// en CartaQrPanel.test.tsx.
+vi.mock('./CartaQrPanel', () => ({
+  CartaQrPanel: () => <div data-testid="carta-qr-panel" />,
+}));
+
 // Datos base vacíos/cero
 const defaultInicioData = {
   totalVentas: 0,

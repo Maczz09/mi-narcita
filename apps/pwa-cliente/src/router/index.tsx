@@ -27,6 +27,7 @@ const FacturacionScreen = lazy(() => import('../screens/facturacion/FacturacionS
 const TicketPrintPage = lazy(() => import('../screens/print/TicketPrintPage').then(m => ({ default: m.TicketPrintPage })));
 const ComprobantePrintPage = lazy(() => import('../screens/print/ComprobantePrintPage').then(m => ({ default: m.ComprobantePrintPage })));
 const ZTicketPrintPage = lazy(() => import('../screens/print/ZTicketPrintPage').then(m => ({ default: m.ZTicketPrintPage })));
+const PublicCartaScreen = lazy(() => import('../screens/carta-publica/PublicCartaScreen').then(m => ({ default: m.PublicCartaScreen })));
 import { Shell } from '../components/layout/Shell';
 import { ErrorBoundary } from '../components/ui/ErrorBoundary';
 
@@ -112,6 +113,10 @@ export function AppRouter() {
         <Route path="/imprimir/boleta" element={<Suspense fallback={null}><TicketPrintPage /></Suspense>} />
         <Route path="/imprimir/comprobante" element={<Suspense fallback={null}><ComprobantePrintPage /></Suspense>} />
         <Route path="/imprimir/cierre" element={<Suspense fallback={null}><ZTicketPrintPage /></Suspense>} />
+
+        {/* Carta pública/QR (T-XX): sin auth, sin Shell — cualquiera con el
+            link o que escanee el QR de Inicio la ve. */}
+        <Route path="/carta/:sedeId" element={<Suspense fallback={null}><PublicCartaScreen /></Suspense>} />
 
         {/* Rutas públicas */}
         <Route element={<PublicRoute />}>

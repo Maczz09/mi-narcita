@@ -27,6 +27,7 @@ import {
   CompraRecibidaLineaPayload,
   PedidoItemAnuladoConMermaPayload,
   StockRestauradoPayload,
+  CartaPublicaResponse,
 } from '@org/contracts';
 import { Prisma, CategoriaArea, MermaOrigen } from '../generated/prisma';
 
@@ -288,6 +289,34 @@ export class AppService {
       precio: Number(producto['precio']),
       disponible: producto['disponible'] as boolean,
       stockActual: (producto['stockActual'] ?? null) as number | null,
+    };
+  }
+
+  // Carta pública/QR (T-XX): SIN autenticación, cualquiera con el link la
+  // llama. El filtrado (disponible, Carta-no-Inventario, área COCINA/BARRA)
+  // se hace acá y no en el cliente — el navegador nunca recibe productos
+  // ocultos ni bebidas de Inventario mezcladas con platos.
+  async listarCartaPublica(sedeId: string): Promise<CartaPublicaResponse> {
+    const [categorias, productos] = await Promise.all([
+      this.prisma.categoria.findMany({
+        where: { sedeId, area: { in: [CategoriaArea.COCINA, CategoriaArea.BARRA] } },
+        orderBy: { nombre: 'asc' },
+      }),
+      this.prisma.producto.findMany({
+        where: {
+          sedeId,
+          disponible: true,
+          stockActual: null,
+          categoria: { area: { in: [CategoriaArea.COCINA, CategoriaArea.BARRA] } },
+        },
+        include: { categoria: true },
+        orderBy: { nombre: 'asc' },
+      }),
+    ]);
+
+    return {
+      categorias,
+      productos: productos.map((producto) => this.toProductoDto(producto)),
     };
   }
 

@@ -34,6 +34,7 @@ model Sede {
   nombre    String    @unique
   direccion String?
   ruc       String?
+  telefono  String?
   activa    Boolean   @default(true)
   usuarios  Usuario[]
   createdAt DateTime  @default(now())

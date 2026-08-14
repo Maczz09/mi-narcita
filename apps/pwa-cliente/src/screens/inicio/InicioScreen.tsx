@@ -5,6 +5,7 @@ import { HeroStat } from '../../components/ui/Stat';
 import { fmt, elapsedMin } from '../../utils/format';
 import { useInicioData, type ActividadItem } from '../../hooks/useInicioData';
 import { TopVentasPanel } from './TopVentasPanel';
+import { CartaQrPanel } from './CartaQrPanel';
 
 export function InicioScreen() {
   const navigate = useNavigate();
@@ -142,6 +143,8 @@ export function InicioScreen() {
               <button className="btn btn-soft btn-sm" onClick={() => go('caja')}>Ir a caja</button>
             </div>
           </section>
+
+          <CartaQrPanel />
 
           <section className="panel">
             <div className="panel-h"><h3>Próximas reservas</h3><span className="spacer" /><span className="pill-soft">hoy</span></div>

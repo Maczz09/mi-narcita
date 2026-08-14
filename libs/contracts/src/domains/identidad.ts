@@ -154,6 +154,12 @@ export class SedeDto {
   @IsString()
   ruc?: string | null;
 
+  // Opcional, de relleno — se muestra en la carta pública (T-XX). Sin
+  // validación de formato a propósito, el dueño solo quiere poder rellenarlo.
+  @IsOptional()
+  @IsString()
+  telefono?: string | null;
+
   @IsBoolean()
   activa: boolean;
 }
@@ -170,6 +176,10 @@ export class CrearSedeCommand {
   @IsOptional()
   @IsString()
   ruc?: string;
+
+  @IsOptional()
+  @IsString()
+  telefono?: string;
 }
 
 export class ActualizarSedeCommand {
@@ -186,6 +196,10 @@ export class ActualizarSedeCommand {
   ruc?: string | null;
 
   @IsOptional()
+  @IsString()
+  telefono?: string | null;
+
+  @IsOptional()
   @IsBoolean()
   activa?: boolean;
 }
@@ -195,4 +209,32 @@ export class SedesResponse {
   @ValidateNested({ each: true })
   @Type(() => SedeDto)
   sedes: SedeDto[];
+}
+
+/**
+ * Datos de sede expuestos SIN autenticación (carta pública/QR — T-XX). Solo
+ * lo estrictamente necesario para el header de la carta: nada de ruc, ni
+ * `activa` (una sede inactiva simplemente no responde, ver AuthService.sedePublica).
+ */
+export class SedePublicaDto {
+  @IsString()
+  id: string;
+
+  @IsString()
+  nombre: string;
+
+  @IsOptional()
+  @IsString()
+  direccion?: string | null;
+
+  @IsOptional()
+  @IsString()
+  telefono?: string | null;
+}
+
+export class SedePublicaResponse {
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => SedePublicaDto)
+  sede: SedePublicaDto | null;
 }

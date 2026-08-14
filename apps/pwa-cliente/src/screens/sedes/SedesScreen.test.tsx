@@ -96,6 +96,20 @@ describe('SedesScreen', () => {
     });
   });
 
+  it('crea una sede con teléfono (opcional, se muestra en la carta pública)', async () => {
+    const crearSede = vi.fn();
+    vi.mocked(useSedesQuery).mockReturnValue(baseMock({ crearSede }) as any);
+
+    render(<SedesScreen />);
+    fireEvent.change(screen.getByLabelText('Nombre'), { target: { value: 'Sede Sur' } });
+    fireEvent.change(screen.getByLabelText('Teléfono'), { target: { value: '987654321' } });
+    fireEvent.click(screen.getByRole('button', { name: /Crear sede/i }));
+
+    await waitFor(() => {
+      expect(crearSede).toHaveBeenCalledWith({ nombre: 'Sede Sur', direccion: undefined, ruc: undefined, telefono: '987654321' });
+    });
+  });
+
   it('edita una sede existente', async () => {
     const actualizarSede = vi.fn();
     vi.mocked(useSedesQuery).mockReturnValue(baseMock({ actualizarSede }) as any);
@@ -108,7 +122,24 @@ describe('SedesScreen', () => {
     fireEvent.click(screen.getByRole('button', { name: /Guardar cambios/i }));
 
     await waitFor(() => {
-      expect(actualizarSede).toHaveBeenCalledWith('s1', { nombre: 'Sede Central Renovada', direccion: 'Av. Principal 123', ruc: '20554879631' });
+      expect(actualizarSede).toHaveBeenCalledWith('s1', { nombre: 'Sede Central Renovada', direccion: 'Av. Principal 123', ruc: '20554879631', telefono: null });
+    });
+  });
+
+  it('edita el teléfono de una sede existente', async () => {
+    const actualizarSede = vi.fn();
+    vi.mocked(useSedesQuery).mockReturnValue(baseMock({ actualizarSede }) as any);
+
+    render(<SedesScreen />);
+    fireEvent.click(screen.getByRole('button', { name: 'Editar Sede Central' }));
+
+    // "Teléfono" aparece dos veces (form de creación + drawer de edición,
+    // ambos montados a la vez) — el segundo es el del drawer.
+    fireEvent.change(screen.getAllByLabelText('Teléfono')[1], { target: { value: '987654321' } });
+    fireEvent.click(screen.getByRole('button', { name: /Guardar cambios/i }));
+
+    await waitFor(() => {
+      expect(actualizarSede).toHaveBeenCalledWith('s1', { nombre: 'Sede Central', direccion: 'Av. Principal 123', ruc: '20554879631', telefono: '987654321' });
     });
   });
 

@@ -208,6 +208,23 @@ export class ProductoListResponse {
   nextCursor: string | null;
 }
 
+/**
+ * Carta pública/QR (T-XX): respuesta del endpoint sin autenticación. Solo
+ * categorías de Carta (COCINA/BARRA) y productos disponibles ya filtrados
+ * server-side — no lleva stockActual ni ningún dato de Inventario.
+ */
+export class CartaPublicaResponse {
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => CategoriaDto)
+  categorias: CategoriaDto[];
+
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => ProductoDto)
+  productos: ProductoDto[];
+}
+
 export class CrearProductoCommand {
   @IsString()
   categoriaId: string;
