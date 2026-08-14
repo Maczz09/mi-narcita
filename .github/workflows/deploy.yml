@@ -7,7 +7,7 @@ on:
 
 env:
   REGISTRY: ghcr.io
-  REGISTRY_NAME: ghcr.io/${{ github.repository_owner }}/mi-narcita
+  REGISTRY_NAME: ghcr.io/maczz09/mi-narcita
 
 jobs:
   build-and-push:
@@ -70,11 +70,7 @@ jobs:
           - name: pwa-cliente
             dockerfile: apps/pwa-cliente/Dockerfile
             context: .
-            # Repo Settings → Secrets and variables → Actions → Variables →
-            # VITE_API_BASE_URL = https://tu-dominio-real (sin esto, cae al
-            # placeholder de abajo y la PWA en prod llamaría a un dominio que
-            # no es el suyo — login/CORS rotos en silencio).
-            build-args: VITE_API_BASE_URL=${{ vars.VITE_API_BASE_URL || 'https://cambia-esto-en-settings-variables.example' }}
+            build-args: VITE_API_BASE_URL=https://mi-narcita.duckdns.org
           - name: kong
             dockerfile: infra/kong/Dockerfile
             context: infra/kong
