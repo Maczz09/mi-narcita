@@ -205,6 +205,9 @@ const ITEMS_PRECIO_UNICO: Array<{ cat: string; nombre: string; precio: number; d
   { cat: 'Bebidas de la Casa', nombre: 'Limonada', precio: 7 },
   { cat: 'Bebidas de la Casa', nombre: 'Chicha Morada', precio: 7 },
 
+  // Tragos (coctelería, área BARRA — preparados al momento, no llevan stock de insumo)
+  { cat: 'Tragos', nombre: 'Machu Picchu', precio: 15 },
+
   // Domingos y feriados
   { cat: 'Domingos y Feriados', nombre: 'Arroz con Pato', precio: 20, descripcion: 'Solo domingos y feriados' },
   // "Arroz con cabrito y tamal" queda pendiente: el precio no se distinguía
@@ -292,6 +295,7 @@ const TODAS_LAS_CATEGORIAS = [
   { nombre: 'Pasados por Agua Caliente' },
   { nombre: 'Bebidas de la Casa' },
   { nombre: 'Domingos y Feriados' },
+  { nombre: 'Tragos', area: 'BARRA' },
   // Área INVENTARIO: productos con control de stock, van directo a cuenta sin
   // pasar por Cocina/Barra (ver assertStockCoincideConAreaCategoria en
   // servicio-inventario — un producto con stockActual SOLO puede vivir acá).
