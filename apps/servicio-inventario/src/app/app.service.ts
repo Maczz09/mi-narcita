@@ -415,6 +415,7 @@ export class AppService {
 
       const payload: ProductoActualizadoPayload = {
         id: p.id,
+        sedeId: p.sedeId,
         nombre: p.nombre,
         precio: p.precio.toNumber(),
         stockActual: p.stockActual,
@@ -459,6 +460,7 @@ export class AppService {
 
       const payload: ProductoActualizadoPayload = {
         id: p.id,
+        sedeId: p.sedeId,
         nombre: p.nombre,
         precio: p.precio.toNumber(),
         stockActual: p.stockActual,
@@ -563,6 +565,7 @@ export class AppService {
         routingKey: RoutingKeys.ProductoActualizado,
         payload: JSON.stringify({
           id: producto.id,
+          sedeId: producto.sedeId,
           nombre: producto.nombre,
           precio: producto.precio.toNumber(),
           stockActual: productoFinal?.stockActual,
@@ -759,6 +762,7 @@ export class AppService {
           routingKey: RoutingKeys.ProductoActualizado,
           payload: JSON.stringify({
             id: productoActualizado.id,
+            sedeId,
             nombre: productoActualizado.nombre,
             precio: productoActualizado.precio.toNumber(),
             stockActual: productoActualizado.stockActual,
@@ -846,6 +850,7 @@ export class AppService {
             routingKey: RoutingKeys.ProductoActualizado,
             payload: JSON.stringify({
               id: productoFinal.id,
+              sedeId,
               nombre: productoFinal.nombre,
               precio: productoFinal.precio.toNumber(),
               stockActual: productoFinal.stockActual,
@@ -915,6 +920,7 @@ export class AppService {
             routingKey: RoutingKeys.ProductoActualizado,
             payload: JSON.stringify({
               id: productoActualizado.id,
+              sedeId,
               nombre: productoActualizado.nombre,
               precio: productoActualizado.precio.toNumber(),
               stockActual: productoActualizado.stockActual,
@@ -1059,6 +1065,7 @@ export class AppService {
             routingKey: RoutingKeys.ProductoActualizado,
             payload: JSON.stringify({
               id: productoActualizado.id,
+              sedeId: producto.sedeId,
               nombre: productoActualizado.nombre,
               precio: productoActualizado.precio.toNumber(),
               stockActual: productoActualizado.stockActual,
@@ -1207,6 +1214,7 @@ export class AppService {
 
     const evento: ProductoActualizadoPayload = {
       id: actualizado.id,
+      sedeId,
       nombre: actualizado.nombre,
       precio: actualizado.precio.toNumber(),
       stockActual: actualizado.stockActual,

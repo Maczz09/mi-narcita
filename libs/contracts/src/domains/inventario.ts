@@ -459,6 +459,11 @@ export class ProductoActualizadoPayload {
   eventId?: string;
   @IsString()
   id: string;
+  // Necesario para unir clientes de la carta pública al room `sede:<id>`
+  // (T-XX: WebSocket de disponibilidad) — sin esto el consumidor no puede
+  // saber a qué sede pertenece el producto que cambió.
+  @IsString()
+  sedeId: string;
   @IsString()
   nombre: string;
   @IsNumber()

@@ -9,7 +9,7 @@ reinicia los contenedores sola — sin que tengas que entrar a la VPS a hacer
 Ejemplo usado en esta guía (reemplaza por los tuyos si cambian):
 
 ```text
-IP pública:  179.7.15.23
+IP pública:  169.58.176.109
 App:         mi-narcita.duckdns.org
 API directa: mi-narcita-api.duckdns.org
 Repo:        https://github.com/Maczz09/mi-narcita
@@ -56,7 +56,7 @@ falta un `git pull` en la VPS (paso 11).
 
 - [ ] VPS Contabo con Ubuntu 22.04/24.04, acceso root o sudo por SSH.
 - [ ] Los dos dominios DuckDNS ya apuntando a la IP de la VPS (ya los tienes:
-      `mi-narcita.duckdns.org` y `mi-narcita-api.duckdns.org` → `179.7.15.23`).
+      `mi-narcita.duckdns.org` y `mi-narcita-api.duckdns.org` → `169.58.176.109`).
 - [ ] Un Personal Access Token de GitHub (para clonar el repo y para que la
       VPS pueda hacer `docker pull` de tus imágenes privadas en GHCR).
 
@@ -67,7 +67,7 @@ falta un `git pull` en la VPS (paso 11).
 Conéctate por SSH y actualiza el sistema:
 
 ```bash
-ssh root@179.7.15.23
+ssh root@169.58.176.109
 
 apt update && apt upgrade -y
 apt install -y git curl nano gnupg apt-transport-https ca-certificates ufw
@@ -88,7 +88,7 @@ Sal y vuelve a entrar como `deploy`:
 
 ```bash
 exit
-ssh deploy@179.7.15.23
+ssh deploy@169.58.176.109
 ```
 
 ### 1.2 Instalar Docker
@@ -258,7 +258,7 @@ grep -n '\$' .env
 
 ## 6. Verificar DNS
 
-Ya creaste los dos dominios en DuckDNS apuntando a `179.7.15.23`. Confirma
+Ya creaste los dos dominios en DuckDNS apuntando a `169.58.176.109`. Confirma
 que resuelven desde la VPS:
 
 ```bash
@@ -266,7 +266,7 @@ dig +short mi-narcita.duckdns.org
 dig +short mi-narcita-api.duckdns.org
 ```
 
-Ambos deben devolver `179.7.15.23`.
+Ambos deben devolver `169.58.176.109`.
 
 > Las IP de VPS (a diferencia de una conexión residencial) casi siempre son
 > estáticas, así que normalmente no necesitas el cron de actualización
@@ -565,4 +565,4 @@ Jaeger:     túnel SSH a localhost:16686 (no publicado al público)
   activaste) y que Caddy esté escuchando en `80`/`443`.
 - Grafana y Jaeger deliberadamente no se publican al público en
   `docker-compose.prod.yml` — para administrarlos, túnel SSH:
-  `ssh -L 3000:localhost:3000 deploy@179.7.15.23`.
+  `ssh -L 3000:localhost:3000 deploy@169.58.176.109`.

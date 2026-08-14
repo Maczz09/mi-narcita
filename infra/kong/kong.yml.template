@@ -370,6 +370,24 @@ services:
         paths: [/notificaciones, /v1/notificaciones]
         strip_path: true
 
+  # Carta pública/QR (T-XX): WebSocket de disponibilidad sin JWT — path
+  # propio (no un namespace del socket.io de arriba, que SÍ exige jwt a
+  # nivel de todo el route) para que Kong pueda diferenciarlo por path
+  # literal, igual que /sedes/publica y /carta-publica. read/write_timeout
+  # altos por la misma razón que el socket.io del KDS (pings de socket.io).
+  - name: servicio-notificaciones-carta-socket
+    url: http://servicio-notificaciones:3000/api/carta-socket.io
+    connect_timeout: 2000
+    read_timeout: 3600000
+    write_timeout: 3600000
+    retries: 1
+    routes:
+      - name: notificaciones-carta-socket
+        paths:
+          - /notificaciones/carta-socket.io
+          - /v1/notificaciones/carta-socket.io
+        strip_path: true
+
   # ── Caja ──
   - name: servicio-caja
     url: http://servicio-caja:3000/api

@@ -23,6 +23,44 @@ import type { MesaVM } from '../../types/mesa.types';
 
 type Modal = null | 'apertura' | 'cierre' | 'egreso' | 'ingreso';
 
+interface GrupoCobro {
+  key: string;
+  /** Mesa anfitriona del grupo — el id que se usa para cobrar (resuelve la cuenta compartida). */
+  mesaId: string;
+  /** "01" sola, o "01 + 02" si están unidas. */
+  numero: string;
+  unida: boolean;
+  ubicacion: string;
+  capacidadTotal: number;
+}
+
+// Mesas unidas comparten una sola cuenta (ver MesaVM.grupoId — id de la mesa
+// anfitriona, compartido por todo el grupo incluida ella misma). Antes el
+// picker las listaba como filas independientes, dando a elegir entre "Mesa
+// 01" y "Mesa 02" para lo que en realidad es un solo cobro — se agrupan acá
+// para que el cajero vea y cobre la cuenta compartida de una sola vez.
+function agruparMesasParaCobro(mesas: MesaVM[]): GrupoCobro[] {
+  const porGrupo = new Map<string, MesaVM[]>();
+  for (const m of mesas) {
+    const key = m.grupoId ?? m.id;
+    const grupo = porGrupo.get(key);
+    if (grupo) grupo.push(m);
+    else porGrupo.set(key, [m]);
+  }
+  return Array.from(porGrupo.entries()).map(([key, grupo]) => {
+    const anfitriona = grupo.find((m) => m.id === key) ?? grupo[0];
+    const numeros = [...grupo].map((m) => m.numero).sort();
+    return {
+      key,
+      mesaId: anfitriona.id,
+      numero: numeros.join(' + '),
+      unida: grupo.length > 1,
+      ubicacion: anfitriona.ubicacion,
+      capacidadTotal: grupo.reduce((sum, m) => sum + m.capacidad, 0),
+    };
+  });
+}
+
 interface MesaCobropickerProps {
   mesas: MesaVM[];
   onSelect: (mesaId: string, mesaNumero?: string) => void;
@@ -30,6 +68,7 @@ interface MesaCobropickerProps {
 }
 
 function MesaCobroPicker({ mesas, onSelect, onClose }: Readonly<MesaCobropickerProps>) {
+  const grupos = useMemo(() => agruparMesasParaCobro(mesas), [mesas]);
   return (
     <div className="modal-wrap">
       <Scrim onClose={onClose} />
@@ -40,14 +79,15 @@ function MesaCobroPicker({ mesas, onSelect, onClose }: Readonly<MesaCobropickerP
           <button className="icon-btn" onClick={onClose}><Icons.Close s={17} /></button>
         </div>
         <div style={{ padding: 20, display: 'grid', gap: 9, maxHeight: '60vh', overflowY: 'auto' }}>
-          {mesas.length === 0 ? (
+          {grupos.length === 0 ? (
             <div className="muted" style={{ fontSize: 13, padding: 8 }}>No hay mesas ocupadas con cuenta para cobrar.</div>
-          ) : mesas.map((m) => (
-            <button key={m.id} className="rep-opt" onClick={() => onSelect(m.id, m.numero)}>
-              <span className="prov-ava" style={{ width: 38, height: 38, fontSize: 13 }}>{m.numero}</span>
+          ) : grupos.map((g) => (
+            <button key={g.key} className="rep-opt" onClick={() => onSelect(g.mesaId, g.numero)}>
+              <span className="prov-ava" style={{ width: 38, height: 38, fontSize: 13 }}>{g.numero}</span>
               <div style={{ flex: 1, textAlign: 'left' }}>
-                <b style={{ fontSize: 14 }}>Mesa {m.numero}</b>
-                <div className="muted" style={{ fontSize: 12 }}>{m.ubicacion} · {m.capacidad} pers</div>
+                <b style={{ fontSize: 14 }}>Mesa {g.numero}</b>
+                {g.unida && <span className="badge badge-info" style={{ marginLeft: 8, fontSize: 10 }}>Unidas · cuenta compartida</span>}
+                <div className="muted" style={{ fontSize: 12 }}>{g.ubicacion} · {g.capacidadTotal} pers</div>
               </div>
               <Icons.ArrowDown s={14} style={{ transform: 'rotate(-90deg)' }} />
             </button>

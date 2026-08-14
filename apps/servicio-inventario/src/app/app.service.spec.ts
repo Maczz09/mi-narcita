@@ -693,6 +693,20 @@ describe('AppService — Inventario (comprehensive)', () => {
       );
     });
 
+    it('el evento producto.actualizado incluye sedeId (necesario para el WebSocket de la carta pública)', async () => {
+      mockPrisma.producto.findUnique.mockResolvedValue({ ...productoBase, categoria: productoBase.categoria });
+      mockPrisma.producto.update.mockResolvedValue({ ...productoBase, precio: { toNumber: () => 8.5 }, categoria: productoBase.categoria });
+      mockPrisma.outboxEvent.create.mockResolvedValue({});
+
+      await service.actualizarProducto('prod-001', { nombre: 'Test' });
+
+      const call = mockPrisma.outboxEvent.create.mock.calls.find(
+        (c: any) => c[0].data.routingKey === 'producto.actualizado',
+      );
+      const payload = JSON.parse(call[0].data.payload);
+      expect(payload.sedeId).toBe(productoBase.sedeId);
+    });
+
     it('rechaza mover un producto sin stock a una categoría de área Inventario', async () => {
       mockPrisma.categoria.findUnique.mockResolvedValue({ id: 'cat-cerveza', sedeId: SEDE, area: 'INVENTARIO' });
       mockPrisma.producto.findUnique.mockResolvedValue({ ...productoBase, stockActual: null, categoria: productoBase.categoria });

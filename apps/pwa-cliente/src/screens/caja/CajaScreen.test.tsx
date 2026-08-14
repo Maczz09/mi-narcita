@@ -328,7 +328,41 @@ describe('CajaScreen', () => {
     fireEvent.click(screen.getByTestId('scrim'));
     expect(screen.queryByText('Cobrar cuenta · elegir mesa')).toBeNull();
   });
-  
+
+  it('agrupa mesas unidas en una sola fila del picker (bug: antes salían como cobros separados)', () => {
+    vi.mocked(useMesasQuery).mockReturnValue({
+      mesas: [
+        { id: 'mesa1', numero: '01', numeroRaw: 1, estado: 'OCUPADA', ubicacion: 'Salon', capacidad: 2, grupoId: 'mesa1' },
+        { id: 'mesa2', numero: '02', numeroRaw: 2, estado: 'OCUPADA', ubicacion: 'Salon', capacidad: 2, grupoId: 'mesa1' },
+        { id: 'mesa3', numero: '03', numeroRaw: 3, estado: 'OCUPADA', ubicacion: 'Salon', capacidad: 4, grupoId: null },
+      ],
+    } as any);
+    vi.mocked(useCajaQuery).mockReturnValue({
+      resumen: mockResumen,
+      turno: mockTurno,
+      loading: false,
+      error: null,
+      abrirTurno: vi.fn(),
+      crearMovimiento: vi.fn(),
+      cerrarTurno: vi.fn(),
+    } as any);
+
+    render(<CajaScreen />);
+    fireEvent.click(screen.getAllByRole('button', { name: /Cobrar cuenta/i })[0]);
+
+    // Una sola fila "Mesa 01 + 02" (no dos filas separadas) con la etiqueta
+    // de cuenta compartida, y la mesa suelta sigue apareciendo normal.
+    expect(screen.getByText('Mesa 01 + 02')).toBeDefined();
+    expect(screen.getByText('Unidas · cuenta compartida')).toBeDefined();
+    expect(screen.queryByText('Mesa 01')).toBeNull();
+    expect(screen.queryByText('Mesa 02')).toBeNull();
+    expect(screen.getByText('Mesa 03')).toBeDefined();
+
+    // Selecciona el grupo unido — debe abrir el drawer usando la mesa anfitriona.
+    fireEvent.click(screen.getByText('Mesa 01 + 02'));
+    expect(screen.getByTestId('cobro-drawer')).toBeDefined();
+  });
+
   it('handles API errors without crashing', async () => {
     const crearMovimiento = vi.fn().mockRejectedValue(new Error('error'));
     const abrirTurno = vi.fn().mockRejectedValue(new Error('error'));

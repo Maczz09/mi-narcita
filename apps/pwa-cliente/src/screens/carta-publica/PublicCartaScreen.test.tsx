@@ -13,6 +13,27 @@ vi.mock('../../api/cartaPublica.api', () => ({
   obtenerCartaPublica: vi.fn(),
 }));
 
+// GSAP no aporta nada verificable en jsdom (no hay layout real) y sus
+// tweens son asíncronos por diseño — para las pruebas de navegación,
+// `gsap.to(...)` dispara su `onComplete` de inmediato, que es lo único que
+// el componente usa para decidir el cambio de vista. `useGSAP` (solo
+// animaciones de entrada, no gobierna estado) se deja como no-op.
+vi.mock('gsap', () => ({
+  gsap: {
+    to: (_target: unknown, vars: { onComplete?: () => void }) => vars.onComplete?.(),
+    fromTo: () => undefined,
+  },
+}));
+vi.mock('@gsap/react', () => ({
+  useGSAP: () => ({ contextSafe: (fn: (...args: unknown[]) => unknown) => fn }),
+}));
+
+// El socket real (socket.io-client) no debe conectarse en pruebas unitarias
+// — el comportamiento de tiempo real se cubre en useCartaSocket.spec.ts.
+vi.mock('./useCartaSocket', () => ({
+  useCartaSocket: () => undefined,
+}));
+
 const SEDE = { id: 'sede-1', nombre: 'Salitral 1', direccion: 'Av. X 123', telefono: '987654321' };
 const CATEGORIAS = [
   { id: 'cat-1', nombre: 'Ceviches', descripcion: 'El clásico de la casa.', area: 'COCINA' },
@@ -28,34 +49,65 @@ describe('PublicCartaScreen', () => {
   beforeEach(() => {
     vi.mocked(obtenerSedePublica).mockResolvedValue(SEDE as any);
     vi.mocked(obtenerCartaPublica).mockResolvedValue({ categorias: CATEGORIAS, productos: PRODUCTOS } as any);
+    // jsdom no implementa matchMedia — el componente lo usa para respetar
+    // prefers-reduced-motion al decidir si anima las transiciones de vista.
+    window.matchMedia = vi.fn().mockReturnValue({ matches: false }) as any;
   });
 
-  it('muestra la sede, categorías y el plato agrupado por tamaño', async () => {
+  it('muestra la portada con el nombre, dirección y teléfono de la sede', async () => {
     render(<PublicCartaScreen />);
-
-    // La categoría activa por defecto es la primera (Ceviches) — se fija en
-    // un efecto posterior al que trae los datos, así que se espera por el
-    // plato (no por el nombre de la sede, que aparece un render antes).
-    await waitFor(() => expect(screen.getByText('Ceviche de Filete')).toBeDefined());
-
-    expect(screen.getByText('Salitral 1')).toBeDefined();
+    await waitFor(() => expect(screen.getByText('Salitral 1')).toBeDefined());
     expect(screen.getByText('Av. X 123')).toBeDefined();
     expect(screen.getByText('987654321')).toBeDefined();
-    // "Ceviches" aparece dos veces (tab + título de categoría activa).
-    expect(screen.getAllByText('Ceviches').length).toBeGreaterThan(0);
-    expect(screen.getByText('Bebidas')).toBeDefined();
-    expect(screen.getByText('S/ 30.00')).toBeDefined();
-    expect(screen.getByText('S/ 40.00')).toBeDefined();
+    expect(screen.getByRole('button', { name: /ver la carta/i })).toBeDefined();
   });
 
-  it('cambia de categoría al hacer clic en un tab', async () => {
+  it('al pulsar "Ver la carta" muestra la grilla de categorías con el conteo de platos', async () => {
     render(<PublicCartaScreen />);
+    await waitFor(() => expect(screen.getByText('Salitral 1')).toBeDefined());
+
+    fireEvent.click(screen.getByRole('button', { name: /ver la carta/i }));
+
+    await waitFor(() => expect(screen.getByText('Ceviches')).toBeDefined());
+    expect(screen.getByText('2 platos')).toBeDefined();
+    expect(screen.getByText('Bebidas')).toBeDefined();
+    expect(screen.getByText('1 plato')).toBeDefined();
+  });
+
+  it('abre una categoría, agrupa el plato por tamaño, y puede volver a la grilla', async () => {
+    render(<PublicCartaScreen />);
+    await waitFor(() => expect(screen.getByText('Salitral 1')).toBeDefined());
+    fireEvent.click(screen.getByRole('button', { name: /ver la carta/i }));
+    await waitFor(() => expect(screen.getByText('Ceviches')).toBeDefined());
+
+    fireEvent.click(screen.getByText('Ceviches'));
+
+    await waitFor(() => expect(screen.getByText('Ceviche de Filete')).toBeDefined());
+    expect(screen.getByText('S/ 30.00')).toBeDefined();
+    expect(screen.getByText('S/ 40.00')).toBeDefined();
+
+    fireEvent.click(screen.getByRole('button', { name: /categorías/i }));
+
+    await waitFor(() => expect(screen.getByText('Bebidas')).toBeDefined());
+    expect(screen.queryByText('Ceviche de Filete')).toBeNull();
+  });
+
+  it('navega entre categorías con siguiente/anterior sin volver a la grilla', async () => {
+    render(<PublicCartaScreen />);
+    await waitFor(() => expect(screen.getByText('Salitral 1')).toBeDefined());
+    fireEvent.click(screen.getByRole('button', { name: /ver la carta/i }));
+    await waitFor(() => expect(screen.getByText('Ceviches')).toBeDefined());
+    fireEvent.click(screen.getByText('Ceviches'));
     await waitFor(() => expect(screen.getByText('Ceviche de Filete')).toBeDefined());
 
-    fireEvent.click(screen.getByText('Bebidas'));
+    fireEvent.click(screen.getByRole('button', { name: /categoría siguiente/i }));
 
     await waitFor(() => expect(screen.getByText('Chicha Morada')).toBeDefined());
     expect(screen.queryByText('Ceviche de Filete')).toBeNull();
+
+    fireEvent.click(screen.getByRole('button', { name: /categoría anterior/i }));
+
+    await waitFor(() => expect(screen.getByText('Ceviche de Filete')).toBeDefined());
   });
 
   it('muestra un estado de error si falla la carga', async () => {

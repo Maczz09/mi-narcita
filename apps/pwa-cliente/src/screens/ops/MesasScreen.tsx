@@ -5,7 +5,6 @@
 
 import { Scrim } from '../../components/ui/Scrim';
 import { useEffect, useMemo, useRef, useState, type SubmitEvent } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { Icons } from '../../components/ui/icons';
 import { fmt, elapsedLabel } from '../../utils/format';
 import { useMesasQuery } from '../../hooks/queries/useMesasQuery';
@@ -44,7 +43,6 @@ type ComanderoState =
   | { open: false };
 
 export function MesasScreen() {
-  const navigate = useNavigate();
   const online = useOnlineStatus();
   const { toast } = useToast();
   const rol = useAuthStore((s) => s.user?.rol);
@@ -383,7 +381,6 @@ export function MesasScreen() {
           online={online}
           onClose={() => setSel(null)}
           onSeparar={() => void handleSeparar(sel.id)}
-          onCobrar={() => { const anfitriona = anfitrionaDe(sel); setSel(null); navigate(`/app/caja?mesaId=${anfitriona.id}`); }}
           onTomar={() => { const anfitriona = anfitrionaDe(sel); setComandero({ open: true, mesaId: anfitriona.id, mesaNumero: anfitriona.numero, mesaUbicacion: anfitriona.ubicacion, modoAgregar: false }); setSel(null); }}
           onAgregar={() => { const anfitriona = anfitrionaDe(sel); setComandero({ open: true, mesaId: anfitriona.id, mesaNumero: anfitriona.numero, mesaUbicacion: anfitriona.ubicacion, modoAgregar: true }); setSel(null); }}
         />
@@ -410,7 +407,6 @@ interface MesaDrawerProps {
   online: boolean;
   onClose: () => void;
   onSeparar: () => void;
-  onCobrar: () => void;
   onTomar: () => void;
   onAgregar: () => void;
 }
@@ -530,25 +526,30 @@ function MesaDrawerBody({ mesa: m, hermanas, online, onSeparar, onAnularItem, oc
 interface MesaDrawerFootProps {
   ocupada: boolean;
   estado: MesaVM['estado'];
-  onCobrar: () => void;
   onTomar: () => void;
   onAgregar: () => void;
   onClose: () => void;
   onAnularAtencion: () => void;
 }
 
-/* Jerarquía de acción en mesa ocupada:
-   - "Cobrar": acción de cierre económico → btn-primary (máximo énfasis)
-   - "Agregar a la cuenta": acción frecuente pero no de cierre → btn-soft
-   - "Anular atención": excepcional (desistimiento/abandono) → icon-btn discreto */
-function MesaDrawerFoot({ ocupada, estado, onCobrar, onTomar, onAgregar, onClose, onAnularAtencion }: Readonly<MesaDrawerFootProps>) {
+/* Jerarquía de acción en mesa ocupada: el cobro se hace desde Caja (que ya
+   agrupa mesas unidas en un solo cobro — ver CajaScreen), no desde acá.
+   - "Anular atención": el cliente se retiró sin consumir → acción llamativa
+     con color propio, no un icon-btn discreto (fácil de perder de vista).
+   - "Agregar a la cuenta": acción frecuente → btn-soft */
+function MesaDrawerFoot({ ocupada, estado, onTomar, onAgregar, onClose, onAnularAtencion }: Readonly<MesaDrawerFootProps>) {
   if (ocupada) {
     return (
       <>
-        <button className="icon-btn" title="Anular atención de mesa (cliente se retiró)" aria-label="Anular atención de esta mesa" onClick={onAnularAtencion}>
-          <Icons.Alert s={15} />
+        <button
+          className="btn"
+          style={{ background: 'var(--danger-soft)', color: 'var(--danger-text)', border: '1px solid var(--danger)' }}
+          title="Anular atención de mesa (cliente se retiró)"
+          aria-label="Anular atención de esta mesa"
+          onClick={onAnularAtencion}
+        >
+          <Icons.Alert s={15} /> Anular atención de mesa
         </button>
-        <button className="btn btn-primary" onClick={onCobrar} aria-label="Cobrar cuenta de esta mesa"><Icons.Caja s={15} /> Cobrar</button>
         <span className="spacer" />
         <button className="btn btn-soft" onClick={onAgregar} aria-label="Agregar ítems a la cuenta"><Icons.Plus s={15} /> Agregar a la cuenta</button>
       </>
@@ -570,7 +571,7 @@ function MesaDrawerFoot({ ocupada, estado, onCobrar, onTomar, onAgregar, onClose
   );
 }
 
-function MesaDrawer({ mesa: m, hermanas, online, onClose, onSeparar, onCobrar, onTomar, onAgregar }: Readonly<MesaDrawerProps>) {
+function MesaDrawer({ mesa: m, hermanas, online, onClose, onSeparar, onTomar, onAgregar }: Readonly<MesaDrawerProps>) {
   const { toast } = useToast();
   const ocupada = m.estado === 'OCUPADA';
   const { cuentaActiva, loading } = useCuentasQuery(ocupada ? m.id : undefined);
@@ -663,7 +664,6 @@ function MesaDrawer({ mesa: m, hermanas, online, onClose, onSeparar, onCobrar, o
           <MesaDrawerFoot
             ocupada={ocupada}
             estado={m.estado}
-            onCobrar={onCobrar}
             onTomar={onTomar}
             onAgregar={onAgregar}
             onClose={onClose}

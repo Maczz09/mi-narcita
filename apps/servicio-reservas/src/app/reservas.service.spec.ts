@@ -270,6 +270,32 @@ describe('ReservasService — Reservas', () => {
       }, null, SEDE)).rejects.toThrow('ya pasó');
     });
 
+    it('bug: acepta una hora todavía futura en Perú aunque en UTC (zona del contenedor) ya "pasó"', async () => {
+      // 2026-08-13T23:00:00Z = 2026-08-13 18:00 hora Perú (UTC-5, sin horario
+      // de verano). Reservar a las 20:00 hora Perú (2h después) debe aceptarse
+      // — con el bug viejo, "20:00" se interpretaba como 20:00 UTC, que ya
+      // había "pasado" respecto a las 23:00 UTC actuales.
+      jest.useFakeTimers().setSystemTime(new Date('2026-08-13T23:00:00.000Z'));
+      try {
+        mockPrisma.reserva.findMany.mockResolvedValue([]);
+        mockPrisma.reserva.create.mockResolvedValue(reservaBase);
+
+        const result = await service.crear({
+          clienteId: 'c-001',
+          clienteNombre: 'Juan',
+          clienteTelefono: '999',
+          fecha: '2026-08-13',
+          hora: '20:00',
+          mesaPreferida: 'mesa-005',
+          numComensales: 4,
+        }, null, SEDE);
+
+        expect(result.message).toBe('Reserva creada');
+      } finally {
+        jest.useRealTimers();
+      }
+    });
+
     it('debe lanzar BadRequestException si no se selecciona mesa', async () => {
       await expect(service.crear({
         clienteId: 'c-001',

@@ -230,8 +230,16 @@ export class ReservasService {
 
   // Rechaza reservas cuyo instante (fecha + hora) ya pasó: no tiene sentido
   // reservar en el pasado y hasta ahora el backend las aceptaba en silencio.
+  //
+  // Bug (2026-08-13): `new Date(`${fecha}T${hora}`)` sin offset se interpreta
+  // en la zona horaria del PROCESO (UTC en el contenedor), no en la del
+  // negocio (Perú, America/Lima) — una reserva a horas todavía futuras en
+  // hora peruana se rechazaba como "ya pasada" porque UTC va ~5h adelantado.
+  // Perú no tiene horario de verano (UTC-5 fijo todo el año), así que basta
+  // con fijar el offset explícito al construir el instante.
   private assertFechaFutura(fecha: string, hora: string): void {
-    const cuando = new Date(`${fecha}T${hora}`);
+    const horaConSegundos = hora.length === 5 ? `${hora}:00` : hora;
+    const cuando = new Date(`${fecha}T${horaConSegundos}-05:00`);
     if (Number.isNaN(cuando.getTime())) {
       throw new BadRequestException('Fecha u hora de reserva inválida');
     }
