@@ -1291,7 +1291,15 @@ fieldset { border: 0; padding: 0; margin: 0; min-width: 0; }
 .cmd-head h2 { font-size: 18px; font-weight: 800; margin: 0; }
 .cmd-canal.seg button { display: inline-flex; align-items: center; gap: 7px; padding: 8px 14px; }
 .cmd-body { flex: 1; display: grid; grid-template-columns: minmax(0,1fr) 384px; min-height: 0; }
-.cmd-catalog { display: flex; flex-direction: column; min-height: 0; padding: 16px; gap: 12px; }
+/* min-width: 0 — sin esto, .cmd-catalog (grid item de .cmd-body) hereda el
+   ancho intrínseco de .cmd-grid (que adentro es auto-fill/minmax(168px,1fr)
+   sin tope): con 12+ platos eso pide ~2260px, y ese ancho se propaga hacia
+   arriba en vez de constreñirse al viewport — en ≤920px .cmd-body ya
+   colapsa a 1fr, pero ese 1fr terminaba midiendo 2260px en vez de ~375px,
+   y todo quedaba scrolleable horizontalmente cuando debía wrap a 2
+   columnas. Mismo "grid blowout" ya documentado abajo para
+   .module-grid/.report-stack/.inventory-list — mismo fix. */
+.cmd-catalog { display: flex; flex-direction: column; min-height: 0; min-width: 0; padding: 16px; gap: 12px; }
 .cmd-filters { display: flex; align-items: center; gap: 10px; }
 .cmd-cats { display: flex; gap: 6px; flex-wrap: wrap; flex: 1; }
 .cmd-search { width: 220px; flex: none; }
@@ -2464,5 +2472,38 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
     padding-bottom: 4px;
+  }
+}
+
+/* ── Patrón repetido en ~12 screens (Usuarios, HistorialCaja, Carta,
+   MenuDiarioPanel, Categorías, Compras, ComprobanteViewer, Facturación,
+   Cocina, Mesas, Pedidos, Sedes): el root de cada pantalla se monta con
+   `style={{ height: '100%', display: 'flex', flexDirection: 'column' }}`
+   — el hijo con la lista/tabla real usa flex:1 + overflow-y:auto para
+   scrollear "adentro" mientras cabecera/stats/tabs quedan fijos arriba.
+   En desktop hay espacio de sobra y funciona. En celular, la cabecera +
+   3 stat cards + tabs + fila de categorías + buscador ya ocupan casi
+   toda la pantalla, y a ese flex:1 casi no le queda alto: colapsa a
+   pocos px — técnicamente overflow-y:auto y scrollHeight correcto,
+   pero visualmente inutilizable (confirmado en Nuevo pedido, Carta/Menú,
+   tablero de Pedidos y Compras en auditoría real 2026-08-14, mismo
+   síntoma en los demás por compartir el patrón).
+   Como el height:100% viene de un inline style (máxima especificidad,
+   ni una regla de clase le gana sin !important), la única forma de
+   neutralizarlo desde esta hoja es !important — mismo criterio ya
+   usado en .col-mobile-hidden más arriba. Al liberar el height, el
+   flex:1 de adentro deja de tener "espacio fijo" del cual apropiarse
+   y su contenido mide su alto real; .content (que ya scrollea bien,
+   confirmado en toda la sesión) pasa a manejar el scroll de la
+   página completa — mismo criterio que ya se usó para la carta
+   pública (dale a la pantalla su propio scroll en vez de pelear
+   contra contenedores internos). Selector genérico (.content > div,
+   .content > section) porque el wrapper no tiene className propio;
+   no toca pantallas que no son hijas directas de .content (el KDS a
+   pantalla completa usa .kds-fs con position:fixed, ajeno a esto). */
+@media (max-width: 920px) {
+  .content > div,
+  .content > section {
+    height: auto !important;
   }
 }
