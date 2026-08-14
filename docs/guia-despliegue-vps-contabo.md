@@ -208,7 +208,7 @@ Evita `$`, `%`, `` ` ``, espacios o `#` en los valores — Docker Compose los
 interpreta como sintaxis, no como texto literal.
 
 ```bash
-sed -i 's|^REGISTRY=.*|REGISTRY=ghcr.io/Maczz09/mi-narcita|' .env
+sed -i 's|^REGISTRY=.*|REGISTRY=ghcr.io/maczz09/mi-narcita|' .env
 sed -i 's|^DB_PASS=.*|DB_PASS=CAMBIA-ESTO-Seguro2026|' .env
 sed -i 's|^RABBITMQ_PASS=.*|RABBITMQ_PASS=CAMBIA-ESTO-Seguro2026|' .env
 sed -i 's|^SERVICE_JWT_SECRET=.*|SERVICE_JWT_SECRET=CAMBIA-ESTO-secreto-largo-aleatorio-123456789|' .env
