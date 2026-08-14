@@ -222,6 +222,30 @@ describe('PedidosSagaService — Pedidos', () => {
         data: expect.objectContaining({ motivo: 'Sin motivo especificado' }),
       }));
     });
+
+    it('bug: cancelar el ÚLTIMO ítem activo mueve el pedido a CANCELADO en vez de dejarlo congelado', async () => {
+      // Antes, derivarEstadoPedido devolvía null cuando todos los ítems
+      // terminaban CANCELADO/RECHAZADO_SIN_STOCK, y null se interpretaba como
+      // "no tocar" — el pedido se quedaba para siempre en su último estado de
+      // producción (p. ej. EN_PREPARACION) pese a no tener nada que preparar
+      // ni cobrar. Reportado: el pedido anulado seguía en la columna "En
+      // preparación" del tablero de Pedidos aunque Cocina ya no lo mostraba.
+      jest.spyOn(mockPrisma.pedidoItem, 'update').mockResolvedValue({ id: 'i-1', pedidoId: 'p-001' } as never);
+      jest.spyOn(mockPrisma.pedido, 'findUnique').mockResolvedValue({
+        ...basePedido,
+        estado: PedidoEstado.EnPreparacion,
+        items: [{ ...itemBase, id: 'i-1', estado: PedidoEstado.Cancelado }],
+      } as never);
+      const updateSpy = jest.spyOn(mockPrisma.pedido, 'update').mockResolvedValue({
+        ...basePedido, estado: PedidoEstado.Cancelado, items: [],
+      } as never);
+
+      await service.actualizarEstadoItem('i-1', { estado: PedidoEstado.Cancelado, motivo: 'Cliente se retiró' });
+
+      expect(updateSpy).toHaveBeenCalledWith(expect.objectContaining({
+        data: expect.objectContaining({ estado: PedidoEstado.Cancelado }),
+      }));
+    });
   });
 
   describe('procesarStockInsuficiente — compensación de saga', () => {
@@ -415,7 +439,10 @@ describe('PedidosSagaService — Pedidos', () => {
       const result = await service.anularItemPreparado('i-1', { motivo: 'Cliente rechazó el plato', cobrar: false }, SEDE);
 
       expect(mockPrisma.pedidoItem.update).toHaveBeenCalledWith({ where: { id: 'i-1' }, data: { estado: PedidoEstado.Cancelado } });
-      expect(mockPrisma.pedido.update).toHaveBeenCalledWith(expect.objectContaining({ where: { id: 'p-001' }, data: { total: 0 } }));
+      // Único ítem del pedido → al cancelarlo, el pedido en sí debe pasar a
+      // CANCELADO (antes se quedaba congelado en su último estado de
+      // producción para siempre; ver fix de derivarEstadoPedido/todosCerrados).
+      expect(mockPrisma.pedido.update).toHaveBeenCalledWith(expect.objectContaining({ where: { id: 'p-001' }, data: { total: 0, estado: PedidoEstado.Cancelado } }));
       expect(mockPrisma.anulacionAuditoria.create).toHaveBeenCalledWith(
         expect.objectContaining({ data: expect.objectContaining({ cobrado: false }) }),
       );
@@ -505,6 +532,16 @@ describe('PedidosSagaService — Pedidos', () => {
       expect(mockPrisma.anulacionAuditoria.create).toHaveBeenCalledWith(
         expect.objectContaining({ data: expect.objectContaining({ tipo: 'MESA', mesaId: MESA, montoAnulado: 20 }) }),
       );
+
+      // Bug: con un ítem "mantenido para cobro" (i-3, ya ENTREGADO) el pedido
+      // no queda 100% cancelado (todosCerrados=false) — antes, el spread
+      // condicional simplemente omitía `estado` en ese caso y el pedido se
+      // quedaba congelado en PENDIENTE para siempre, pese a no tener nada
+      // más que preparar. Ahora se deriva "cocina manda" desde lo que
+      // sobrevive (aquí, solo i-3 ENTREGADO) → LISTO.
+      expect(mockPrisma.pedido.update).toHaveBeenCalledWith(expect.objectContaining({
+        data: expect.objectContaining({ estado: PedidoEstado.Listo }),
+      }));
     });
 
     it('libera la mesa automáticamente cuando no queda nada pendiente de cobro', async () => {
@@ -640,6 +677,66 @@ describe('PedidosSagaService — Pedidos', () => {
           }),
         );
         expect(result.anulacion.invalidada).toBe(true);
+      });
+
+      it('bug: tipo MESA se rechaza explícitamente (no hay forma de saber qué ítems tocó)', async () => {
+        mockPrisma.anulacionAuditoria.findUnique.mockResolvedValue({ ...auditoriaBase, tipo: 'MESA', itemId: null });
+        await expect(
+          service.invalidarAnulacion('aud-1', { motivo: 'Error de digitación' }, SEDE),
+        ).rejects.toThrow('anulación de mesa completa');
+        expect(mockPrisma.anulacionAuditoria.update).not.toHaveBeenCalled();
+      });
+
+      it('bug: tipo ITEM SÍ revierte el ítem real — vuelve a la cuenta actual, no solo el registro de auditoría', async () => {
+        // auditoriaBase: estadoPlato PREPARADO → el ítem debe restaurarse a
+        // ENTREGADO (era un plato ya servido cuando se anuló), no a PENDIENTE.
+        mockPrisma.anulacionAuditoria.findUnique.mockResolvedValue(auditoriaBase);
+        mockPrisma.anulacionAuditoria.update.mockResolvedValue({ ...auditoriaBase, invalidada: true });
+        mockPrisma.pedidoItem.findUnique.mockResolvedValue({
+          id: 'i-1', pedidoId: 'p-001', productoId: 'prod-1', nombre: 'Lomo Saltado',
+          cantidad: 2, precioUnitario: 15, area: 'COCINA', estado: PedidoEstado.Cancelado, notas: null,
+        });
+        mockPrisma.pedidoItem.update.mockResolvedValue({
+          id: 'i-1', pedidoId: 'p-001', productoId: 'prod-1', nombre: 'Lomo Saltado',
+          cantidad: 2, precioUnitario: 15, area: 'COCINA', estado: PedidoEstado.Entregado, notas: null,
+        });
+        mockPrisma.pedido.findUnique.mockResolvedValue({
+          id: 'p-001', mesaId: 'm-001', numeroMesa: 5, sedeId: SEDE, cliente: null,
+          estado: PedidoEstado.EnPreparacion, total: 0, createdAt: new Date(),
+          items: [{ id: 'i-1', pedidoId: 'p-001', productoId: 'prod-1', nombre: 'Lomo Saltado', cantidad: 2, precioUnitario: 15, area: 'COCINA', estado: PedidoEstado.Cancelado, notas: null }],
+        });
+        mockPrisma.pedido.update.mockResolvedValue({
+          id: 'p-001', mesaId: 'm-001', numeroMesa: 5, sedeId: SEDE, cliente: null,
+          estado: PedidoEstado.Listo, total: 30, createdAt: new Date(), items: [],
+        });
+
+        const result = await service.invalidarAnulacion('aud-1', { motivo: 'Se anuló por error' }, SEDE);
+
+        expect(mockPrisma.pedidoItem.update).toHaveBeenCalledWith({
+          where: { id: 'i-1' },
+          data: { estado: PedidoEstado.Entregado },
+        });
+        expect(mockPrisma.pedido.update).toHaveBeenCalledWith(expect.objectContaining({
+          where: { id: 'p-001' },
+          data: expect.objectContaining({ total: 30 }),
+        }));
+        expect(mockPrisma.outboxEvent.create).toHaveBeenCalledWith(expect.objectContaining({
+          data: expect.objectContaining({ routingKey: 'pedido.actualizado' }),
+        }));
+        expect(result.message).toContain('vuelve a la cuenta actual');
+      });
+
+      it('no revierte el ítem si ya no está CANCELADO (algo más lo cambió desde entonces) — solo corrige la auditoría', async () => {
+        mockPrisma.anulacionAuditoria.findUnique.mockResolvedValue(auditoriaBase);
+        mockPrisma.anulacionAuditoria.update.mockResolvedValue({ ...auditoriaBase, invalidada: true });
+        mockPrisma.pedidoItem.findUnique.mockResolvedValue({
+          id: 'i-1', pedidoId: 'p-001', estado: PedidoEstado.Entregado,
+        });
+
+        await service.invalidarAnulacion('aud-1', { motivo: 'x' }, SEDE);
+
+        expect(mockPrisma.pedidoItem.update).not.toHaveBeenCalled();
+        expect(mockPrisma.pedido.update).not.toHaveBeenCalled();
       });
     });
   });

@@ -512,6 +512,7 @@ describe('AppService — Cuentas (comprehensive)', () => {
         estado: CuentaEstado.Abierta,
         pedidos: [],
         total: 0,
+        createdAt: new Date('2020-01-01T00:00:00Z'),
       });
       mockPrisma.outboxEvent.create.mockResolvedValue({});
       mockPrisma.cuenta.update.mockResolvedValue({});
@@ -551,6 +552,7 @@ describe('AppService — Cuentas (comprehensive)', () => {
         estado: CuentaEstado.Abierta,
         pedidos: [pedidoBase],
         total: 50,
+        createdAt: new Date('2020-01-01T00:00:00Z'),
       });
       mockPrisma.outboxEvent.create.mockResolvedValue({});
 
@@ -572,6 +574,22 @@ describe('AppService — Cuentas (comprehensive)', () => {
       await expect(service.procesarPedidoCreado({ pedido: pedidoBase })).rejects.toThrow('Unexpected DB error');
     });
 
+    it('bug: descarta un PedidoCreado huérfano de una atención anterior en vez de colarlo en la cuenta nueva', async () => {
+      const pedidoDeAtencionVieja = { ...pedidoBase, id: 'p-viejo', createdAt: new Date('2020-01-01T00:00:00Z').toISOString() };
+      mockPrisma.cuenta.findFirst.mockResolvedValue({
+        id: 'c-nueva',
+        mesaId: 'm-001',
+        estado: CuentaEstado.Abierta,
+        pedidos: [],
+        total: 0,
+        createdAt: new Date('2026-01-01T00:00:00Z'),
+      });
+
+      await service.procesarPedidoCreado({ pedido: pedidoDeAtencionVieja });
+
+      expect(mockPrisma.cuenta.update).not.toHaveBeenCalled();
+    });
+
     it('excluye pedidos CANCELADO del total calculado', async () => {
       const pedidoCancelado = { ...pedidoBase, id: 'p-cancel', estado: PedidoEstado.Cancelado };
       mockPrisma.cuenta.findFirst.mockResolvedValue({
@@ -580,6 +598,7 @@ describe('AppService — Cuentas (comprehensive)', () => {
         estado: CuentaEstado.Abierta,
         pedidos: [],
         total: 0,
+        createdAt: new Date('2020-01-01T00:00:00Z'),
       });
       mockPrisma.outboxEvent.create.mockResolvedValue({});
       mockPrisma.cuenta.update.mockResolvedValue({});
@@ -613,6 +632,7 @@ describe('AppService — Cuentas (comprehensive)', () => {
         estado: CuentaEstado.Abierta,
         pedidos: [pedidoBase],
         total: 50,
+        createdAt: new Date('2020-01-01T00:00:00Z'),
       });
       mockPrisma.cuenta.update.mockResolvedValue({});
 
@@ -633,6 +653,7 @@ describe('AppService — Cuentas (comprehensive)', () => {
         estado: CuentaEstado.Abierta,
         pedidos: [],
         total: 0,
+        createdAt: new Date('2020-01-01T00:00:00Z'),
       });
       mockPrisma.cuenta.update.mockResolvedValue({});
 
@@ -640,6 +661,53 @@ describe('AppService — Cuentas (comprehensive)', () => {
 
       const data = mockPrisma.cuenta.update.mock.calls[0][0].data as any;
       expect(data.pedidos).toHaveLength(1);
+    });
+
+    it('bug: descarta un pedido huérfano de una atención anterior en vez de colarlo en la cuenta nueva', async () => {
+      // Antes: la cuenta destino se resolvía solo por mesaId+ABIERTA, sin
+      // verificar que el pedido perteneciera a ESTA atención. Un evento
+      // reentregado tarde (redelivery/backlog) de un pedido de una atención
+      // VIEJA de la misma mesa, llegando después de que se cerró y reabrió
+      // la mesa, encontraba la cuenta nueva, no encontraba el pedido en su
+      // snapshot, y lo insertaba igual — "resucitando" un ítem/anulación de
+      // una cuenta anterior dentro de la cuenta nueva.
+      const pedidoDeAtencionVieja = { ...pedidoBase, id: 'p-viejo', createdAt: new Date('2020-01-01T00:00:00Z').toISOString() };
+      mockPrisma.cuenta.findFirst.mockResolvedValue({
+        id: 'c-nueva',
+        mesaId: 'm-001',
+        estado: CuentaEstado.Abierta,
+        pedidos: [],
+        total: 0,
+        // La cuenta nueva se abrió DESPUÉS de que el pedido viejo se creó.
+        createdAt: new Date('2026-01-01T00:00:00Z'),
+      });
+      mockPrisma.cuenta.update.mockResolvedValue({});
+
+      await service.procesarPedidoActualizado({ pedido: pedidoDeAtencionVieja });
+
+      expect(mockPrisma.cuenta.update).not.toHaveBeenCalled();
+    });
+
+    it('SÍ actualiza un pedido de la atención vieja si ya estaba en su propio snapshot (reentrega normal, no huérfano)', async () => {
+      const pedidoDeAtencionVieja = { ...pedidoBase, id: 'p-viejo', total: 99, createdAt: new Date('2020-01-01T00:00:00Z').toISOString() };
+      mockPrisma.cuenta.findFirst.mockResolvedValue({
+        id: 'c-001',
+        mesaId: 'm-001',
+        estado: CuentaEstado.Abierta,
+        pedidos: [{ ...pedidoDeAtencionVieja, total: 50 }],
+        total: 50,
+        // Aunque el pedido sea "viejo" respecto a esta cuenta, si YA estaba
+        // en su snapshot es una reentrega normal del mismo pedido — debe
+        // actualizarse, no descartarse.
+        createdAt: new Date('2019-01-01T00:00:00Z'),
+      });
+      mockPrisma.cuenta.update.mockResolvedValue({});
+
+      await service.procesarPedidoActualizado({ pedido: pedidoDeAtencionVieja });
+
+      expect(mockPrisma.cuenta.update).toHaveBeenCalledWith(
+        expect.objectContaining({ data: expect.objectContaining({ pedidos: [pedidoDeAtencionVieja] }) }),
+      );
     });
 
     it('excluye pedidos RECHAZADO_SIN_STOCK del total', async () => {
@@ -650,6 +718,7 @@ describe('AppService — Cuentas (comprehensive)', () => {
         estado: CuentaEstado.Abierta,
         pedidos: [pedidoBase],
         total: 50,
+        createdAt: new Date('2020-01-01T00:00:00Z'),
       });
       mockPrisma.cuenta.update.mockResolvedValue({});
 
@@ -666,6 +735,7 @@ describe('AppService — Cuentas (comprehensive)', () => {
       // (P2002), dejando el snapshot de la cuenta desactualizado para siempre.
       mockPrisma.cuenta.findFirst.mockResolvedValue({
         id: 'c-001', mesaId: 'm-001', estado: CuentaEstado.Abierta, pedidos: [pedidoBase], total: 50,
+        createdAt: new Date('2020-01-01T00:00:00Z'),
       });
       mockPrisma.cuenta.update.mockResolvedValue({});
 

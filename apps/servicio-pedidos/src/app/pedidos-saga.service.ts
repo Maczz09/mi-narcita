@@ -91,7 +91,16 @@ export class PedidosSagaService {
     const estados = estadosRaw.filter(
       (e) => e !== EstadoItem.RechazadoSinStock && e !== EstadoItem.Cancelado,
     );
-    if (estados.length === 0) return null;
+    if (estados.length === 0) {
+      // Si había ítems y TODOS terminaron cancelados/rechazados, el pedido en
+      // sí debe reflejarlo — antes se devolvía null ("no tocar el estado"),
+      // que solo es correcto para un pedido recién creado sin ítems todavía;
+      // aplicado acá dejaba el pedido congelado para siempre en su último
+      // estado de producción (p. ej. EN_PREPARACION) pese a no tener nada
+      // que preparar ni cobrar (bug reportado: el pedido anulado seguía
+      // en la columna "En preparación" del tablero de Pedidos).
+      return estadosRaw.length > 0 ? PedidoEstado.Cancelado : null;
+    }
     const todosListos = estados.every(
       (e) => e === EstadoItem.Listo || e === EstadoItem.Entregado,
     );
@@ -386,9 +395,13 @@ export class PedidosSagaService {
         const itemCancelado = await prisma.pedidoItem.update({ where: { id: itemId }, data: { estado: EstadoItem.Cancelado } });
         const itemsActualizados = pedidoActual.items.map((i) => (i.id === itemId ? itemCancelado : i));
         const nuevoTotal = this.recalcularTotalCobrable(itemsActualizados);
+        // Mismo fix que actualizarEstadoItem/anularAtencionMesa: si este era
+        // el último ítem activo del pedido, sin esto el pedido se quedaba
+        // congelado en su último estado de producción para siempre.
+        const todosCerrados = itemsActualizados.every((i) => i.estado === EstadoItem.Cancelado || i.estado === EstadoItem.RechazadoSinStock);
         pedido = await prisma.pedido.update({
           where: { id: item.pedidoId },
-          data: { total: nuevoTotal },
+          data: { total: nuevoTotal, ...(todosCerrados ? { estado: PedidoEstado.Cancelado } : {}) },
           include: { items: true },
         });
       }
@@ -582,9 +595,27 @@ export class PedidosSagaService {
           if (pedidoCambio) {
             const nuevoTotal = this.recalcularTotalCobrable(itemsFinal);
             const todosCerrados = itemsFinal.every((i) => i.estado === EstadoItem.Cancelado || i.estado === EstadoItem.RechazadoSinStock);
+            // Si NO todos los ítems se cerraron (p. ej. quedó un ítem de
+            // Inventario "mantenido" para cobro), el pedido no debe quedarse
+            // congelado en el estado de producción que tenía antes de la
+            // anulación — recalculamos igual que actualizarEstadoItem
+            // ("cocina manda") a partir de lo que sobrevive.
+            let nuevoEstado: PedidoEstado | undefined;
+            if (todosCerrados) {
+              nuevoEstado = PedidoEstado.Cancelado;
+            } else {
+              const enProduccion =
+                pedido.estado === PedidoEstado.Pendiente ||
+                pedido.estado === PedidoEstado.EnPreparacion ||
+                pedido.estado === PedidoEstado.Listo;
+              if (enProduccion) {
+                const derivado = this.derivarEstadoPedido(itemsFinal.map((i) => i.estado));
+                if (derivado && derivado !== pedido.estado) nuevoEstado = derivado;
+              }
+            }
             const pedidoActualizado = await prisma.pedido.update({
               where: { id: pedido.id },
-              data: { total: nuevoTotal, ...(todosCerrados ? { estado: PedidoEstado.Cancelado } : {}) },
+              data: { total: nuevoTotal, ...(nuevoEstado ? { estado: nuevoEstado } : {}) },
               include: { items: true },
             });
             outboxData.push({
@@ -734,14 +765,94 @@ export class PedidosSagaService {
     if (!existente || existente.sedeId !== sedeId) throw new NotFoundException('Anulación no encontrada');
     if (existente.invalidada) throw new BadRequestException('Esta anulación ya estaba invalidada.');
 
-    const actualizada = await this.prisma.anulacionAuditoria.update({
-      where: { id },
-      data: {
-        invalidada: true,
-        invalidadaMotivo: command.motivo,
-        invalidadaPorNombre: usuarioNombre ?? undefined,
-        invalidadaAt: new Date(),
-      },
+    // Bug reportado: "invalidar" solo marcaba el registro de auditoría —
+    // nunca tocaba el PedidoItem/Pedido real ni emitía eventos, así que el
+    // plato/ítem se quedaba anulado en cuenta actual para siempre pese a
+    // que la auditoría ya decía "Inválida". Para tipo ITEM (itemId
+    // conocido) sí podemos revertir el estado real. Para tipo MESA, el
+    // registro de auditoría hoy solo guarda un único pedidoId "primero de
+    // la lista" (ver anularAtencionMesa) — no hay forma de saber qué
+    // ítems específicos tocó esa anulación, así que reversión real ahí
+    // requiere extender el modelo primero. Se rechaza explícitamente en
+    // vez de fingir que revirtió algo.
+    if (existente.tipo === TipoAnulacion.Mesa) {
+      throw new BadRequestException(
+        'Todavía no se puede revertir una anulación de mesa completa (falta guardar qué ítems afectó). Se puede corregir el motivo/observación, pero el ítem/pedido no se restaura automáticamente.',
+      );
+    }
+
+    const actualizada = await this.prisma.$transaction(async (prisma) => {
+      const anulacion = await prisma.anulacionAuditoria.update({
+        where: { id },
+        data: {
+          invalidada: true,
+          invalidadaMotivo: command.motivo,
+          invalidadaPorNombre: usuarioNombre ?? undefined,
+          invalidadaAt: new Date(),
+        },
+      });
+
+      if (existente.itemId) {
+        const item = await prisma.pedidoItem.findUnique({ where: { id: existente.itemId } });
+        // Si el ítem ya no existe, o algo más lo cambió desde la anulación
+        // (ya no está CANCELADO), no lo pisamos a ciegas — se deja como
+        // corrección de auditoría únicamente y se loguea la discrepancia.
+        if (item && item.estado === EstadoItem.Cancelado) {
+          await prisma.$executeRaw(
+            Prisma.sql`SELECT pg_advisory_xact_lock(hashtext(${item.pedidoId}))`,
+          );
+          // SIN_PREPARAR (CU-01 Caso A) vuelve a la cola; PREPARADO (Caso B,
+          // anularItemPreparado) solo aplica a ítems que ya estaban
+          // ENTREGADO — se restaura ahí, no al principio de la cola.
+          const estadoRestaurado =
+            existente.estadoPlato === EstadoPlatoAnulacion.Preparado ? EstadoItem.Entregado : EstadoItem.Pendiente;
+          const itemRestaurado = await prisma.pedidoItem.update({
+            where: { id: item.id },
+            data: { estado: estadoRestaurado },
+          });
+
+          const pedidoActual = await prisma.pedido.findUnique({
+            where: { id: item.pedidoId },
+            include: { items: true },
+          });
+          if (pedidoActual) {
+            const itemsActualizados = pedidoActual.items.map((i) => (i.id === item.id ? itemRestaurado : i));
+            const nuevoTotal = this.recalcularTotalCobrable(itemsActualizados);
+            const enProduccion =
+              pedidoActual.estado === PedidoEstado.Pendiente ||
+              pedidoActual.estado === PedidoEstado.EnPreparacion ||
+              pedidoActual.estado === PedidoEstado.Listo;
+            let nuevoEstadoPedido: PedidoEstado | undefined;
+            if (enProduccion) {
+              const derivado = this.derivarEstadoPedido(itemsActualizados.map((i) => i.estado));
+              if (derivado && derivado !== pedidoActual.estado) nuevoEstadoPedido = derivado;
+            }
+            const pedidoFinal = await prisma.pedido.update({
+              where: { id: item.pedidoId },
+              data: { total: nuevoTotal, ...(nuevoEstadoPedido ? { estado: nuevoEstadoPedido } : {}) },
+              include: { items: true },
+            });
+            await prisma.outboxEvent.create({
+              data: {
+                routingKey: RoutingKeys.PedidoActualizado,
+                payload: JSON.stringify({ pedido: mapPedidoToDto(pedidoFinal) }),
+                status: 'PENDING',
+              },
+            });
+          }
+        } else {
+          this.logger.warn({
+            operation: 'invalidarAnulacion',
+            aggregateId: id,
+            errorCode: 'ITEM_NO_REVERTIBLE',
+            message: item
+              ? `Ítem ${existente.itemId} ya no está CANCELADO (estado actual: ${item.estado}) — se invalida solo el registro de auditoría, no se toca el ítem.`
+              : `Ítem ${existente.itemId} ya no existe — se invalida solo el registro de auditoría.`,
+          } satisfies OperableLog);
+        }
+      }
+
+      return anulacion;
     });
 
     this.logger.log({
@@ -751,7 +862,12 @@ export class PedidosSagaService {
       message: `Anulación ${id} invalidada: ${command.motivo}`,
     } satisfies OperableLog);
 
-    return { message: 'Anulación invalidada (el registro se conserva para auditoría)', anulacion: this.toAnulacionDto(actualizada) };
+    return {
+      message: existente.itemId
+        ? 'Anulación invalidada: el ítem vuelve a la cuenta actual.'
+        : 'Anulación invalidada (el registro se conserva para auditoría)',
+      anulacion: this.toAnulacionDto(actualizada),
+    };
   }
 
   /**

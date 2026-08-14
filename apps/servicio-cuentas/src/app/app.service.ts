@@ -150,6 +150,23 @@ export class AppService {
         where: { mesaId: pedidoDto.mesaId, estado: CuentaEstado.Abierta },
       });
 
+      // Mismo caso que procesarPedidoActualizado: un PedidoCreado reentregado
+      // muy tarde (redelivery/backlog) de una atención vieja de esta mesa,
+      // llegando después de que se abrió una cuenta nueva, se descarta en
+      // vez de colarse en la cuenta nueva. Solo aplica cuando YA existía una
+      // cuenta abierta encontrada acá arriba — no toca el flujo normal de
+      // "primer pedido de una mesa nueva" (rama de creación de cuenta más
+      // abajo), donde este chequeo no tiene sentido.
+      if (cuenta && new Date(pedidoDto.createdAt).getTime() < cuenta.createdAt.getTime()) {
+        this.logger.warn({
+          operation: 'procesarPedidoCreado',
+          aggregateId: cuenta.id,
+          errorCode: 'PEDIDO_HUERFANO_DE_ATENCION_ANTERIOR',
+          message: `Pedido ${pedidoDto.id} (creado ${pedidoDto.createdAt}) es anterior a la cuenta ${cuenta.id} (abierta ${cuenta.createdAt.toISOString()}) — evento descartado, no pertenece a esta atención.`,
+        } satisfies OperableLog);
+        return;
+      }
+
       const origenCuentaAbierta = cuenta ? 'reconciliacion-pedido' : 'fallback';
 
       if (cuenta && pedidoDto.sedeId && cuenta.sedeId !== pedidoDto.sedeId) {
@@ -268,6 +285,29 @@ export class AppService {
 
       const snapshot = this.parsePedidosSnapshot(cuenta.pedidos);
       const index = snapshot.findIndex((p) => p.id === pedidoDto.id);
+
+      // Bug: este handler resuelve la cuenta destino solo por mesaId+ABIERTA,
+      // sin verificar que el pedido pertenezca a ESTA atención. Un evento
+      // reentregado tarde (redelivery de RabbitMQ, backlog del outbox
+      // worker) de un pedido de una atención VIEJA de la misma mesa, que
+      // llega después de que la mesa se cerró y se reabrió con una cuenta
+      // nueva, encontraba la única cuenta ABIERTA para esa mesa (la nueva),
+      // no encontraba el pedido en su snapshot, y lo insertaba igual —
+      // "resucitando" una anulación/ítem de una cuenta anterior dentro de
+      // la cuenta nueva (bug reportado: item anulado de una atención vieja
+      // apareciendo en la cuenta actual de una mesa recién reutilizada).
+      // Si el pedido es anterior a la apertura de esta cuenta y todavía no
+      // estaba en su snapshot, es huérfano de una atención anterior — se
+      // descarta en vez de insertarlo.
+      if (index < 0 && new Date(pedidoDto.createdAt).getTime() < cuenta.createdAt.getTime()) {
+        this.logger.warn({
+          operation: 'procesarPedidoActualizado',
+          aggregateId: cuenta.id,
+          errorCode: 'PEDIDO_HUERFANO_DE_ATENCION_ANTERIOR',
+          message: `Pedido ${pedidoDto.id} (creado ${pedidoDto.createdAt}) es anterior a la cuenta ${cuenta.id} (abierta ${cuenta.createdAt.toISOString()}) y no estaba en su snapshot — evento descartado, no pertenece a esta atención.`,
+        } satisfies OperableLog);
+        return;
+      }
 
       if (index >= 0) {
         snapshot[index] = pedidoDto;
