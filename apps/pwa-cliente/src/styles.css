@@ -800,9 +800,16 @@ fieldset { border: 0; padding: 0; margin: 0; min-width: 0; }
   .toast { min-width: 0; max-width: none; }
   /* Botones de acción primaria full-width en móvil */
   .drawer-foot .btn-primary, .modal-foot .btn-primary { width: 100%; }
-  /* Chips de filtro hacen scroll horizontal, no rompen layout */
-  .filters { flex-wrap: nowrap; overflow-x: auto; -webkit-overflow-scrolling: touch; padding-bottom: 4px; }
-  .canal-tabs { flex-wrap: nowrap; overflow-x: auto; -webkit-overflow-scrolling: touch; padding-bottom: 4px; }
+  /* Chips de filtro hacen scroll horizontal, no rompen layout.
+     (El override real de flex-wrap vive al final del archivo — ver
+     "GRUPO_F RESPONSIVE PATCH": estas declaraciones de acá quedan
+     shadowed por las reglas base sin media query de .filters/
+     .canal-tabs, que aparecen MÁS ABAJO en el archivo y ganan el
+     cascade por orden de aparición pese a estar fuera de cualquier
+     @media. overflow-x sí sobrevive porque no hay una declaración
+     de overflow-x en esas reglas base que la pise.) */
+  .filters { overflow-x: auto; -webkit-overflow-scrolling: touch; padding-bottom: 4px; }
+  .canal-tabs { overflow-x: auto; -webkit-overflow-scrolling: touch; padding-bottom: 4px; }
 }
 
 /* ── 560px: Android gama media ──────────────────────────────── */
@@ -2044,16 +2051,18 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
    "última actualización" cuando ya hay columna de fecha visible. */
 @media (max-width: 920px) {
   .col-mobile-hidden { display: none !important; }
-  /* Sin scroll horizontal en ninguna tabla ≤920px.
-     Si la tabla aún desborda, usar representación de tarjetas. */
-  .table-wrap { overflow: hidden; }
-  /* Tablas de Compras (Órdenes, Insumos): aun ocultando sus columnas
-     prescindibles, las que quedan (con botones de acción táctiles
-     ≥44px) no entran en ~360px — overflow:hidden de arriba las
-     recortaba en silencio, sin forma de verlas. Pendiente la vista
-     de tarjetas (nota original de este bloque); mientras tanto,
-     mejor swipe horizontal que datos invisibles. Reusar esta clase
-     en cualquier otra tabla que llegue al mismo punto. */
+  /* Antes: overflow:hidden acá recortaba en silencio CUALQUIER tabla
+     que desbordara ≤920px, en todos los módulos con .table-wrap
+     (Usuarios, Auditoría de Anulaciones, Facturación, Compras,
+     Inventario...) — no solo Compras, como decía la nota original;
+     confirmado por auditoría real en dispositivo 2026-08-14. La
+     única forma de llegar a esas columnas era la clase opt-in de
+     abajo, que ningún JSX aplicaba por defecto. Con .col-mobile-hidden
+     ya quitando lo prescindible, el resto siempre debe poder
+     alcanzarse — mejor swipe horizontal que datos invisibles. */
+  .table-wrap { overflow-x: auto; overflow-y: visible; }
+  /* Ya no hace falta como opt-in (el fix de arriba es ahora el
+     default), pero se deja definida por si algún JSX ya la referencia. */
   .table-wrap-scroll-fallback { overflow-x: auto; }
 }
 
@@ -2420,4 +2429,40 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
      (display:grid) y envuelve una .table-wrap ya scrolleable — sin
      min-width:0 el track hereda el ancho de la tabla igual que antes. */
   .inventory-list, .inventory-group { min-width: 0; }
+}
+
+/* ============================================================
+   === GRUPO_F RESPONSIVE PATCH (auditoría en dispositivo real,
+   2026-08-14) ===
+   ============================================================ */
+
+/* ── Filas de chips de categoría/filtro no hacían scroll horizontal ──
+   .filters y .canal-tabs ya tenían un fix de scroll horizontal
+   dentro de @media (max-width: 920px) (línea ~793 del archivo), pero
+   sus reglas BASE sin @media (.filters, .canal-tabs — mismo selector,
+   misma especificidad) aparecen DESPUÉS en el archivo: por orden de
+   cascada, la base (flex-wrap: wrap) le ganaba al fix aunque el media
+   query siguiera activo — confirmado en vivo, computed flex-wrap
+   daba "wrap" en un viewport de 375px pese al fix ya escrito.
+   Mismo problema en .cmd-cats (Comandero/Nuevo pedido), sin fix
+   previo: con ~19 categorías reales, el wrap ocupaba ~390px de alto
+   dentro de .cmd-catalog (flex column) y dejaba .cmd-grid (la lista
+   de platos, con su propio overflow-y:auto correcto) colapsada a
+   unos pocos px de alto — técnicamente scrolleable, visualmente
+   inutilizable: el mesero no podía ver ni un plato para agregarlo.
+   Estas reglas van al final del archivo a propósito: es la única
+   forma de ganarle a esas bases sin @media sin subir especificidad
+   ni usar !important — cualquier fix nuevo de flex-wrap/overflow-x
+   para una clase que ya tenga una regla base sin @media en otra
+   parte del archivo debe agregarse acá, no donde "debería" ir
+   temáticamente. */
+@media (max-width: 920px) {
+  .filters,
+  .canal-tabs,
+  .cmd-cats {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: 4px;
+  }
 }
