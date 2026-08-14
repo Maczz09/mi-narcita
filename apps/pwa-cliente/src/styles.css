@@ -2500,10 +2500,18 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
    contra contenedores internos). Selector genérico (.content > div,
    .content > section) porque el wrapper no tiene className propio;
    no toca pantallas que no son hijas directas de .content (el KDS a
-   pantalla completa usa .kds-fs con position:fixed, ajeno a esto). */
-@media (max-width: 920px) {
-  .content > div,
-  .content > section {
-    height: auto !important;
-  }
+   pantalla completa usa .kds-fs con position:fixed, ajeno a esto).
+   SIN @media: el colapso no es un problema de ancho, es de alto —
+   pasaba igual en una laptop con browser a resolución normal (no
+   angosta) apenas la cabecera+stats+tabs+chips sumaban más alto del
+   que le quedaba disponible a la lista. Confirmado en vivo: Carta/Menú
+   con 136 platos, ventana de escritorio normal, mismo síntoma que en
+   celular (nada visible bajo el buscador). Sacar el max-width:920px
+   no tiene contrapartida real: en pantallas con alto de sobra el
+   contenido de todos modos entra en una sola vista y .content no
+   necesita scrollear — el fix solo entra en juego cuando de verdad
+   hace falta. */
+.content > div,
+.content > section {
+  height: auto !important;
 }
