@@ -4,6 +4,12 @@
 // Kong deja pasar sin JWT — ver apps/servicio-notificaciones/src/app/carta.gateway.ts
 // y el carve-out en infra/kong/kong.yml.template.
 //
+// Con prefijo /v1/: en producción, Caddy solo reenvía a Kong lo que cae bajo
+// /v1/* (ver docs/guia-despliegue-vps-contabo.md, paso 7) — un path sin ese
+// prefijo cae en el catch-all de la PWA y el socket nunca conecta. Kong ya
+// registra ambas variantes (con y sin /v1/) para este carve-out, así que
+// usar la prefijada no rompe nada localmente (sin Caddy de por medio).
+//
 // Solo dispara `onCambio()` — el screen decide qué hacer (recargar la
 // carta), este hook no conoce la forma de los datos de negocio.
 
@@ -11,7 +17,7 @@ import { useEffect, useRef } from 'react';
 import { io, type Socket } from 'socket.io-client';
 
 const BASE_URL = (import.meta as unknown as { env: Record<string, string> }).env['VITE_API_BASE_URL'] ?? 'http://localhost:8000';
-const CARTA_SOCKET_PATH = '/notificaciones/carta-socket.io';
+const CARTA_SOCKET_PATH = '/v1/notificaciones/carta-socket.io';
 
 export function useCartaSocket(sedeId: string | undefined, onCambio: () => void) {
   const onCambioRef = useRef(onCambio);
