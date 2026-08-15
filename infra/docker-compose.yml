@@ -494,6 +494,7 @@ services:
       RABBITMQ_URI: 'amqp://nachopps:nachopps_secret@rabbitmq:5672'
       OTEL_EXPORTER_OTLP_ENDPOINT: 'http://otel-collector:4318'
       PEDIDOS_SERVICE_URL: 'http://servicio-pedidos:3000/api'
+      MESAS_SERVICE_URL: 'http://servicio-mesas:3000/api'
       SERVICE_JWT_SECRET: 'nachopps_service_secret_dev'
       CORS_ORIGIN: 'http://localhost:4200'
     profiles: ['all']

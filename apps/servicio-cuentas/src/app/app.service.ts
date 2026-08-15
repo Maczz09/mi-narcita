@@ -16,6 +16,7 @@ import {
   PedidoActualizadoPayload,
   PedidoCreadoPayload,
   PagoRegistradoPayload,
+  MesaActualizadaPayload,
   PedidoSnapshot,
   PedidoSnapshotItem,
   PedidoEstado,
@@ -626,6 +627,50 @@ export class AppService {
     } satisfies OperableLog);
 
     return { message: 'Cuenta cancelada exitosamente' };
+  }
+
+  /**
+   * Reconciliación event-driven (solución definitiva al bug de cuentas
+   * huérfanas — ej. carrera de despliegue: una versión vieja del código
+   * procesó un evento y dejó una cuenta ABIERTA sin engancharse a la
+   * cascada de cancelación). servicio-mesas es la fuente de verdad de qué
+   * cuenta está realmente asociada a una mesa; cada vez que una mesa
+   * cambia (se libera, se reasigna, etc.) reemite MesaActualizada. Si acá
+   * encontramos una cuenta ABIERTA para esa mesa que la mesa ya no
+   * referencia como su `cuentaAsociada`, quedó huérfana — se cancela.
+   * Se dispara en CADA actualización de mesa (no solo al liberar) a
+   * propósito: así también se autocorrige cualquier drift futuro,
+   * cualquiera sea la causa, sin depender de un camino de código
+   * específico. findMany (no findFirst) por si alguna vez hay más de una
+   * cuenta ABIERTA huérfana para la misma mesa.
+   */
+  async procesarMesaActualizada(payload: MesaActualizadaPayload): Promise<void> {
+    const mesa = payload?.mesa;
+    if (!mesa?.id) return;
+
+    const cuentasAbiertas = await this.prisma.cuenta.findMany({
+      where: { mesaId: mesa.id, estado: CuentaEstado.Abierta },
+    });
+
+    for (const cuenta of cuentasAbiertas) {
+      if (mesa.cuentaAsociada === cuenta.id) continue;
+
+      this.logger.warn({
+        operation: 'procesarMesaActualizada',
+        aggregateId: cuenta.id,
+        errorCode: 'CUENTA_HUERFANA',
+        message: `Mesa ${mesa.id} ya no referencia la cuenta ${cuenta.id} (cuentaAsociada actual: ${mesa.cuentaAsociada ?? 'null'}) — se cancela por reconciliación.`,
+      } satisfies OperableLog);
+
+      await this.cancelarCuenta(cuenta.id).catch((e: unknown) => {
+        this.logger.error({
+          operation: 'procesarMesaActualizada',
+          aggregateId: cuenta.id,
+          errorCode: 'RECONCILIACION_FALLIDA',
+          message: `No se pudo cancelar la cuenta huérfana ${cuenta.id}: ${(e as Error)?.message}`,
+        } satisfies OperableLog);
+      });
+    }
   }
 
   async dividirCuenta(id: string, command: DividirCuentaCommand): Promise<DivisionCuentaResult> {

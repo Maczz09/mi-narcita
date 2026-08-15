@@ -306,6 +306,7 @@ services:
       RABBITMQ_URI: 'amqp://${RABBITMQ_USER:-nachopps}:${RABBITMQ_PASS:?RABBITMQ_PASS es obligatorio en produccion}@rabbitmq:5672'
       OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-http://otel-collector:4318}
       PEDIDOS_SERVICE_URL: 'http://servicio-pedidos:3000/api'
+      MESAS_SERVICE_URL: 'http://servicio-mesas:3000/api'
       JWT_PUBLIC_KEY: ${JWT_PUBLIC_KEY:?JWT_PUBLIC_KEY es obligatorio (PEM RS256, \n literales)}
       SERVICE_JWT_SECRET: ${SERVICE_JWT_SECRET:?SERVICE_JWT_SECRET es obligatorio (tokens S2S internos)}
       NODE_ENV: 'production'

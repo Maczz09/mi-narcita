@@ -467,6 +467,96 @@ describe('AppService — Cuentas (comprehensive)', () => {
     });
   });
 
+  // ─── procesarMesaActualizada (reconciliación mesa↔cuenta) ─────────────────
+
+  describe('procesarMesaActualizada', () => {
+    const mesaBase = {
+      id: 'm-001',
+      sedeId: 'sede-001',
+      numero: 1,
+      capacidad: 4,
+      ubicacionId: 'u-001',
+      ubicacion: 'Salón',
+      estado: 'LIBRE',
+    };
+
+    it('no hace nada si la mesa no tiene cuentas ABIERTA', async () => {
+      mockPrisma.cuenta.findMany.mockResolvedValue([]);
+
+      await service.procesarMesaActualizada({ mesa: { ...mesaBase, cuentaAsociada: null } });
+
+      expect(mockPrisma.cuenta.findUnique).not.toHaveBeenCalled();
+      expect(mockPrisma.cuenta.updateMany).not.toHaveBeenCalled();
+    });
+
+    it('no hace nada si la cuentaAsociada de la mesa sigue apuntando a la cuenta ABIERTA', async () => {
+      mockPrisma.cuenta.findMany.mockResolvedValue([cuentaAbierta]);
+
+      await service.procesarMesaActualizada({ mesa: { ...mesaBase, estado: 'OCUPADA', cuentaAsociada: cuentaAbierta.id } });
+
+      expect(mockPrisma.cuenta.findUnique).not.toHaveBeenCalled();
+      expect(mockPrisma.cuenta.updateMany).not.toHaveBeenCalled();
+    });
+
+    it('cancela la cuenta huérfana cuando la mesa quedó LIBRE (cuentaAsociada null)', async () => {
+      mockPrisma.cuenta.findMany.mockResolvedValue([cuentaAbierta]);
+      mockPrisma.cuenta.findUnique.mockResolvedValue(cuentaAbierta);
+      mockPrisma.cuenta.updateMany.mockResolvedValue({ count: 1 });
+      mockPrisma.outboxEvent.create.mockResolvedValue({});
+
+      await service.procesarMesaActualizada({ mesa: { ...mesaBase, cuentaAsociada: null } });
+
+      expect(mockPrisma.cuenta.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { id: cuentaAbierta.id, estado: CuentaEstado.Abierta }, data: { estado: CuentaEstado.Cancelada } }),
+      );
+      const evento = mockPrisma.outboxEvent.create.mock.calls.at(-1)[0].data;
+      expect(evento.routingKey).toBe('cuenta.cancelada');
+    });
+
+    it('cancela la cuenta huérfana cuando la mesa apunta a OTRA cuenta distinta', async () => {
+      mockPrisma.cuenta.findMany.mockResolvedValue([cuentaAbierta]);
+      mockPrisma.cuenta.findUnique.mockResolvedValue(cuentaAbierta);
+      mockPrisma.cuenta.updateMany.mockResolvedValue({ count: 1 });
+      mockPrisma.outboxEvent.create.mockResolvedValue({});
+
+      await service.procesarMesaActualizada({ mesa: { ...mesaBase, estado: 'OCUPADA', cuentaAsociada: 'c-otra-cuenta' } });
+
+      expect(mockPrisma.cuenta.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { id: cuentaAbierta.id, estado: CuentaEstado.Abierta }, data: { estado: CuentaEstado.Cancelada } }),
+      );
+    });
+
+    it('procesa cada cuenta huérfana si hay más de una ABIERTA para la misma mesa', async () => {
+      const cuentaB = { ...cuentaAbierta, id: 'c-002' };
+      mockPrisma.cuenta.findMany.mockResolvedValue([cuentaAbierta, cuentaB]);
+      mockPrisma.cuenta.findUnique.mockImplementation(({ where }: any) =>
+        Promise.resolve(where.id === cuentaB.id ? cuentaB : cuentaAbierta),
+      );
+      mockPrisma.cuenta.updateMany.mockResolvedValue({ count: 1 });
+      mockPrisma.outboxEvent.create.mockResolvedValue({});
+
+      await service.procesarMesaActualizada({ mesa: { ...mesaBase, cuentaAsociada: null } });
+
+      expect(mockPrisma.cuenta.updateMany).toHaveBeenCalledTimes(2);
+    });
+
+    it('no propaga el error si cancelarCuenta falla (ej. carrera: la cuenta ya no está ABIERTA)', async () => {
+      mockPrisma.cuenta.findMany.mockResolvedValue([cuentaAbierta]);
+      mockPrisma.cuenta.findUnique.mockResolvedValue({ ...cuentaAbierta, estado: CuentaEstado.Cerrada });
+
+      await expect(
+        service.procesarMesaActualizada({ mesa: { ...mesaBase, cuentaAsociada: null } }),
+      ).resolves.toBeUndefined();
+
+      expect(mockPrisma.cuenta.updateMany).not.toHaveBeenCalled();
+    });
+
+    it('ignora el payload si viene sin mesa.id', async () => {
+      await service.procesarMesaActualizada({ mesa: undefined } as any);
+      expect(mockPrisma.cuenta.findMany).not.toHaveBeenCalled();
+    });
+  });
+
   // ─── dividirCuenta ────────────────────────────────────────────────────────
 
   describe('dividirCuenta', () => {
