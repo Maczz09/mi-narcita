@@ -14,6 +14,7 @@ import {
   ProductoCreadoPayload,
   ProductoActualizadoPayload,
   StockInsuficientePayload,
+  CuentaAsociadaPayload,
   ItemArea,
   EstadoItem,
   AnularItemPreparadoCommand,
@@ -351,9 +352,17 @@ export class AppService {
       ...(query.mesaId ? { mesaId: query.mesaId } : {}),
       ...(query.estado
         ? { estado: query.estado }
-        : { estado: { notIn: [PedidoEstado.Pagado, PedidoEstado.Cancelado] } }),
+        // Buscar por correlativo típicamente apunta a un pedido ya cerrado
+        // (cross-referencing desde Mermas/Auditoría) — no tiene sentido
+        // aplicarle el filtro "solo activos" por defecto.
+        : !query.search
+          ? { estado: { notIn: [PedidoEstado.Pagado, PedidoEstado.Cancelado] } }
+          : {}),
       ...(query.updatedSince
         ? { updatedAt: { gte: new Date(query.updatedSince) } }
+        : {}),
+      ...(query.search
+        ? { cuentaCorrelativo: { contains: query.search, mode: 'insensitive' } }
         : {}),
     };
     const pedidos = await this.prisma.pedido.findMany({
@@ -515,6 +524,10 @@ export class AppService {
   /** T-40: compensación de la saga de stock delegada en PedidosSagaService. */
   async procesarStockInsuficiente(payload: StockInsuficientePayload): Promise<void> {
     return this.saga.procesarStockInsuficiente(payload);
+  }
+
+  async procesarCuentaAsociada(payload: CuentaAsociadaPayload): Promise<void> {
+    return this.saga.procesarCuentaAsociada(payload);
   }
 
   private async procesarEventoProducto(

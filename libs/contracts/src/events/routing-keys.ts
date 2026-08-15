@@ -23,6 +23,9 @@ export const RoutingKeys = {
   // Cuentas
   CuentaAbierta: 'cuenta.abierta',
   CuentaCerrada: 'cuenta.cerrada',
+  // Backfill del correlativo de la atención ("A0000001") hacia el pedido que
+  // la originó/se le sumó — ver PedidosSagaService / events.controller.
+  CuentaAsociada: 'cuenta.asociada',
   TicketGenerado: 'ticket.generado',
 
   // Caja

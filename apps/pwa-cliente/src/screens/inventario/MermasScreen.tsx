@@ -44,7 +44,11 @@ export function MermasScreen() {
   const mermas = useMemo(() => {
     const q = busqueda.trim().toLowerCase();
     if (!q) return mermasCrudas;
-    return mermasCrudas.filter((m) => m.productoNombre.toLowerCase().includes(q) || m.motivo.toLowerCase().includes(q));
+    return mermasCrudas.filter((m) =>
+      m.productoNombre.toLowerCase().includes(q) ||
+      m.motivo.toLowerCase().includes(q) ||
+      (m.cuentaCorrelativo?.toLowerCase().includes(q) ?? false),
+    );
   }, [mermasCrudas, busqueda]);
 
   const kpis = useMemo(() => {
@@ -112,7 +116,7 @@ export function MermasScreen() {
           <Icons.Search s={16} />
           <input
             type="search"
-            placeholder="Buscar por producto o motivo…"
+            placeholder="Buscar por producto, motivo o código de atención…"
             value={busqueda}
             onChange={(e) => setBusqueda(e.target.value)}
             aria-label="Buscar mermas"
@@ -166,7 +170,10 @@ export function MermasScreen() {
                 {mermas.map((m) => (
                   <tr key={m.id}>
                     <td className="muted">{m.fechaLabel}</td>
-                    <td>{m.productoNombre}</td>
+                    <td>
+                      {m.productoNombre}
+                      {m.cuentaCorrelativo && <div className="muted mono" style={{ fontSize: 11 }}>{m.cuentaCorrelativo}</div>}
+                    </td>
                     <td className="mono badge badge-danger" style={{ display: 'inline-block' }}>-{m.cantidad}</td>
                     <td><span className="badge badge-muted">{m.origenLabel}</span></td>
                     <td className="mono">{m.costoTotalLabel}</td>

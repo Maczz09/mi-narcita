@@ -20,6 +20,9 @@ export interface CuentaRemota {
   // quién cobró). Opcional: cuentas antiguas/sin pedido con mesero no lo traen.
   meseroId?: string;
   meseroNombre?: string;
+  // Código legible de la atención ("A0000001"). Ausente en cuentas
+  // anteriores a este campo.
+  correlativo?: string;
 }
 
 /**

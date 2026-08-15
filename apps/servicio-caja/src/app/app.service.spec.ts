@@ -160,6 +160,33 @@ describe('AppService — Caja', () => {
       );
     });
 
+    it('denormaliza el correlativo de la atención en la Transaccion y el MovimientoCaja', async () => {
+      mockPrisma.turnoCaja.findFirst.mockResolvedValue(turnoAbierto);
+      jest.mocked(axios.get).mockResolvedValue({
+        data: { id: 'c-001', mesaId: 'm-001', total: 50, estado: 'ABIERTA', correlativo: 'A0000042' },
+      });
+      jest.mocked(axios.post).mockResolvedValue({ data: { ticket: { id: 'tk-001', total: 50 } } });
+      mockPrisma.cuentaAbierta.upsert.mockResolvedValue({ cuentaId: 'c-001', mesaId: 'm-001', total: 50, estado: 'ABIERTA' });
+      mockPrisma.cuentaAbierta.update.mockResolvedValue({});
+      mockPrisma.transaccion.aggregate.mockResolvedValue({ _sum: { monto: 0 } });
+      mockPrisma.transaccion.create.mockResolvedValue({
+        id: 't-001', cuentaId: 'c-001', turnoId: 'turno-001', mesaId: 'm-001', monto: 50, metodo: 'EFECTIVO',
+        referencia: null, notas: null, cuentaCorrelativo: 'A0000042', createdAt: new Date(),
+      });
+      mockPrisma.movimientoCaja.create.mockResolvedValue({});
+      mockPrisma.outboxEvent.create.mockResolvedValue({});
+
+      const result = await service.registrarPago({ cuentaId: 'c-001', montoRecibido: 50, metodo: 'EFECTIVO' });
+
+      expect(result.transaccion.cuentaCorrelativo).toBe('A0000042');
+      expect(mockPrisma.transaccion.create).toHaveBeenCalledWith(
+        expect.objectContaining({ data: expect.objectContaining({ cuentaCorrelativo: 'A0000042' }) }),
+      );
+      expect(mockPrisma.movimientoCaja.create).toHaveBeenCalledWith(
+        expect.objectContaining({ data: expect.objectContaining({ cuentaCorrelativo: 'A0000042' }) }),
+      );
+    });
+
     it('denormaliza el mesero dominante de la cuenta en la transacción (auditoría)', async () => {
       mockPrisma.turnoCaja.findFirst.mockResolvedValue(turnoAbierto);
       jest.mocked(axios.get).mockResolvedValue({

@@ -98,6 +98,10 @@ export interface PedidoVM {
   /** Canal normalizado derivado de `modalidad`. */
   canal: Canal;
   cantidadItems: number;
+  /** Código legible de la atención ("A0000001"). Puede tardar unos ms en
+   *  aparecer tras crear el pedido (backfill asíncrono), o estar ausente en
+   *  pedidos de cuentas anteriores a este campo. */
+  cuentaCorrelativo?: string;
 }
 
 // ─── Payloads de creación ───────────────────────────────────────
@@ -161,6 +165,8 @@ export interface AnulacionAuditoriaVM {
   fechaLabel: string;
   mesaNumero: number | null;
   pedidoId: string;
+  /** Código legible de la atención ("A0000001") a la que pertenecía el pedido anulado. */
+  cuentaCorrelativo: string | null;
   tipo: TipoAnulacion;
   tipoLabel: string;
   productoNombre: string | null;

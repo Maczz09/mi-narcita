@@ -348,6 +348,11 @@ export class MermaDto {
   @IsOptional()
   @IsString()
   pedidoItemId?: string | null;
+  // Código legible de la atención origen ("A0000001"). Ausente en mermas
+  // manuales o si el pedido origen no tenía correlativo todavía.
+  @IsOptional()
+  @IsString()
+  cuentaCorrelativo?: string | null;
   @IsOptional()
   @IsString()
   usuarioId?: string | null;
@@ -421,6 +426,11 @@ export class ListarMermasQuery {
   @IsOptional()
   @IsString()
   sedeId?: string;
+
+  // Busca por el código de la atención origen ("A0000001" o un fragmento).
+  @IsOptional()
+  @IsString()
+  search?: string;
 }
 
 export class ObtenerProductosLoteCommand {

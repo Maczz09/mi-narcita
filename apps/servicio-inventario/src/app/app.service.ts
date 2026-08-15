@@ -687,6 +687,7 @@ export class AppService {
     origen: string;
     costoUnitario: Prisma.Decimal | null;
     pedidoItemId: string | null;
+    cuentaCorrelativo?: string | null;
     usuarioId: string | null;
     usuarioNombre: string | null;
     createdAt: Date;
@@ -704,6 +705,7 @@ export class AppService {
       costoUnitario,
       costoTotal: costoUnitario == null ? null : costoUnitario * merma.cantidad,
       pedidoItemId: merma.pedidoItemId,
+      cuentaCorrelativo: merma.cuentaCorrelativo,
       usuarioId: merma.usuarioId,
       usuarioNombre: merma.usuarioNombre,
       createdAt: merma.createdAt.toISOString(),
@@ -802,6 +804,9 @@ export class AppService {
                 ...(query.hasta ? { lte: new Date(query.hasta) } : {}),
               },
             }
+          : {}),
+        ...(query.search
+          ? { cuentaCorrelativo: { contains: query.search, mode: 'insensitive' } }
           : {}),
       },
       include: { producto: { include: { categoria: true } } },
@@ -997,6 +1002,7 @@ export class AppService {
             origen: payload.cobrado ? MermaOrigen.ANULACION_COMANDA_COBRADA : MermaOrigen.ANULACION_COMANDA_NO_COBRADA,
             costoUnitario: producto?.precio.toNumber() ?? null,
             pedidoItemId: payload.itemId,
+            cuentaCorrelativo: payload.cuentaCorrelativo ?? undefined,
             usuarioId: payload.usuarioId ?? undefined,
             usuarioNombre: payload.usuarioNombre ?? undefined,
           },

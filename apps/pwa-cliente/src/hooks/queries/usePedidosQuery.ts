@@ -30,6 +30,8 @@ type PedidosData = InfiniteData<PedidosPage>;
 interface UsePedidosOptions {
   /** Carga progresivamente todas las páginas (KDS necesita todos los tickets activos). */
   autoLoadAll?: boolean;
+  /** Busca por el código de la atención ("A0000001" o un fragmento). */
+  search?: string;
 }
 
 /** Aplica `fn` al pedido `id` en toda la caché infinita. */
@@ -145,13 +147,15 @@ function applyAvanceItem(
 }
 
 export function usePedidosQuery(mesaId?: string, options: UsePedidosOptions = {}) {
+  const { search } = options;
   const query = useInfiniteQuery({
-    queryKey: [...PEDIDOS_QUERY_KEY, mesaId].filter(Boolean),
+    queryKey: [...PEDIDOS_QUERY_KEY, mesaId, search].filter(Boolean),
     initialPageParam: undefined as string | undefined,
     queryFn: async ({ pageParam }) => {
       const response = await pedidosApi.getPage({
         cursor: pageParam,
         mesaId,
+        search: search || undefined,
         limit: 50,
       });
       return {

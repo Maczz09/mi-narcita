@@ -113,7 +113,13 @@ export function CajaScreen() {
   const [cobroPicker, setCobroPicker] = useState(false);
   const [detalleTx, setDetalleTx] = useState<{ transaccionId: string; cuentaId: string | null } | null>(null);
 
+  const [movSearch, setMovSearch] = useState('');
   const movs = resumen?.movimientos ?? [];
+  const movsFiltrados = useMemo(() => {
+    const q = movSearch.trim().toLowerCase();
+    if (!q) return movs;
+    return movs.filter((m) => (m.cuentaCorrelativo?.toLowerCase().includes(q) ?? false) || m.donde.toLowerCase().includes(q));
+  }, [movs, movSearch]);
   const k = useMemo(() => computeKpis(movs, resumen?.efectivoEsperado ?? 0), [movs, resumen?.efectivoEsperado]);
   const cajeroNombre = cajero?.nombre ?? 'Cajero';
 
@@ -211,7 +217,17 @@ export function CajaScreen() {
           <div className="panel-h">
             <h3>Movimientos del turno</h3>
             <span className="spacer" />
-            <span className="pill-soft">{movs.length} registros</span>
+            <div className="search-box" style={{ maxWidth: 200 }}>
+              <Icons.Search s={16} />
+              <input
+                type="search"
+                placeholder="Buscar por código (A0000001)…"
+                value={movSearch}
+                onChange={(e) => setMovSearch(e.target.value)}
+                aria-label="Buscar movimientos por código de atención"
+              />
+            </div>
+            <span className="pill-soft">{movsFiltrados.length} registros</span>
           </div>
           <div className="mov-table-wrap table-wrap table-wrap-flat">
             <table className="dt">
@@ -219,14 +235,14 @@ export function CajaScreen() {
                 <tr><th>Hora</th><th>Detalle</th><th className="col-mobile-hidden">TX</th><th className="col-mobile-hidden">Método</th><th style={{ textAlign: 'right' }}>Monto</th><th className="cell-action"></th></tr>
               </thead>
               <tbody>
-                {movs.map((m) => (
+                {movsFiltrados.map((m) => (
                   <MovRow key={m.id} m={m} onVerDetalle={m.tipo === 'VENTA' && m.transaccionId ? () => setDetalleTx({ transaccionId: m.transaccionId!, cuentaId: m.cuentaId }) : undefined} />
                 ))}
               </tbody>
             </table>
           </div>
           <div className="mov-list panel">
-            {movs.map((m) => {
+            {movsFiltrados.map((m) => {
               const verDetalle = m.tipo === 'VENTA' && m.transaccionId
                 ? () => setDetalleTx({ transaccionId: m.transaccionId!, cuentaId: m.cuentaId })
                 : undefined;
@@ -244,6 +260,7 @@ export function CajaScreen() {
                   <span className="mc-monto">{fmt(Math.abs(m.monto))}</span>
                   <div className="mc-meta">
                     <span className="badge badge-muted">{METODO_META[m.metodo]?.label ?? m.metodo}</span>
+                    {m.cuentaCorrelativo && <span className="muted mono" style={{ fontSize: 11 }}>{m.cuentaCorrelativo}</span>}
                     {verDetalle && <span className="muted" style={{ fontSize: 11 }}>Ver detalle</span>}
                   </div>
                 </div>
@@ -411,7 +428,9 @@ function MovRow({ m, onVerDetalle }: Readonly<{ m: MovimientoCajaDto; onVerDetal
         </div>
       </td>
       <td className="col-mobile-hidden">
-        {m.transaccionId ? <span className="mono muted">{m.transaccionId.slice(0, 8)}</span> : <span className="muted">—</span>}
+        {m.transaccionId
+          ? <span className="mono muted">{m.cuentaCorrelativo ?? m.transaccionId.slice(0, 8)}</span>
+          : <span className="muted">—</span>}
       </td>
       <td className="col-mobile-hidden">{apertura ? <span className="muted">—</span> : <span className="row" style={{ gap: 7 }}><span className={`pay-ic ${meta.cls}`} style={{ width: 20, height: 20, fontSize: 10 }}>{meta.abbr}</span>{meta.label}</span>}</td>
       <td className="num">

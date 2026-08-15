@@ -26,7 +26,8 @@ export function PedidosScreen() {
   const online = useOnlineStatus();
   const now = useNow();
   const { toast } = useToast();
-  const { pedidos, nextCursor, loading, loadingMore, error, fetch, fetchMore, avanzarEstado, avanzarItem, anularItemPreparado } = usePedidosQuery();
+  const [search, setSearch] = useState('');
+  const { pedidos, nextCursor, loading, loadingMore, error, fetch, fetchMore, avanzarEstado, avanzarItem, anularItemPreparado } = usePedidosQuery(undefined, { search });
   const { saving: savingAnularPedido, anularPedido } = useAnularPedidoMutation();
   const [canal, setCanal] = useState<CanalFiltro>('TODOS');
   const [vista, setVista] = useState<'tablero' | 'lista'>('tablero');
@@ -158,6 +159,16 @@ export function PedidosScreen() {
         })}
         </div>
         <span className="spacer" />
+        <div className="search-box" style={{ maxWidth: 220 }}>
+          <Icons.Search s={16} />
+          <input
+            type="search"
+            placeholder="Buscar por código (A0000001)…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            aria-label="Buscar pedidos por código de atención"
+          />
+        </div>
         <button className="btn btn-ghost btn-sm" onClick={() => fetch()} title="Refrescar"><Icons.Refresh s={15} /></button>
       </div>
 

@@ -49,6 +49,7 @@ vi.mock('../../components/ui/icons', () => ({
     Receipt: () => <svg data-testid="icon-receipt" />,
     ArrowDown: () => <svg data-testid="icon-arrow-down" />,
     ArrowUp: () => <svg data-testid="icon-arrow-up" />,
+    Search: () => <svg data-testid="icon-search" />,
   }
 }));
 

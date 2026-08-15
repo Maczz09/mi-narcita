@@ -94,6 +94,10 @@ model Merma {
   // Referencia laxa (sin FK: servicio-pedidos tiene su propia BD) al ítem de
   // comanda que originó una merma automática — solo trazabilidad.
   pedidoItemId  String?
+  // Código legible de la atención origen ("A0000001"), denormalizado desde
+  // PedidoItemAnuladoConMermaPayload — ausente en mermas manuales
+  // (DESCARTE_MANUAL_INVENTARIO) o si el pedido no tenía correlativo aún.
+  cuentaCorrelativo String?
   usuarioId     String?
   usuarioNombre String?
   createdAt     DateTime    @default(now())
@@ -101,6 +105,7 @@ model Merma {
   @@index([productoId])
   @@index([createdAt])
   @@index([origen])
+  @@index([cuentaCorrelativo])
   @@map("mermas")
 }
 

@@ -26,6 +26,7 @@ function buildListQuery(query: PedidoListQuery = {}): string {
   if (query.cursor) params.set('cursor', query.cursor);
   if (query.estado) params.set('estado', query.estado);
   if (query.updatedSince) params.set('updatedSince', query.updatedSince);
+  if (query.search) params.set('search', query.search);
   const serialized = params.toString();
   return serialized ? `?${serialized}` : '';
 }
@@ -121,6 +122,7 @@ function buildAnulacionesQuery(query: ListarAnulacionesPayload = {}): string {
   if (query.desde) params.set('desde', query.desde);
   if (query.hasta) params.set('hasta', query.hasta);
   if (query.limit != null) params.set('limit', String(query.limit));
+  if (query.search) params.set('search', query.search);
   const serialized = params.toString();
   return serialized ? `?${serialized}` : '';
 }

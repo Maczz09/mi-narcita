@@ -19,7 +19,7 @@ import { OperableLog } from '@org/observabilidad';
 import { resolveSedeId } from '@org/shared-auth';
 import { PrismaService } from '../prisma/prisma.service';
 import { toReservaDto } from './reservas.mapper';
-import { Reserva } from '../generated/prisma';
+import { Prisma, Reserva } from '../generated/prisma';
 
 @Injectable()
 export class ReservasService {
@@ -42,6 +42,9 @@ export class ReservasService {
         ...(query.updatedSince
           ? { updatedAt: { gte: new Date(query.updatedSince) } }
           : {}),
+        ...(query.search
+          ? { correlativo: { contains: query.search, mode: 'insensitive' } }
+          : {}),
       },
       take: limit + 1,
       ...(query.cursor ? { cursor: { id: query.cursor }, skip: 1 } : {}),
@@ -61,6 +64,15 @@ export class ReservasService {
     const parsed = Number(limit ?? 20);
     if (!Number.isFinite(parsed)) return 20;
     return Math.min(Math.max(Math.trunc(parsed), 1), 100);
+  }
+
+  private async siguienteCorrelativo(prisma: Prisma.TransactionClient, sedeId: string): Promise<string> {
+    const secuencia = await prisma.secuenciaReserva.upsert({
+      where: { sedeId },
+      create: { sedeId, ultimo: 1 },
+      update: { ultimo: { increment: 1 } },
+    });
+    return `R${String(secuencia.ultimo).padStart(7, '0')}`;
   }
 
   async crear(
@@ -86,6 +98,7 @@ export class ReservasService {
     try {
       // M2.A: crear reserva + outbox en la misma transacción
       reserva = await this.prisma.$transaction(async (prisma) => {
+        const correlativo = await this.siguienteCorrelativo(prisma, sedeId);
         const r = await prisma.reserva.create({
           data: {
             sedeId,
@@ -99,6 +112,7 @@ export class ReservasService {
             estado: ReservaEstado.Pendiente,
             usuarioId: usuario?.id ?? null,
             usuarioNombre: usuario?.nombre ?? null,
+            correlativo,
           },
         });
 

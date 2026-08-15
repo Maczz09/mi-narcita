@@ -35,6 +35,10 @@ model Transaccion {
   // SUNAT — ver BoletaInterna.tsx).
   tipoComprobante   String   @default("BOLETA")
   clienteDocumento  String?
+  // Código legible de la atención ("A0000001"), denormalizado desde la
+  // cuenta remota al momento del cobro. Ausente en transacciones de
+  // cuentas anteriores a este campo.
+  cuentaCorrelativo String?
   createdAt     DateTime @default(now())
 
   turno       TurnoCaja? @relation(fields: [turnoId], references: [id])
@@ -43,6 +47,7 @@ model Transaccion {
   @@index([turnoId])
   @@index([usuarioId])
   @@index([sedeId, createdAt])
+  @@index([cuentaCorrelativo])
   @@map("transacciones")
 }
 
@@ -175,6 +180,10 @@ model MovimientoCaja {
   descuento     Decimal  @default(0) @db.Decimal(10, 2)
   propina       Decimal  @default(0) @db.Decimal(10, 2)
   motivo        String?
+  // Código legible de la atención ("A0000001"), denormalizado desde la
+  // Transaccion asociada (solo tipo VENTA la trae) — para poder buscar un
+  // movimiento del turno por el código sin hacer join.
+  cuentaCorrelativo String?
   createdAt     DateTime @default(now())
 
   turno         TurnoCaja @relation(fields: [turnoId], references: [id])

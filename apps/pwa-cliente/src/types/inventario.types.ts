@@ -124,4 +124,7 @@ export interface MermaVM {
   costoTotalLabel: string;
   usuarioNombre: string | null;
   fechaLabel: string;
+  /** Código de la atención origen ("A0000001"). Ausente en mermas manuales
+   *  o si el pedido origen no tenía correlativo todavía. */
+  cuentaCorrelativo: string | null;
 }

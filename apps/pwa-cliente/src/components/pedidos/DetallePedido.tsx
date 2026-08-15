@@ -49,7 +49,9 @@ export function DetallePedido({ pedido: p, onClose, onAvanzar, onAnularItem, onA
       <dialog open className="drawer" aria-modal="true" aria-label={`Detalle del pedido ${p.id.slice(0, 8)}`}>
         <div className="panel-h" style={{ padding: '16px 20px' }}>
           <span className={`tag-canal ${meta.cls}`}><Ic s={12} /> {meta.label}</span>
-          <h3 style={{ fontSize: 17, marginLeft: 4 }}>{p.id.slice(0, 8)}</h3>
+          <h3 style={{ fontSize: 17, marginLeft: 4 }} title={p.cuentaCorrelativo ? `ID interno ${p.id}` : undefined}>
+            {p.cuentaCorrelativo ?? p.id.slice(0, 8)}
+          </h3>
           <span className="spacer" />
           <button className="icon-btn" aria-label="Cerrar detalle" onClick={onClose}><Icons.Close s={17} /></button>
         </div>

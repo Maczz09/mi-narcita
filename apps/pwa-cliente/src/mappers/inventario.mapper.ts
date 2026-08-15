@@ -75,6 +75,7 @@ export function mapMerma(dto: MermaDto): MermaVM {
     costoTotalLabel: costoTotal === null ? '—' : formatMoney(costoTotal),
     usuarioNombre: dto.usuarioNombre ?? null,
     fechaLabel: new Date(dto.createdAt).toLocaleString('es-PE', { dateStyle: 'short', timeStyle: 'short' }),
+    cuentaCorrelativo: dto.cuentaCorrelativo ?? null,
   };
 }
 

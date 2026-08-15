@@ -345,10 +345,14 @@ export class AppService {
     }
   }
 
-  async listarMovimientosTurno(id: string, usuarioSedeId?: string | null) {
+  async listarMovimientosTurno(id: string, usuarioSedeId?: string | null, search?: string) {
     await this.assertTurnoDeSede(id, usuarioSedeId);
     const movimientos = await this.prisma.movimientoCaja.findMany({
-      where: { turnoId: id },
+      where: {
+        turnoId: id,
+        // Busca por el código de la atención ("A0000001" o un fragmento).
+        ...(search ? { cuentaCorrelativo: { contains: search, mode: 'insensitive' } } : {}),
+      },
       orderBy: { createdAt: 'desc' },
     });
     return { data: movimientos.map((m) => this.mapMovimiento(m)) };
@@ -657,6 +661,9 @@ export class AppService {
           // así también queda en pagos parciales (T-16), no solo el final.
           meseroId: cuentaRemota.meseroId ?? undefined,
           meseroNombre: cuentaRemota.meseroNombre ?? undefined,
+          // Código legible de la atención ("A0000001"), denormalizado desde
+          // la cuenta remota al momento del cobro.
+          cuentaCorrelativo: cuentaRemota.correlativo ?? undefined,
           // Número de mesa legible (y hermanas si estaba unida) al momento
           // del cobro — mismo dato confiado del cliente que ya se usa para
           // MovimientoCaja.donde, ahora también en la Transaccion.
@@ -680,6 +687,7 @@ export class AppService {
           descuento,
           propina: this.money(command.propina ?? 0),
           motivo: command.notas,
+          cuentaCorrelativo: cuentaRemota.correlativo ?? undefined,
         },
       });
 
@@ -957,6 +965,7 @@ export class AppService {
       mesaUnidaCon: t.mesaUnidaCon || undefined,
       tipoComprobante: t.tipoComprobante,
       clienteDocumento: t.clienteDocumento || undefined,
+      cuentaCorrelativo: t.cuentaCorrelativo || undefined,
       createdAt: t.createdAt.toISOString(),
     };
   }
@@ -992,6 +1001,7 @@ export class AppService {
       descuento: this.n(m.descuento),
       propina: this.n(m.propina),
       motivo: m.motivo ?? null,
+      cuentaCorrelativo: m.cuentaCorrelativo ?? null,
       createdAt: m.createdAt.toISOString(),
     };
   }

@@ -30,10 +30,12 @@ export function AuditoriaAnulacionesScreen() {
   const [tipo, setTipo] = useState<TipoAnulacion | ''>('');
   const [desde, setDesde] = useState('');
   const [hasta, setHasta] = useState('');
+  const [search, setSearch] = useState('');
   const { anulaciones, loading, saving, fetch, actualizarAnulacion, invalidarAnulacion } = useAnulacionesQuery({
     tipo: tipo || undefined,
     desde: desde || undefined,
     hasta: hasta || undefined,
+    search: search || undefined,
     limit: 100,
   });
   const [editando, setEditando] = useState<AnulacionAuditoriaVM | null>(null);
@@ -96,6 +98,16 @@ export function AuditoriaAnulacionesScreen() {
           ))}
         </fieldset>
         <span className="spacer" />
+        <div className="search-box" style={{ maxWidth: 200 }}>
+          <Icons.Search s={16} />
+          <input
+            type="search"
+            placeholder="Buscar por código (A0000001)…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            aria-label="Buscar anulaciones por código de atención"
+          />
+        </div>
         <div className="input toolbar-input">
           <input type="date" aria-label="Desde" value={desde} onChange={(e) => setDesde(e.target.value)} />
         </div>
@@ -139,7 +151,10 @@ export function AuditoriaAnulacionesScreen() {
               <tbody>
                 {anulaciones.map((a) => (
                   <tr key={a.id} style={{ opacity: a.invalidada ? 0.6 : undefined }}>
-                    <td className="muted">{a.fechaLabel}</td>
+                    <td className="muted">
+                      {a.fechaLabel}
+                      {a.cuentaCorrelativo && <div className="mono" style={{ fontSize: 11 }}>{a.cuentaCorrelativo}</div>}
+                    </td>
                     <td>{a.mesaNumero ?? '—'}</td>
                     <td><span className="badge badge-muted">{a.tipoLabel}</span></td>
                     <td>{a.productoNombre ? `${a.cantidad ?? ''}× ${a.productoNombre}` : '—'}</td>

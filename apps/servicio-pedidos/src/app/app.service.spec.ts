@@ -229,6 +229,19 @@ describe('AppService — Pedidos', () => {
       }));
     });
 
+    it('buscar por correlativo de atención no aplica el filtro "solo activos" por defecto (cross-referencing desde Mermas/Auditoría)', async () => {
+      jest.spyOn(mockPrisma.pedido, 'findMany').mockResolvedValue([] as any);
+
+      await service.listarPedidos({ search: 'A000004' }, SEDE);
+
+      expect(mockPrisma.pedido.findMany).toHaveBeenCalledWith(expect.objectContaining({
+        where: {
+          sedeId: SEDE,
+          cuentaCorrelativo: { contains: 'A000004', mode: 'insensitive' },
+        },
+      }));
+    });
+
     it('devuelve data y nextCursor cuando hay mas resultados', async () => {
       jest.spyOn(mockPrisma.pedido, 'findMany').mockResolvedValue([
         { ...basePedido, id: 'p-001' },

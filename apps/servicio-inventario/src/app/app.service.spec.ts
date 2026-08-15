@@ -1315,6 +1315,16 @@ describe('AppService — Inventario (comprehensive)', () => {
       await expect(service.listarMermas({}, null)).rejects.toThrow('Indica la sede');
     });
 
+    it('busca por el código de la atención origen cuando se indica search', async () => {
+      mockPrisma.merma.findMany.mockResolvedValue([]);
+      await service.listarMermas({ search: 'A000001' } as any, SEDE);
+      expect(mockPrisma.merma.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { producto: { sedeId: SEDE }, cuentaCorrelativo: { contains: 'A000001', mode: 'insensitive' } },
+        }),
+      );
+    });
+
     it('filtra por origen, desde y hasta cuando se indican', async () => {
       mockPrisma.merma.findMany.mockResolvedValue([]);
       await service.listarMermas({ origen: 'ANULACION_COMANDA_COBRADA', desde: '2026-08-01', hasta: '2026-08-31' } as any, SEDE);
@@ -1471,6 +1481,17 @@ describe('AppService — Inventario (comprehensive)', () => {
 
       expect(mockPrisma.merma.create).toHaveBeenCalledWith(
         expect.objectContaining({ data: expect.objectContaining({ origen: 'ANULACION_COMANDA_COBRADA' }) }),
+      );
+    });
+
+    it('denormaliza el correlativo de la atención origen ("A0000001") en la merma', async () => {
+      mockPrisma.producto.findUnique.mockResolvedValue({ ...productoBase, stockActual: 7 });
+      mockPrisma.producto.findUniqueOrThrow.mockResolvedValue({ ...productoBase, stockActual: 7 });
+
+      await service.procesarItemAnuladoConMerma({ ...payloadBase, cuentaCorrelativo: 'A0000001' } as any);
+
+      expect(mockPrisma.merma.create).toHaveBeenCalledWith(
+        expect.objectContaining({ data: expect.objectContaining({ cuentaCorrelativo: 'A0000001' }) }),
       );
     });
 

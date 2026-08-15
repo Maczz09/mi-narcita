@@ -83,6 +83,12 @@ export class TransaccionDto {
   @IsString()
   clienteDocumento?: string;
 
+  // Código legible de la atención ("A0000001"). Ausente en cuentas
+  // anteriores a este campo.
+  @IsOptional()
+  @IsString()
+  cuentaCorrelativo?: string;
+
   @IsString()
   createdAt: string;
 }

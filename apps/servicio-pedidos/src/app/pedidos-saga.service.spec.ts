@@ -370,6 +370,34 @@ describe('PedidosSagaService — Pedidos', () => {
     });
   });
 
+  describe('procesarCuentaAsociada — backfill del correlativo de la atención', () => {
+    it('guarda el correlativo en el pedido', async () => {
+      const prisma = createMockPrismaService({
+        pedido: { updateMany: jest.fn().mockResolvedValue({ count: 1 }) },
+      });
+      const svc = new PedidosSagaService(prisma as never);
+
+      await svc.procesarCuentaAsociada({ pedidoId: 'p-1', cuentaId: 'c-1', sedeId: 'sede-001', correlativo: 'A0000042' });
+
+      expect(prisma.pedido.updateMany).toHaveBeenCalledWith({
+        where: { id: 'p-1' },
+        data: { cuentaCorrelativo: 'A0000042' },
+      });
+    });
+
+    it('no hace nada si el payload no trae pedidoId o correlativo', async () => {
+      const prisma = createMockPrismaService({
+        pedido: { updateMany: jest.fn() },
+      });
+      const svc = new PedidosSagaService(prisma as never);
+
+      await svc.procesarCuentaAsociada({ pedidoId: '', cuentaId: 'c-1', sedeId: 'sede-001', correlativo: 'A0000042' });
+      await svc.procesarCuentaAsociada({ pedidoId: 'p-1', cuentaId: 'c-1', sedeId: 'sede-001' });
+
+      expect(prisma.pedido.updateMany).not.toHaveBeenCalled();
+    });
+  });
+
   describe('anularItemPreparado — CU-01 (Caso B: ya preparado/servido)', () => {
     const SEDE = 'sede-001';
     const itemPreparado = {
@@ -720,6 +748,22 @@ describe('PedidosSagaService — Pedidos', () => {
         mockPrisma.anulacionAuditoria.findMany.mockResolvedValue([auditoriaBase]);
         const result = await service.listarAnulaciones({}, SEDE);
         expect(result.anulaciones[0].montoAnulado).toBe(30);
+      });
+
+      it('busca por el código de la atención cuando se indica search', async () => {
+        mockPrisma.anulacionAuditoria.findMany.mockResolvedValue([]);
+        await service.listarAnulaciones({ search: 'A000004' } as any, SEDE);
+        expect(mockPrisma.anulacionAuditoria.findMany).toHaveBeenCalledWith(
+          expect.objectContaining({
+            where: { sedeId: SEDE, cuentaCorrelativo: { contains: 'A000004', mode: 'insensitive' } },
+          }),
+        );
+      });
+
+      it('mapea el cuentaCorrelativo cuando el registro lo trae', async () => {
+        mockPrisma.anulacionAuditoria.findMany.mockResolvedValue([{ ...auditoriaBase, cuentaCorrelativo: 'A0000007' }]);
+        const result = await service.listarAnulaciones({}, SEDE);
+        expect(result.anulaciones[0].cuentaCorrelativo).toBe('A0000007');
       });
     });
 

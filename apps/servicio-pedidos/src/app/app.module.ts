@@ -28,7 +28,7 @@ import { RoutingKeys } from '@org/contracts';
     RabbitMQModule.forRoot({
       uri: process.env['RABBITMQ_URI'],
       queue: 'pedidos_queue',
-      bindings: [RoutingKeys.PagoRegistrado, RoutingKeys.MesaCreada, RoutingKeys.MesaActualizada, RoutingKeys.ProductoCreado, RoutingKeys.ProductoActualizado, RoutingKeys.StockInsuficiente]
+      bindings: [RoutingKeys.PagoRegistrado, RoutingKeys.MesaCreada, RoutingKeys.MesaActualizada, RoutingKeys.ProductoCreado, RoutingKeys.ProductoActualizado, RoutingKeys.StockInsuficiente, RoutingKeys.CuentaAsociada]
     }),
   ],
   controllers: [AppController, EventsController],

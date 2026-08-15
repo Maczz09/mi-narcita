@@ -10,6 +10,7 @@ import {
   CuentaEstado,
   RoutingKeys,
   CuentaCerradaPayload,
+  CuentaAsociadaPayload,
   TicketGeneradoPayload,
   PedidoActualizadoPayload,
   PedidoCreadoPayload,
@@ -36,6 +37,7 @@ type CuentaRecord = {
   total: Prisma.Decimal | number | string;
   estado: CuentaEstado;
   ticket?: string | null;
+  correlativo?: string | null;
   createdAt: Date;
   updatedAt: Date;
 };
@@ -99,6 +101,15 @@ export class AppService {
     };
   }
 
+  private async siguienteCorrelativo(prisma: Prisma.TransactionClient, sedeId: string): Promise<string> {
+    const secuencia = await prisma.secuenciaCuenta.upsert({
+      where: { sedeId },
+      create: { sedeId, ultimo: 1 },
+      update: { ultimo: { increment: 1 } },
+    });
+    return `A${String(secuencia.ultimo).padStart(7, '0')}`;
+  }
+
   async abrirCuenta(
     command: AbrirCuentaCommand,
     usuarioSedeId?: string | null,
@@ -117,13 +128,15 @@ export class AppService {
         throw new BadRequestException('La mesa ya tiene una cuenta abierta.');
       }
 
+      const correlativo = await this.siguienteCorrelativo(prisma, sedeId);
       const c = await prisma.cuenta.create({
         data: {
           mesaId: command.mesaId,
           sedeId,
           estado: CuentaEstado.Abierta,
           pedidos: [],
-          total: 0
+          total: 0,
+          correlativo,
         }
       });
 
@@ -216,8 +229,12 @@ export class AppService {
             message: 'Evento PedidoCreado sin sedeId; se asigna Sede Principal.',
           } satisfies OperableLog);
         }
+        // Este es el camino real de la mayoría de cuentas (mesero crea el
+        // primer pedido de la mesa → esto reacciona), no abrirCuenta —
+        // por eso el correlativo se asigna también aquí, no solo ahí.
+        const correlativo = await this.siguienteCorrelativo(prisma, sedeId);
         cuenta = await prisma.cuenta.create({
-          data: { mesaId: pedidoDto.mesaId, sedeId, estado: CuentaEstado.Abierta, pedidos: [], total: 0 },
+          data: { mesaId: pedidoDto.mesaId, sedeId, estado: CuentaEstado.Abierta, pedidos: [], total: 0, correlativo },
         });
       }
 
@@ -230,6 +247,23 @@ export class AppService {
             sedeId: cuenta.sedeId,
             origen: origenCuentaAbierta,
           }),
+          status: 'PENDING',
+        },
+      });
+
+      // Backfill del correlativo de la atención hacia el pedido — ver
+      // CuentaAsociadaPayload. Se reemite en cada reentrega (idempotente:
+      // el handler del otro lado solo sobreescribe con el mismo valor).
+      const cuentaAsociadaPayload: CuentaAsociadaPayload = {
+        pedidoId: pedidoDto.id,
+        cuentaId: cuenta.id,
+        sedeId: cuenta.sedeId,
+        correlativo: cuenta.correlativo ?? undefined,
+      };
+      await prisma.outboxEvent.create({
+        data: {
+          routingKey: RoutingKeys.CuentaAsociada,
+          payload: JSON.stringify(cuentaAsociadaPayload),
           status: 'PENDING',
         },
       });
@@ -609,6 +643,7 @@ export class AppService {
       total: Number(c.total),
       estado: c.estado,
       ticket: c.ticket,
+      correlativo: c.correlativo ?? undefined,
       createdAt: this.requireDate(c.createdAt, 'createdAt', c.id).toISOString(),
       updatedAt: this.requireDate(c.updatedAt, 'updatedAt', c.id).toISOString(),
       // Para auditoría de caja (quién atendió la venta, no solo quién cobró):

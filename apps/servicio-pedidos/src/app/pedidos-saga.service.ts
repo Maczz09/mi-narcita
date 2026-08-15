@@ -22,6 +22,7 @@ import {
   AnularAtencionMesaResultado,
   AnularPedidoCommand,
   MesaEstado,
+  CuentaAsociadaPayload,
 } from '@org/contracts';
 import { resolveSedeId } from '@org/shared-auth';
 import { getOrCreateCounter, OperableLog } from '@org/observabilidad';
@@ -273,6 +274,7 @@ export class PedidosSagaService {
             mesaId: pedidoFinal.mesaId,
             mesaNumero: pedidoFinal.numeroMesa,
             pedidoId,
+            cuentaCorrelativo: pedidoFinal.cuentaCorrelativo,
             itemId: item.id,
             tipo: TipoAnulacion.Item,
             productoId: item.productoId,
@@ -311,6 +313,7 @@ export class PedidosSagaService {
     mesaId: string;
     mesaNumero: number | null;
     pedidoId: string;
+    cuentaCorrelativo?: string | null;
     itemId: string | null;
     tipo: string;
     productoId: string | null;
@@ -335,6 +338,7 @@ export class PedidosSagaService {
       mesaId: a.mesaId,
       mesaNumero: a.mesaNumero,
       pedidoId: a.pedidoId,
+      cuentaCorrelativo: a.cuentaCorrelativo,
       itemId: a.itemId,
       tipo: a.tipo as TipoAnulacion,
       productoId: a.productoId,
@@ -414,6 +418,7 @@ export class PedidosSagaService {
           mesaId: pedido.mesaId,
           mesaNumero: pedido.numeroMesa,
           pedidoId: pedido.id,
+          cuentaCorrelativo: pedido.cuentaCorrelativo,
           itemId: item.id,
           tipo: TipoAnulacion.Item,
           productoId: item.productoId,
@@ -442,6 +447,7 @@ export class PedidosSagaService {
         cobrado: command.cobrar,
         usuarioId: usuarioId ?? undefined,
         usuarioNombre: usuarioNombre ?? undefined,
+        cuentaCorrelativo: pedido.cuentaCorrelativo,
       };
 
       const outboxData: Array<{ routingKey: string; payload: string; status: string }> = [
@@ -484,7 +490,7 @@ export class PedidosSagaService {
    */
   private async cancelarItemsDePedido(
     prisma: Prisma.TransactionClient,
-    pedido: { id: string; mesaId: string; estado: PedidoEstado; items: Array<{ id: string; productoId: string; nombre: string; cantidad: number; precioUnitario: number | { toNumber(): number }; area: string | null; estado: string }> },
+    pedido: { id: string; mesaId: string; estado: PedidoEstado; cuentaCorrelativo?: string | null; items: Array<{ id: string; productoId: string; nombre: string; cantidad: number; precioUnitario: number | { toNumber(): number }; area: string | null; estado: string }> },
     itemsConsumidos: Set<string>,
     motivo: string,
     usuarioId: string | null | undefined,
@@ -568,6 +574,7 @@ export class PedidosSagaService {
           cobrado: false,
           usuarioId: usuarioId ?? undefined,
           usuarioNombre: usuarioNombre ?? undefined,
+          cuentaCorrelativo: pedido.cuentaCorrelativo,
         });
       } else {
         // Aún no sale de cocina/barra: cancelación limpia, se avisa al KDS.
@@ -703,6 +710,7 @@ export class PedidosSagaService {
             mesaId,
             mesaNumero: primero.numeroMesa,
             pedidoId: primero.id,
+            cuentaCorrelativo: primero.cuentaCorrelativo,
             tipo: TipoAnulacion.Mesa,
             estadoPlato: conMerma > 0 ? EstadoPlatoAnulacion.Preparado : EstadoPlatoAnulacion.SinPreparar,
             cobrado: false,
@@ -798,7 +806,7 @@ export class PedidosSagaService {
 
       const auditoriaData = [
         ...r.itemsCanceladosLimpios.map((item) => ({
-          sedeId, mesaId: pedido.mesaId, mesaNumero: pedido.numeroMesa, pedidoId: pedido.id, itemId: item.id,
+          sedeId, mesaId: pedido.mesaId, mesaNumero: pedido.numeroMesa, pedidoId: pedido.id, cuentaCorrelativo: pedido.cuentaCorrelativo, itemId: item.id,
           tipo: TipoAnulacion.Item, productoId: item.productoId, productoNombre: item.nombre, cantidad: item.cantidad,
           estadoPlato: EstadoPlatoAnulacion.SinPreparar, cobrado: false,
           montoAnulado: Number(item.precioUnitario) * item.cantidad,
@@ -806,7 +814,7 @@ export class PedidosSagaService {
           clienteNombre: pedido.cliente ?? undefined,
         })),
         ...r.itemsConMermaDetalle.map((item) => ({
-          sedeId, mesaId: pedido.mesaId, mesaNumero: pedido.numeroMesa, pedidoId: pedido.id, itemId: item.id,
+          sedeId, mesaId: pedido.mesaId, mesaNumero: pedido.numeroMesa, pedidoId: pedido.id, cuentaCorrelativo: pedido.cuentaCorrelativo, itemId: item.id,
           tipo: TipoAnulacion.Item, productoId: item.productoId, productoNombre: item.nombre, cantidad: item.cantidad,
           estadoPlato: EstadoPlatoAnulacion.Preparado, cobrado: false,
           montoAnulado: Number(item.precioUnitario) * item.cantidad,
@@ -860,6 +868,9 @@ export class PedidosSagaService {
                 ...(query.hasta ? { lte: new Date(query.hasta) } : {}),
               },
             }
+          : {}),
+        ...(query.search
+          ? { cuentaCorrelativo: { contains: query.search, mode: 'insensitive' } }
           : {}),
       },
       orderBy: { fecha: 'desc' },
@@ -1030,6 +1041,20 @@ export class PedidosSagaService {
    * stock, el pedido completo. Emite PedidoActualizado para que la UI y demás
    * proyecciones reflejen el rechazo. Idempotente por (pedidoId, productoId).
    */
+  /**
+   * Backfill del correlativo de la atención ("A0000001") hacia el pedido —
+   * ver CuentaAsociadaPayload. `updateMany` en vez de `update`: no hay nada
+   * que hacer (ni que reventar) si el pedido todavía no existiera por algún
+   * reordenamiento de red — simplemente no actualiza nada.
+   */
+  async procesarCuentaAsociada(payload: CuentaAsociadaPayload): Promise<void> {
+    if (!payload.pedidoId || !payload.correlativo) return;
+    await this.prisma.pedido.updateMany({
+      where: { id: payload.pedidoId },
+      data: { cuentaCorrelativo: payload.correlativo },
+    });
+  }
+
   async procesarStockInsuficiente(payload: StockInsuficientePayload): Promise<void> {
     const { pedidoId, productoId } = payload;
     if (!pedidoId || !productoId) {

@@ -233,6 +233,16 @@ describe('AppService — Caja (turnos, movimientos, arqueo, cierre)', () => {
       expect(res.data).toHaveLength(2);
       expect(res.data[1].monto).toBe(-10);
     });
+
+    it('busca por el código de la atención cuando se pasa search', async () => {
+      prisma.movimientoCaja.findMany.mockResolvedValue([]);
+      await service.listarMovimientosTurno('turno-001', undefined, 'A0000042');
+      expect(prisma.movimientoCaja.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { turnoId: 'turno-001', cuentaCorrelativo: { contains: 'A0000042', mode: 'insensitive' } },
+        }),
+      );
+    });
   });
 
   describe('crearMovimiento', () => {

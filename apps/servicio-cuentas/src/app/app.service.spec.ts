@@ -22,6 +22,9 @@ function createMockPrismaService(): any {
       update: jest.fn(),
       updateMany: jest.fn(),
     },
+    secuenciaCuenta: {
+      upsert: jest.fn().mockResolvedValue({ sedeId: 'sede-001', ultimo: 1 }),
+    },
     outboxEvent: {
       create: jest.fn(),
       createMany: jest.fn(),
@@ -166,6 +169,22 @@ describe('AppService — Cuentas (comprehensive)', () => {
       expect(result.cuenta.id).toBe('c-001');
       expect(result.cuenta.estado).toBe(CuentaEstado.Abierta);
       expect(mockPrisma.outboxEvent.create).toHaveBeenCalled();
+    });
+
+    it('asigna un correlativo atómico ("A0000001") tomado de secuenciaCuenta de la sede', async () => {
+      mockPrisma.cuenta.findFirst.mockResolvedValue(null);
+      mockPrisma.secuenciaCuenta.upsert.mockResolvedValue({ sedeId: 'sede-001', ultimo: 7 });
+      mockPrisma.cuenta.create.mockImplementation(({ data }: any) => Promise.resolve({
+        id: 'c-001', ...data, createdAt: new Date(), updatedAt: new Date(),
+      }));
+      mockPrisma.outboxEvent.create.mockResolvedValue({});
+
+      const result = await service.abrirCuenta({ mesaId: 'm-001' }, 'sede-001');
+
+      expect(mockPrisma.secuenciaCuenta.upsert).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { sedeId: 'sede-001' }, create: { sedeId: 'sede-001', ultimo: 1 }, update: { ultimo: { increment: 1 } } }),
+      );
+      expect(result.cuenta.correlativo).toBe('A0000007');
     });
 
     it('rechaza si la mesa ya tiene una cuenta abierta y origen es manual', async () => {
@@ -545,22 +564,44 @@ describe('AppService — Cuentas (comprehensive)', () => {
       );
     });
 
-    it('crea cuenta (fallback inline) cuando no existe una cuenta abierta', async () => {
+    it('crea cuenta (fallback inline) cuando no existe una cuenta abierta, CON correlativo (este es el camino real: mesero crea el primer pedido, no abrirCuenta)', async () => {
       mockPrisma.cuenta.findFirst.mockResolvedValue(null);
-      mockPrisma.cuenta.create.mockResolvedValue({
-        id: 'c-new',
-        mesaId: 'm-001',
-        estado: CuentaEstado.Abierta,
-        pedidos: [],
-        total: 0,
+      mockPrisma.secuenciaCuenta.upsert.mockResolvedValue({ sedeId: 'sede-001', ultimo: 3 });
+      mockPrisma.cuenta.create.mockImplementation(({ data }: any) => Promise.resolve({
+        id: 'c-new', ...data, createdAt: new Date(),
+      }));
+      mockPrisma.outboxEvent.create.mockResolvedValue({});
+      mockPrisma.cuenta.update.mockResolvedValue({});
+
+      await service.procesarPedidoCreado({ pedido: { ...pedidoBase, sedeId: 'sede-001' } });
+
+      expect(mockPrisma.secuenciaCuenta.upsert).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { sedeId: 'sede-001' } }),
+      );
+      expect(mockPrisma.cuenta.create).toHaveBeenCalledWith(
+        expect.objectContaining({ data: expect.objectContaining({ correlativo: 'A0000003' }) }),
+      );
+      expect(mockPrisma.cuenta.update).toHaveBeenCalled();
+    });
+
+    it('emite CuentaAsociada con el correlativo para que servicio-pedidos lo respalde en el Pedido', async () => {
+      mockPrisma.cuenta.findFirst.mockResolvedValue({
+        id: 'c-001', mesaId: 'm-001', sedeId: 'sede-001', estado: CuentaEstado.Abierta,
+        pedidos: [], total: 0, correlativo: 'A0000005', createdAt: new Date('2020-01-01T00:00:00Z'),
       });
       mockPrisma.outboxEvent.create.mockResolvedValue({});
       mockPrisma.cuenta.update.mockResolvedValue({});
 
       await service.procesarPedidoCreado({ pedido: pedidoBase });
 
-      expect(mockPrisma.cuenta.create).toHaveBeenCalled();
-      expect(mockPrisma.cuenta.update).toHaveBeenCalled();
+      expect(mockPrisma.outboxEvent.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            routingKey: 'cuenta.asociada',
+            payload: JSON.stringify({ pedidoId: pedidoBase.id, cuentaId: 'c-001', sedeId: 'sede-001', correlativo: 'A0000005' }),
+          }),
+        }),
+      );
     });
 
     it('ignora (idempotente) si el pedido ya está en la cuenta', async () => {

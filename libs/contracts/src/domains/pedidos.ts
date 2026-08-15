@@ -125,6 +125,12 @@ export class PedidoDto {
   @IsOptional()
   @IsString()
   meseroNombre?: string;
+  // Código legible de la atención ("A0000001") — llega por backfill
+  // asíncrono desde servicio-cuentas, puede tardar unos ms tras crear el
+  // pedido o quedar ausente en pedidos de cuentas anteriores a este campo.
+  @IsOptional()
+  @IsString()
+  cuentaCorrelativo?: string;
   @IsString()
   createdAt: string;
 }
@@ -185,6 +191,10 @@ export class ListarPedidosQuery {
   @IsOptional()
   @IsDateString()
   updatedSince?: string;
+  // Busca por el código de la atención ("A0000001" o un fragmento).
+  @IsOptional()
+  @IsString()
+  search?: string;
 }
 
 export class PedidoListResponse {
@@ -330,6 +340,11 @@ export class PedidoItemAnuladoConMermaPayload {
   @IsOptional()
   @IsString()
   usuarioNombre?: string | null;
+  // Código legible de la atención ("A0000001") del pedido origen — se
+  // denormaliza en la Merma que crea servicio-inventario al consumir esto.
+  @IsOptional()
+  @IsString()
+  cuentaCorrelativo?: string | null;
 }
 
 // ─── CU-01: anular un ítem YA preparado/servido ──────────────────────────
@@ -426,6 +441,11 @@ export class AnulacionAuditoriaDto {
   mesaNumero?: number | null;
   @IsString()
   pedidoId: string;
+  // Código legible de la atención ("A0000001") a la que pertenecía el
+  // pedido anulado, si ya se le había asignado al momento de la anulación.
+  @IsOptional()
+  @IsString()
+  cuentaCorrelativo?: string | null;
   @IsOptional()
   @IsString()
   itemId?: string | null;
@@ -495,6 +515,10 @@ export class ListarAnulacionesQuery {
   @IsOptional()
   @IsString()
   sedeId?: string;
+  // Busca por el código de la atención ("A0000001" o un fragmento).
+  @IsOptional()
+  @IsString()
+  search?: string;
 }
 
 export class ActualizarAnulacionCommand {

@@ -40,6 +40,24 @@ export class CuentaCerradaPayload {
   meseroNombre?: string;
 }
 
+/**
+ * Backfill: servicio-cuentas emite esto cada vez que confirma a qué cuenta
+ * (atención) pertenece un pedido, para que servicio-pedidos guarde el
+ * correlativo de la atención ("A0000001") directamente en el Pedido —
+ * evita que pwa-cliente tenga que resolverlo con una llamada cruzada.
+ */
+export class CuentaAsociadaPayload {
+  @IsString()
+  pedidoId: string;
+  @IsString()
+  cuentaId: string;
+  @IsString()
+  sedeId: string;
+  @IsOptional()
+  @IsString()
+  correlativo?: string;
+}
+
 export class TicketGeneradoPayload {
   @IsString()
   ticketId: string;
@@ -63,6 +81,11 @@ export class CuentaDto {
   @IsOptional()
   @IsString()
   ticket?: string | null;
+  // Código legible de la atención ("A0000001"). Ausente en cuentas creadas
+  // antes de este campo (no hay backfill retroactivo).
+  @IsOptional()
+  @IsString()
+  correlativo?: string;
   @IsString()
   createdAt: string;
   @IsString()

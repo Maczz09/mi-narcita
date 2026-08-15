@@ -11,7 +11,7 @@ export const ANULACIONES_KEY = ['anulaciones'];
 
 export function useAnulacionesQuery(query: ListarAnulacionesPayload = {}) {
   const anulacionesQuery = useQuery({
-    queryKey: [...ANULACIONES_KEY, query.tipo, query.usuarioId, query.desde, query.hasta, query.limit].filter((part) => part !== undefined),
+    queryKey: [...ANULACIONES_KEY, query.tipo, query.usuarioId, query.desde, query.hasta, query.limit, query.search].filter((part) => part !== undefined),
     queryFn: async () => pedidosApi.getAnulaciones(query),
     retry: retrySalvo404,
     refetchInterval: refetchSiError,

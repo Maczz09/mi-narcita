@@ -83,6 +83,7 @@ export function mapPedido(dto: PedidoDto): PedidoVM {
     modalidad: dto.modalidad ?? undefined,
     canal: canalFromModalidad(dto.modalidad ?? undefined),
     cantidadItems: items.reduce((sum, it) => sum + it.cantidad, 0),
+    cuentaCorrelativo: dto.cuentaCorrelativo ?? undefined,
   };
 }
 
@@ -108,6 +109,7 @@ export function mapAnulacionAuditoria(dto: AnulacionAuditoriaDto): AnulacionAudi
     fechaLabel: new Date(dto.fecha).toLocaleString('es-PE', { dateStyle: 'short', timeStyle: 'short' }),
     mesaNumero: dto.mesaNumero ?? null,
     pedidoId: dto.pedidoId,
+    cuentaCorrelativo: dto.cuentaCorrelativo ?? null,
     tipo: dto.tipo,
     tipoLabel: TIPO_ANULACION_LABEL[dto.tipo] ?? dto.tipo,
     productoNombre: dto.productoNombre ?? null,
