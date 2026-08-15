@@ -216,6 +216,75 @@ describe('AuthService — Identidad', () => {
     });
   });
 
+  describe('actualizarUsuario', () => {
+    it('guarda el teléfono y registra auditoría', async () => {
+      mockPrisma.usuario.findUnique.mockResolvedValue(usuarioBase);
+      mockPrisma.usuario.update.mockResolvedValue({ ...usuarioBase, telefono: '987654321' });
+      mockPrisma.auditoriaLog.create.mockResolvedValue({});
+
+      const result = await service.actualizarUsuario('u-001', { telefono: '987654321' }, 'u-002');
+
+      expect(result.telefono).toBe('987654321');
+      expect(mockPrisma.usuario.update).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { id: 'u-001' }, data: { telefono: '987654321' } }),
+      );
+      expect(mockPrisma.auditoriaLog.create).toHaveBeenCalledWith(
+        expect.objectContaining({ data: expect.objectContaining({ accion: 'ACTUALIZAR_PERFIL:por:u-002' }) }),
+      );
+    });
+
+    it('vacía el teléfono (null) cuando se manda una cadena vacía o solo espacios', async () => {
+      mockPrisma.usuario.findUnique.mockResolvedValue(usuarioBase);
+      mockPrisma.usuario.update.mockResolvedValue({ ...usuarioBase, telefono: null });
+
+      await service.actualizarUsuario('u-001', { telefono: '   ' }, 'u-002');
+
+      expect(mockPrisma.usuario.update).toHaveBeenCalledWith(
+        expect.objectContaining({ data: { telefono: null } }),
+      );
+    });
+
+    it('lanza NotFoundException si el usuario no existe', async () => {
+      mockPrisma.usuario.findUnique.mockResolvedValue(null);
+      await expect(
+        service.actualizarUsuario('inexistente', { telefono: '1' }, 'u-002'),
+      ).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  describe('cambiarPasswordUsuario', () => {
+    it('hashea la nueva contraseña, revoca sesiones activas y registra auditoría', async () => {
+      mockPrisma.usuario.findUnique.mockResolvedValue(usuarioBase);
+      mockPrisma.usuario.update.mockResolvedValue({ ...usuarioBase, password: 'hashed_password' });
+      mockPrisma.refreshToken.updateMany.mockResolvedValue({ count: 2 });
+      mockPrisma.auditoriaLog.create.mockResolvedValue({});
+
+      const result = await service.cambiarPasswordUsuario('u-001', { password: 'nuevaClave123' }, 'u-002');
+
+      expect(result.id).toBe('u-001');
+      expect(bcrypt.hash).toHaveBeenCalledWith('nuevaClave123', 12);
+      expect(mockPrisma.usuario.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: 'u-001' },
+          data: expect.objectContaining({ password: 'hashed_password', failedLoginAttempts: 0, lockedUntil: null }),
+        }),
+      );
+      expect(mockPrisma.refreshToken.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { userId: 'u-001', revokedAt: null } }),
+      );
+      expect(mockPrisma.auditoriaLog.create).toHaveBeenCalledWith(
+        expect.objectContaining({ data: expect.objectContaining({ accion: 'RESET_PASSWORD:por:u-002' }) }),
+      );
+    });
+
+    it('lanza NotFoundException si el usuario no existe', async () => {
+      mockPrisma.usuario.findUnique.mockResolvedValue(null);
+      await expect(
+        service.cambiarPasswordUsuario('inexistente', { password: 'nuevaClave123' }, 'u-002'),
+      ).rejects.toThrow(NotFoundException);
+    });
+  });
+
   describe('login — T-03 lockout', () => {
     it('rechaza usuario con lockedUntil en el futuro', async () => {
       mockPrisma.usuario.findUnique.mockResolvedValue({

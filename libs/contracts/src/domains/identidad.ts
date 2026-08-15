@@ -36,6 +36,10 @@ export class UsuarioDto {
   @IsString()
   sedeId?: string | null;
 
+  @IsOptional()
+  @IsString()
+  telefono?: string | null;
+
   @IsString()
   createdAt: string;
 }
@@ -112,6 +116,26 @@ export class CambiarRolCommand {
 export class CambiarEstadoUsuarioCommand {
   @IsBoolean()
   activo: boolean;
+}
+
+// Teléfono editable por un ADMIN — separado de CrearUsuarioCommand porque
+// esto se usa para editar un usuario YA existente (mismo criterio que
+// CambiarRolCommand/CambiarEstadoUsuarioCommand: un comando angosto por
+// mutación, no un "update" genérico).
+export class ActualizarUsuarioCommand {
+  @IsOptional()
+  @IsString()
+  telefono?: string | null;
+}
+
+// Reseteo de contraseña por un ADMIN (no requiere la contraseña actual del
+// usuario — a diferencia de un self-service "cambiar mi contraseña", que
+// no existe todavía). Separado de ActualizarUsuarioCommand porque es una
+// acción sensible con su propio registro de auditoría.
+export class CambiarPasswordUsuarioCommand {
+  @IsString()
+  @MinLength(8)
+  password: string;
 }
 
 /* ── Responses ───────────────────────────────────────── */

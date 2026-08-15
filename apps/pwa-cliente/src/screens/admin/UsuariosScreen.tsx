@@ -9,7 +9,8 @@ import { useSedesQuery } from '../../hooks/queries/useSedesQuery';
 import { useAuthStore } from '../../store/auth.store';
 import { Icons } from '../../components/ui/icons';
 import { StatKpi } from '../../components/ui/StatKpi';
-import type { CrearUsuarioPayload, RolUsuario } from '../../types/usuario.types';
+import { EditarUsuarioModal } from './EditarUsuarioModal';
+import type { CrearUsuarioPayload, RolUsuario, UsuarioVM } from '../../types/usuario.types';
 
 const ROLES: { value: RolUsuario; label: string }[] = [
   { value: 'ADMIN', label: 'Admin' },
@@ -50,6 +51,7 @@ export function UsuariosScreen() {
   const [form, setForm] = useState<CrearUsuarioPayload>(INITIAL_FORM);
   const [search, setSearch] = useState('');
   const [rolFiltro, setRolFiltro] = useState<string>('');
+  const [editando, setEditando] = useState<UsuarioVM | null>(null);
 
   const filters = useMemo(
     () => ({
@@ -72,8 +74,14 @@ export function UsuariosScreen() {
     crear,
     cambiarRol,
     cambiarEstado,
+    actualizar,
+    cambiarPassword,
     clearFeedback,
   } = useUsuariosQuery(filters);
+
+  const usuarioEditando = editando
+    ? usuarios.find((u) => u.id === editando.id) ?? editando
+    : null;
 
   const { sedes } = useSedesQuery();
   const sedeNombrePorId = useMemo(() => new Map(sedes.map((s) => [s.id, s.nombre])), [sedes]);
@@ -221,6 +229,7 @@ export function UsuariosScreen() {
                       <th className="col-mobile-hidden">Creado</th>
                       {puedeGestionar && <th className="cell-action">Cambiar rol</th>}
                       {puedeGestionar && <th className="cell-action">Acceso</th>}
+                      {puedeGestionar && <th className="cell-action">Editar</th>}
                     </tr>
                   </thead>
                   <tbody>
@@ -275,6 +284,19 @@ export function UsuariosScreen() {
                               onClick={() => void handleCambiarEstado(usuario.id, usuario.nombre, !usuario.activo)}
                             >
                               <span className="knob" />
+                            </button>
+                          </td>
+                        )}
+                        {puedeGestionar && (
+                          <td className="cell-action">
+                            <button
+                              className="icon-btn"
+                              disabled={saving || !online}
+                              title={`Editar a ${usuario.nombre}`}
+                              aria-label={`Editar a ${usuario.nombre}`}
+                              onClick={() => setEditando(usuario)}
+                            >
+                              <Icons.Edit s={16} />
                             </button>
                           </td>
                         )}
@@ -355,6 +377,20 @@ export function UsuariosScreen() {
           </aside>
         )}
       </div>
+
+      {usuarioEditando && (
+        <EditarUsuarioModal
+          usuario={usuarioEditando}
+          saving={saving}
+          onClose={() => setEditando(null)}
+          onGuardarTelefono={async (telefono) => {
+            await actualizar(usuarioEditando.id, { telefono: telefono || null });
+          }}
+          onCambiarPassword={async (password) => {
+            await cambiarPassword(usuarioEditando.id, password);
+          }}
+        />
+      )}
     </div>
   );
 }

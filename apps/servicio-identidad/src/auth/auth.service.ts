@@ -16,6 +16,8 @@ import {
   LoginResponseDto,
   CambiarRolCommand,
   CambiarEstadoUsuarioCommand,
+  ActualizarUsuarioCommand,
+  CambiarPasswordUsuarioCommand,
   RolUsuario,
   ListarUsuariosQuery,
   UsuarioListResponse,
@@ -513,6 +515,68 @@ export class AuthService {
       aggregateId: actualizado.id,
       resultingState: command.activo ? 'ACTIVO' : 'INACTIVO',
       message: 'Estado de usuario actualizado.',
+    } satisfies OperableLog);
+    return toUsuarioDto(actualizado);
+  }
+
+  /** Datos de perfil editables por un ADMIN — hoy solo teléfono. */
+  async actualizarUsuario(id: string, command: ActualizarUsuarioCommand, ejecutadoPor: string) {
+    const usuario = await this.prisma.usuario.findUnique({ where: { id } });
+    if (!usuario) {
+      throw new NotFoundException('Usuario no encontrado');
+    }
+
+    const actualizado = await this.prisma.usuario.update({
+      where: { id },
+      data: { telefono: command.telefono?.trim() || null },
+    });
+    await this.registrarAuditoria(`ACTUALIZAR_PERFIL:por:${ejecutadoPor}`, id, 'servicio-identidad');
+
+    this.logger.log({
+      operation: 'actualizarUsuario',
+      aggregateId: actualizado.id,
+      message: 'Perfil de usuario actualizado.',
+    } satisfies OperableLog);
+    return toUsuarioDto(actualizado);
+  }
+
+  /**
+   * Reseteo de contraseña por un ADMIN — no requiere la contraseña actual
+   * (a diferencia de un self-service "cambiar mi contraseña", que no
+   * existe todavía). Revoca las sesiones activas del usuario, igual que
+   * cambiarEstado(activo:false): una contraseña reseteada no debería dejar
+   * sesiones viejas vivas con el token anterior.
+   */
+  async cambiarPasswordUsuario(id: string, command: CambiarPasswordUsuarioCommand, ejecutadoPor: string) {
+    const usuario = await this.prisma.usuario.findUnique({ where: { id } });
+    if (!usuario) {
+      throw new NotFoundException('Usuario no encontrado');
+    }
+
+    const hashedPassword = await bcrypt.hash(command.password, SALT_ROUNDS);
+    const actualizado = await this.prisma.$transaction(async (tx) => {
+      const usuarioActualizado = await tx.usuario.update({
+        where: { id },
+        data: { password: hashedPassword, failedLoginAttempts: 0, lockedUntil: null },
+      });
+      await tx.refreshToken.updateMany({
+        where: { userId: id, revokedAt: null },
+        data: { revokedAt: new Date() },
+      });
+      await tx.auditoriaLog.create({
+        data: {
+          accion: `RESET_PASSWORD:por:${ejecutadoPor}`,
+          usuarioId: id,
+          servicio: 'servicio-identidad',
+        },
+      });
+      return usuarioActualizado;
+    });
+
+    this.logger.log({
+      operation: 'cambiarPasswordUsuario',
+      aggregateId: actualizado.id,
+      message: 'Contraseña de usuario reseteada por un administrador.',
     } satisfies OperableLog);
     return toUsuarioDto(actualizado);
   }

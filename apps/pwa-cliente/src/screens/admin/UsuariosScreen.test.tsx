@@ -31,7 +31,8 @@ vi.mock('../../components/ui/icons', () => ({
     Alert: () => <svg data-testid="icon-alert" />,
     Check: () => <svg data-testid="icon-check" />,
     Usuarios: () => <svg data-testid="icon-usuarios" />,
-    Plus: () => <svg data-testid="icon-plus" />
+    Plus: () => <svg data-testid="icon-plus" />,
+    Edit: () => <svg data-testid="icon-edit" />
   }
 }));
 
@@ -39,9 +40,20 @@ vi.mock('../../components/ui/StatKpi', () => ({
   StatKpi: ({ label, value }: any) => <div data-testid={`kpi-${label}`}>{value}</div>
 }));
 
+vi.mock('./EditarUsuarioModal', () => ({
+  EditarUsuarioModal: ({ usuario, onClose, onGuardarTelefono, onCambiarPassword }: any) => (
+    <div data-testid="editar-usuario-modal">
+      <span>{usuario.nombre}</span>
+      <button onClick={onClose}>Close Editar</button>
+      <button onClick={() => onGuardarTelefono('987654321')}>Guardar Telefono</button>
+      <button onClick={() => onCambiarPassword('nuevaClave123')}>Cambiar Password</button>
+    </div>
+  )
+}));
+
 const mockUsuarios = [
-  { id: '1', nombre: 'Admin User', email: 'admin@test.com', rol: 'ADMIN', rolLabel: 'Admin', activo: true, estadoClass: 'ok', estadoLabel: 'Activo', createdAtLabel: 'Hoy' },
-  { id: '2', nombre: 'Mesero Uno', email: 'm1@test.com', rol: 'MESERO', rolLabel: 'Mesero', activo: false, estadoClass: 'muted', estadoLabel: 'Inactivo', createdAtLabel: 'Ayer' },
+  { id: '1', nombre: 'Admin User', email: 'admin@test.com', rol: 'ADMIN', rolLabel: 'Admin', activo: true, estadoClass: 'ok', estadoLabel: 'Activo', createdAtLabel: 'Hoy', telefono: null },
+  { id: '2', nombre: 'Mesero Uno', email: 'm1@test.com', rol: 'MESERO', rolLabel: 'Mesero', activo: false, estadoClass: 'muted', estadoLabel: 'Inactivo', createdAtLabel: 'Ayer', telefono: '987654321' },
 ];
 
 describe('UsuariosScreen', () => {
@@ -63,6 +75,8 @@ describe('UsuariosScreen', () => {
       crear: vi.fn(),
       cambiarRol: vi.fn(),
       cambiarEstado: vi.fn(),
+      actualizar: vi.fn(),
+      cambiarPassword: vi.fn(),
       clearFeedback: vi.fn()
     } as any);
   });
@@ -104,6 +118,8 @@ describe('UsuariosScreen', () => {
       crear,
       cambiarRol: vi.fn(),
       cambiarEstado: vi.fn(),
+      actualizar: vi.fn(),
+      cambiarPassword: vi.fn(),
       clearFeedback: vi.fn()
     } as any);
 
@@ -158,6 +174,8 @@ describe('UsuariosScreen', () => {
       crear: vi.fn(),
       cambiarRol: vi.fn(),
       cambiarEstado: vi.fn(),
+      actualizar: vi.fn(),
+      cambiarPassword: vi.fn(),
       clearFeedback: vi.fn()
     } as any);
 
@@ -182,6 +200,8 @@ describe('UsuariosScreen', () => {
       crear: vi.fn(),
       cambiarRol,
       cambiarEstado: vi.fn(),
+      actualizar: vi.fn(),
+      cambiarPassword: vi.fn(),
       clearFeedback: vi.fn()
     } as any);
 
@@ -213,6 +233,8 @@ describe('UsuariosScreen', () => {
       crear: vi.fn(),
       cambiarRol: vi.fn(),
       cambiarEstado,
+      actualizar: vi.fn(),
+      cambiarPassword: vi.fn(),
       clearFeedback: vi.fn()
     } as any);
 
@@ -244,6 +266,8 @@ describe('UsuariosScreen', () => {
       crear: vi.fn(),
       cambiarRol: vi.fn(),
       cambiarEstado,
+      actualizar: vi.fn(),
+      cambiarPassword: vi.fn(),
       clearFeedback: vi.fn()
     } as any);
 
@@ -270,6 +294,8 @@ describe('UsuariosScreen', () => {
       crear: vi.fn(),
       cambiarRol: vi.fn(),
       cambiarEstado,
+      actualizar: vi.fn(),
+      cambiarPassword: vi.fn(),
       clearFeedback: vi.fn()
     } as any);
 
@@ -301,6 +327,8 @@ describe('UsuariosScreen', () => {
       crear: vi.fn(),
       cambiarRol: vi.fn(),
       cambiarEstado: vi.fn(),
+      actualizar: vi.fn(),
+      cambiarPassword: vi.fn(),
       clearFeedback: vi.fn()
     } as any);
 
@@ -308,6 +336,48 @@ describe('UsuariosScreen', () => {
 
     expect(screen.getByRole('button', { name: 'Desactivar a Admin User' })).toBeDisabled();
     expect(screen.getByRole('button', { name: 'Reactivar a Mesero Uno' })).not.toBeDisabled();
+  });
+
+  it('abre el modal de edición, guarda teléfono y cambia contraseña', async () => {
+    const actualizar = vi.fn();
+    const cambiarPassword = vi.fn();
+    vi.mocked(useUsuariosQuery).mockReturnValue({
+      usuarios: mockUsuarios,
+      nextCursor: null,
+      loading: false,
+      loadingMore: false,
+      saving: false,
+      error: null,
+      success: null,
+      fetch: vi.fn(),
+      fetchMore: vi.fn(),
+      crear: vi.fn(),
+      cambiarRol: vi.fn(),
+      cambiarEstado: vi.fn(),
+      actualizar,
+      cambiarPassword,
+      clearFeedback: vi.fn()
+    } as any);
+
+    render(<UsuariosScreen />);
+
+    expect(screen.queryByTestId('editar-usuario-modal')).toBeNull();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Editar a Admin User' }));
+    expect(screen.getByTestId('editar-usuario-modal')).toBeDefined();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Guardar Telefono' }));
+    await waitFor(() => {
+      expect(actualizar).toHaveBeenCalledWith('1', { telefono: '987654321' });
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Cambiar Password' }));
+    await waitFor(() => {
+      expect(cambiarPassword).toHaveBeenCalledWith('1', 'nuevaClave123');
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Close Editar' }));
+    expect(screen.queryByTestId('editar-usuario-modal')).toBeNull();
   });
 
   it('handles non-admin view', () => {
