@@ -131,12 +131,14 @@ describe('UsuariosScreen', () => {
 
     const nameInput = screen.getByLabelText('Nombre');
     const emailInput = screen.getByLabelText('Email');
+    const telefonoInput = screen.getByLabelText('Teléfono');
     const passInput = screen.getByLabelText('Contraseña');
     const rolSelect = screen.getByLabelText('Rol');
     const sedeSelect = screen.getByLabelText('Sede');
 
     fireEvent.change(nameInput, { target: { value: 'Nuevo Mesero ' } });
     fireEvent.change(emailInput, { target: { value: ' nuevo@test.com ' } });
+    fireEvent.change(telefonoInput, { target: { value: ' 987654321 ' } });
     fireEvent.change(passInput, { target: { value: 'password123' } });
     fireEvent.change(rolSelect, { target: { value: 'COCINA' } });
     fireEvent.change(sedeSelect, { target: { value: 'sede-1' } });
@@ -148,6 +150,7 @@ describe('UsuariosScreen', () => {
       expect(crear).toHaveBeenCalledWith({
         nombre: 'Nuevo Mesero',
         email: 'nuevo@test.com',
+        telefono: '987654321',
         password: 'password123',
         rol: 'COCINA',
         sedeId: 'sede-1',
@@ -157,6 +160,39 @@ describe('UsuariosScreen', () => {
     // Close feedback
     const closeBtns = screen.getAllByRole('button', { name: /Cerrar/i });
     fireEvent.click(closeBtns[0]);
+  });
+
+  it('crea un usuario sin teléfono (opcional) sin mandar el campo', async () => {
+    const crear = vi.fn();
+    vi.mocked(useUsuariosQuery).mockReturnValue({
+      usuarios: mockUsuarios,
+      nextCursor: null,
+      loading: false,
+      loadingMore: false,
+      saving: false,
+      error: null,
+      success: null,
+      fetch: vi.fn(),
+      fetchMore: vi.fn(),
+      crear,
+      cambiarRol: vi.fn(),
+      cambiarEstado: vi.fn(),
+      actualizar: vi.fn(),
+      cambiarPassword: vi.fn(),
+      clearFeedback: vi.fn()
+    } as any);
+
+    render(<UsuariosScreen />);
+
+    fireEvent.change(screen.getByLabelText('Nombre'), { target: { value: 'Sin Telefono' } });
+    fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'sintelefono@test.com' } });
+    fireEvent.change(screen.getByLabelText('Contraseña'), { target: { value: 'password123' } });
+    fireEvent.change(screen.getByLabelText('Sede'), { target: { value: 'sede-1' } });
+    fireEvent.click(screen.getByRole('button', { name: /Crear usuario/i }));
+
+    await waitFor(() => {
+      expect(crear).toHaveBeenCalledWith(expect.not.objectContaining({ telefono: expect.anything() }));
+    });
   });
 
   it('handles empty state and offline', () => {

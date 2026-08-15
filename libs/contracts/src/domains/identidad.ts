@@ -106,6 +106,10 @@ export class CrearUsuarioCommand {
   @IsOptional()
   @IsString()
   sedeId?: string;
+
+  @IsOptional()
+  @IsString()
+  telefono?: string;
 }
 
 export class CambiarRolCommand {

@@ -450,6 +450,27 @@ describe('AuthService — Identidad', () => {
       expect(result.rol).toBe('MESERO');
     });
 
+    it('guarda el teléfono si se lo pasan, y null si se omite o queda en blanco', async () => {
+      mockPrisma.usuario.findUnique.mockResolvedValue(null);
+      mockPrisma.sede.findUnique.mockResolvedValue({ id: 'sede-1', nombre: 'Sede Principal', activa: true });
+      mockPrisma.usuario.create.mockResolvedValue({ ...usuarioBase, sedeId: 'sede-1' });
+      mockPrisma.auditoriaLog.create.mockResolvedValue({});
+
+      await service.crearUsuario({
+        nombre: 'Nuevo', email: 'nuevo@test.com', password: '123456', rol: RolUsuario.Mesero, sedeId: 'sede-1', telefono: '987654321',
+      });
+      expect(mockPrisma.usuario.create).toHaveBeenCalledWith(
+        expect.objectContaining({ data: expect.objectContaining({ telefono: '987654321' }) }),
+      );
+
+      await service.crearUsuario({
+        nombre: 'Nuevo', email: 'nuevo2@test.com', password: '123456', rol: RolUsuario.Mesero, sedeId: 'sede-1',
+      });
+      expect(mockPrisma.usuario.create).toHaveBeenCalledWith(
+        expect.objectContaining({ data: expect.objectContaining({ telefono: null }) }),
+      );
+    });
+
     it('debe crear un ADMIN sin sede fija aunque no se indique sedeId', async () => {
       mockPrisma.usuario.findUnique.mockResolvedValue(null);
       mockPrisma.usuario.create.mockResolvedValue({

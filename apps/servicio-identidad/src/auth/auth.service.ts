@@ -331,6 +331,7 @@ export class AuthService {
         password: hashedPassword,
         rol: command.rol,
         sedeId,
+        telefono: command.telefono?.trim() || null,
       },
     });
 

@@ -38,6 +38,7 @@ const INITIAL_FORM: CrearUsuarioPayload = {
   password: '',
   rol: 'MESERO',
   sedeId: '',
+  telefono: '',
 };
 
 function iniciales(nombre: string): string {
@@ -114,6 +115,7 @@ export function UsuariosScreen() {
       nombre: form.nombre.trim(),
       email: form.email.trim(),
       sedeId: form.rol === 'ADMIN' ? undefined : form.sedeId,
+      telefono: form.telefono?.trim() || undefined,
     });
     setForm(INITIAL_FORM);
   };
@@ -335,6 +337,12 @@ export function UsuariosScreen() {
                   <label htmlFor="nu-email">Email</label>
                   <div className="input">
                     <input id="nu-email" required type="email" value={form.email} onChange={(event) => updateForm('email', event.target.value)} placeholder="persona@mi-narcita.pe" />
+                  </div>
+                </div>
+                <div className="field">
+                  <label htmlFor="nu-telefono">Teléfono</label>
+                  <div className="input">
+                    <input id="nu-telefono" type="tel" value={form.telefono ?? ''} onChange={(event) => updateForm('telefono', event.target.value)} placeholder="Opcional · Ej. 987654321" />
                   </div>
                 </div>
                 <div className="field">
