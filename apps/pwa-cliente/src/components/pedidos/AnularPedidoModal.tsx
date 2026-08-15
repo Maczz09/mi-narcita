@@ -38,7 +38,11 @@ export function AnularPedidoModal({ items, saving, onClose, onConfirm }: Readonl
     });
   };
 
-  const valido = motivo.trim() !== '' && activos.length > 0;
+  // `activos.length === 0` es válido a propósito: cubre el pedido huérfano
+  // (todos sus ítems ya están anulados/rechazados de antes, pero el pedido
+  // en sí quedó congelado sin pasar a CANCELADO) — el backend lo autocorrige
+  // aunque no haya nada nuevo que cancelar.
+  const valido = motivo.trim() !== '';
 
   return (
     <div className="modal-wrap">
@@ -51,7 +55,10 @@ export function AnularPedidoModal({ items, saving, onClose, onConfirm }: Readonl
         </div>
         <div style={{ padding: '4px 20px 20px' }}>
           {activos.length === 0 ? (
-            <div className="muted" style={{ marginBottom: 14 }}>No hay ítems activos que anular en este pedido.</div>
+            <div className="muted" style={{ marginBottom: 14 }}>
+              Todos los ítems de este pedido ya están anulados o rechazados, pero el pedido sigue en el tablero.
+              Al confirmar, se cierra directamente como anulado.
+            </div>
           ) : (
             <>
               <div className="muted" style={{ marginBottom: 14, fontSize: 13 }}>

@@ -501,6 +501,7 @@ export class PedidosSagaService {
     stockRestauradoPayloads: StockRestauradoPayload[];
     itemsCanceladosLimpios: typeof pedido.items;
     itemsConMermaDetalle: typeof pedido.items;
+    estadoForzado: boolean;
   }> {
     const itemsFinal: typeof pedido.items = [];
     const itemsCanceladosLimpios: typeof pedido.items = [];
@@ -582,9 +583,17 @@ export class PedidosSagaService {
       }
     }
 
-    if (pedidoCambio) {
+    const todosCerrados = itemsFinal.every((i) => i.estado === EstadoItem.Cancelado || i.estado === EstadoItem.RechazadoSinStock);
+    // Ítems que ya estaban cerrados ANTES de esta corrida (p. ej. anulados
+    // en una pasada previa que se interrumpió) dejan `pedidoCambio` en
+    // false porque este loop no tocó ningún ítem — pero el pedido puede
+    // seguir congelado en un estado de producción viejo. Se autocorrige
+    // aunque no haya nada nuevo que cancelar, para que un pedido huérfano
+    // siempre pueda salir del tablero.
+    const estadoForzado = !pedidoCambio && todosCerrados && pedido.estado !== PedidoEstado.Cancelado;
+
+    if (pedidoCambio || estadoForzado) {
       const nuevoTotal = this.recalcularTotalCobrable(itemsFinal);
-      const todosCerrados = itemsFinal.every((i) => i.estado === EstadoItem.Cancelado || i.estado === EstadoItem.RechazadoSinStock);
       // Si NO todos los ítems se cerraron (p. ej. quedó un ítem de
       // Inventario "mantenido" para cobro), el pedido no debe quedarse
       // congelado en el estado de producción que tenía antes de la
@@ -615,7 +624,7 @@ export class PedidosSagaService {
       });
     }
 
-    return { itemsFinal, cancelados, conMerma, mantenidos, montoAnulado, outboxData, mermaPayloads, stockRestauradoPayloads, itemsCanceladosLimpios, itemsConMermaDetalle };
+    return { itemsFinal, cancelados, conMerma, mantenidos, montoAnulado, outboxData, mermaPayloads, stockRestauradoPayloads, itemsCanceladosLimpios, itemsConMermaDetalle, estadoForzado };
   }
 
   /**
@@ -783,7 +792,7 @@ export class PedidosSagaService {
         prisma, pedido, itemsConsumidos, command.motivo, usuarioId, usuarioNombre, 'anulacion-pedido',
       );
 
-      if (r.cancelados === 0 && r.conMerma === 0) {
+      if (r.cancelados === 0 && r.conMerma === 0 && !r.estadoForzado) {
         throw new BadRequestException('No hay ningún ítem pendiente o preparado que anular en este pedido (todo ya está cancelado o confirmado como consumido).');
       }
 

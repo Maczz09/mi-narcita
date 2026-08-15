@@ -617,12 +617,27 @@ describe('PedidosSagaService — Pedidos', () => {
       ).rejects.toThrow('no se puede anular');
     });
 
-    it('rechaza si no queda nada que anular (todo ya cancelado)', async () => {
+    it('si todos los ítems ya estaban cancelados de antes, autocorrige el pedido a CANCELADO en vez de rechazar (pedido huérfano atascado en el tablero)', async () => {
       mockPrisma.pedido.findUnique.mockResolvedValue(
         pedido([{ ...itemCocinaPendiente, estado: PedidoEstado.Cancelado }]),
       );
+      mockPrisma.pedido.update.mockResolvedValue({ ...pedido([]), estado: PedidoEstado.Cancelado, items: [] });
+      mockPrisma.pedido.findUniqueOrThrow.mockResolvedValue({ ...pedido([]), estado: PedidoEstado.Cancelado, items: [] });
+      mockPrisma.anulacionAuditoria.createMany.mockResolvedValue({ count: 0 });
+
+      const result = await service.anularPedido('p-1', { motivo: 'Limpieza de pedido atascado' }, SEDE);
+
+      expect(result.pedido.estado).toBe(PedidoEstado.Cancelado);
+      expect(mockPrisma.pedido.update).toHaveBeenCalledWith(
+        expect.objectContaining({ data: expect.objectContaining({ estado: PedidoEstado.Cancelado }) }),
+      );
+    });
+
+    it('rechaza si lo único que queda es un ítem DIRECTO confirmado como consumido (nada que cancelar ni autocorregir)', async () => {
+      const itemDirectoMantenido = { id: 'i-3', pedidoId: 'p-1', productoId: 'prod-c', nombre: 'Cerveza', cantidad: 1, precioUnitario: 8, area: 'DIRECTO', estado: PedidoEstado.Entregado, notas: null };
+      mockPrisma.pedido.findUnique.mockResolvedValue(pedido([itemDirectoMantenido]));
       await expect(
-        service.anularPedido('p-1', { motivo: 'x' }, SEDE),
+        service.anularPedido('p-1', { motivo: 'x', itemsConsumidos: ['i-3'] }, SEDE),
       ).rejects.toThrow('No hay ningún ítem');
     });
 
