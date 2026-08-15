@@ -28,6 +28,7 @@ function createMockPrismaService(overrides: Record<string, any> = {}) {
     },
     anulacionAuditoria: {
       create: jest.fn(),
+      createMany: jest.fn().mockResolvedValue({ count: 0 }),
       findMany: jest.fn(),
       findUnique: jest.fn(),
       update: jest.fn(),
@@ -588,6 +589,87 @@ describe('PedidosSagaService — Pedidos', () => {
 
       expect(resultado.itemsCancelados).toBe(2);
       expect(mockPrisma.pedido.update).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  describe('anularPedido — anulación puntual desde el tablero de Pedidos', () => {
+    const SEDE = 'sede-001';
+    const MESA = 'm-001';
+    const itemCocinaPendiente = { id: 'i-1', pedidoId: 'p-1', productoId: 'prod-a', nombre: 'Sopa', cantidad: 1, precioUnitario: 10, area: 'COCINA', estado: PedidoEstado.Pendiente, notas: null };
+    const itemCocinaEntregado = { id: 'i-2', pedidoId: 'p-1', productoId: 'prod-b', nombre: 'Lomo', cantidad: 1, precioUnitario: 20, area: 'COCINA', estado: PedidoEstado.Entregado, notas: null };
+
+    const pedido = (items: any[], estado = PedidoEstado.EnPreparacion) => ({
+      id: 'p-1', mesaId: MESA, sedeId: SEDE, numeroMesa: 1, cliente: null,
+      estado, total: 30, createdAt: new Date(), items,
+    });
+
+    it('rechaza si el pedido no existe', async () => {
+      mockPrisma.pedido.findUnique.mockResolvedValue(null);
+      await expect(
+        service.anularPedido('no-existe', { motivo: 'x' }, SEDE),
+      ).rejects.toThrow('no encontrado');
+    });
+
+    it('rechaza si el pedido ya está en un estado terminal', async () => {
+      mockPrisma.pedido.findUnique.mockResolvedValue(pedido([itemCocinaPendiente], PedidoEstado.Cancelado));
+      await expect(
+        service.anularPedido('p-1', { motivo: 'x' }, SEDE),
+      ).rejects.toThrow('no se puede anular');
+    });
+
+    it('rechaza si no queda nada que anular (todo ya cancelado)', async () => {
+      mockPrisma.pedido.findUnique.mockResolvedValue(
+        pedido([{ ...itemCocinaPendiente, estado: PedidoEstado.Cancelado }]),
+      );
+      await expect(
+        service.anularPedido('p-1', { motivo: 'x' }, SEDE),
+      ).rejects.toThrow('No hay ningún ítem');
+    });
+
+    it('cancela los ítems del pedido, mueve el pedido a CANCELADO, y crea auditoría POR ÍTEM (tipo ITEM, no MESA)', async () => {
+      mockPrisma.pedido.findUnique.mockResolvedValue(pedido([itemCocinaPendiente, itemCocinaEntregado]));
+      mockPrisma.pedidoItem.update.mockImplementation((args: any) => {
+        const items: Record<string, any> = { 'i-1': itemCocinaPendiente, 'i-2': itemCocinaEntregado };
+        return Promise.resolve({ ...items[args.where.id], estado: args.data.estado });
+      });
+      mockPrisma.anulacionAuditoria.createMany.mockResolvedValue({ count: 2 });
+      mockPrisma.pedido.update.mockResolvedValue({ ...pedido([]), estado: PedidoEstado.Cancelado, items: [] });
+      mockPrisma.pedido.findUniqueOrThrow.mockResolvedValue({ ...pedido([]), estado: PedidoEstado.Cancelado, items: [] });
+
+      const result = await service.anularPedido('p-1', { motivo: 'Pedido duplicado por error' }, SEDE, undefined, 'u-1', 'Ana');
+
+      // Auditoría por ítem, no un solo registro agregado tipo MESA (a
+      // diferencia de anularAtencionMesa) — así invalidarAnulacion sí puede
+      // revertir cada ítem de verdad después.
+      expect(mockPrisma.anulacionAuditoria.createMany).toHaveBeenCalledWith({
+        data: expect.arrayContaining([
+          expect.objectContaining({ itemId: 'i-1', tipo: 'ITEM', estadoPlato: 'SIN_PREPARAR' }),
+          expect.objectContaining({ itemId: 'i-2', tipo: 'ITEM', estadoPlato: 'PREPARADO' }),
+        ]),
+      });
+      expect(mockPrisma.pedido.update).toHaveBeenCalledWith(expect.objectContaining({
+        where: { id: 'p-1' },
+        data: expect.objectContaining({ estado: PedidoEstado.Cancelado }),
+      }));
+      const eventos = mockPrisma.outboxEvent.createMany.mock.calls.at(-1)[0].data;
+      expect(eventos.map((e: any) => e.routingKey)).toEqual(expect.arrayContaining([
+        'pedido.item_anulado', // i-1: sin preparar, avisa a cocina
+        'pedido.item_anulado_con_merma', // i-2: ya se sirvió
+        'pedido.actualizado',
+      ]));
+      expect(result.pedido.estado).toBe(PedidoEstado.Cancelado);
+    });
+
+    it('NO libera la mesa (a diferencia de anularAtencionMesa) — solo cancela este pedido', async () => {
+      mockPrisma.pedido.findUnique.mockResolvedValue(pedido([itemCocinaPendiente]));
+      mockPrisma.pedidoItem.update.mockResolvedValue({ ...itemCocinaPendiente, estado: PedidoEstado.Cancelado });
+      mockPrisma.anulacionAuditoria.createMany.mockResolvedValue({ count: 1 });
+      mockPrisma.pedido.update.mockResolvedValue({ ...pedido([]), estado: PedidoEstado.Cancelado, items: [] });
+      mockPrisma.pedido.findUniqueOrThrow.mockResolvedValue({ ...pedido([]), estado: PedidoEstado.Cancelado, items: [] });
+
+      await service.anularPedido('p-1', { motivo: 'x' }, SEDE);
+
+      expect(mockMesasHttp.liberarMesa).not.toHaveBeenCalled();
     });
   });
 

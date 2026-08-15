@@ -11,6 +11,7 @@ interface DetallePedidoProps {
   onClose: () => void;
   onAvanzar: (p: PedidoVM) => void;
   onAnularItem: (item: PedidoItemVM) => void;
+  onAnularPedido: (p: PedidoVM) => void;
   actionLoading: string | null;
   online: boolean;
   now: number;
@@ -25,11 +26,16 @@ function flowStepCls(i: number, curIdx: number): string {
   return '';
 }
 
-export function DetallePedido({ pedido: p, onClose, onAvanzar, onAnularItem, actionLoading, online, now }: Readonly<DetallePedidoProps>) {
+// Mismos estados terminales que valida el backend (anularPedido): ya no
+// tiene sentido ofrecer "Anular pedido" sobre un pedido ya cerrado.
+const ESTADOS_TERMINALES = new Set(['CANCELADO', 'PAGADO', 'RECHAZADO_SIN_STOCK']);
+
+export function DetallePedido({ pedido: p, onClose, onAvanzar, onAnularItem, onAnularPedido, actionLoading, online, now }: Readonly<DetallePedidoProps>) {
   const meta = CANAL_META[p.canal];
   const Ic = Icons[meta.ic];
   const nextLabel = nextLabelFor(p);
   const curIdx = FLOW_PEDIDO.findIndex((f) => f.estado === p.estado);
+  const puedeAnular = !ESTADOS_TERMINALES.has(p.estado);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
@@ -109,6 +115,17 @@ export function DetallePedido({ pedido: p, onClose, onAvanzar, onAnularItem, act
         <div className="modal-foot" style={{ borderTop: '1px solid var(--border)', paddingTop: 14 }}>
           <div><div className="hint">Total</div><b className="mono" style={{ fontSize: 18 }}>{fmt(p.total)}</b></div>
           <span className="spacer" />
+          {puedeAnular && (
+            <button
+              className="btn btn-ghost"
+              style={{ color: 'var(--danger)', borderColor: 'var(--danger-soft)' }}
+              aria-label={`Anular pedido ${p.id.slice(0, 6)}`}
+              disabled={!online}
+              onClick={() => onAnularPedido(p)}
+            >
+              <Icons.Alert s={15} /> Anular pedido
+            </button>
+          )}
           {nextLabel && (
             <button
               className="btn btn-primary"

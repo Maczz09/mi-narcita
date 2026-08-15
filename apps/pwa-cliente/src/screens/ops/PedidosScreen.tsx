@@ -2,7 +2,7 @@
 import { useMemo, useState } from 'react';
 import { useOnlineStatus } from '../../hooks/useOnlineStatus';
 import { useNow } from '../../hooks/useNow';
-import { usePedidosQuery } from '../../hooks/queries/usePedidosQuery';
+import { usePedidosQuery, useAnularPedidoMutation } from '../../hooks/queries/usePedidosQuery';
 import { useToast } from '../../components/ui/ToastProvider';
 import { Icons } from '../../components/ui/icons';
 import { Comandero } from '../../components/comandero/Comandero';
@@ -10,6 +10,7 @@ import { TableroView } from '../../components/pedidos/TableroView';
 import { ListaView } from '../../components/pedidos/ListaView';
 import { DetallePedido } from '../../components/pedidos/DetallePedido';
 import { AnularItemModal } from '../../components/pedidos/AnularItemModal';
+import { AnularPedidoModal } from '../../components/pedidos/AnularPedidoModal';
 import { nextEstadoFor } from '../../components/pedidos/pedidos.meta';
 import { ETAPAS_PRODUCCION as ETAPAS, ESTADOS_PRODUCCION as ESTADOS_VISIBLES } from '../../domain/pedido.flow';
 import type { PedidoVM, PedidoItemVM } from '../../types/pedido.types';
@@ -26,6 +27,7 @@ export function PedidosScreen() {
   const now = useNow();
   const { toast } = useToast();
   const { pedidos, nextCursor, loading, loadingMore, error, fetch, fetchMore, avanzarEstado, avanzarItem, anularItemPreparado } = usePedidosQuery();
+  const { saving: savingAnularPedido, anularPedido } = useAnularPedidoMutation();
   const [canal, setCanal] = useState<CanalFiltro>('TODOS');
   const [vista, setVista] = useState<'tablero' | 'lista'>('tablero');
   const [detalle, setDetalle] = useState<PedidoVM | null>(null);
@@ -33,6 +35,7 @@ export function PedidosScreen() {
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [anularItemSel, setAnularItemSel] = useState<PedidoItemVM | null>(null);
   const [savingAnular, setSavingAnular] = useState(false);
+  const [anularPedidoSel, setAnularPedidoSel] = useState<PedidoVM | null>(null);
 
   // Re-deriva el detalle abierto desde la lista viva: tras anular un ítem
   // (que no cierra el drawer, a diferencia de avanzar), el snapshot local
@@ -81,6 +84,18 @@ export function PedidosScreen() {
       toast({ title: 'No se pudo anular el ítem', msg: err instanceof Error ? err.message : 'Inténtalo de nuevo', icon: 'Alert', kind: 'err' });
     } finally {
       setSavingAnular(false);
+    }
+  };
+
+  const confirmarAnularPedido = async (motivo: string, itemsConsumidos: string[]) => {
+    if (!anularPedidoSel || !online) return;
+    try {
+      await anularPedido(anularPedidoSel.id, { motivo, itemsConsumidos });
+      toast({ title: 'Pedido anulado', icon: 'Check', kind: 'ok' });
+      setAnularPedidoSel(null);
+      setDetalle(null);
+    } catch (err) {
+      toast({ title: 'No se pudo anular el pedido', msg: err instanceof Error ? err.message : 'Inténtalo de nuevo', icon: 'Alert', kind: 'err' });
     }
   };
 
@@ -161,7 +176,7 @@ export function PedidosScreen() {
       {detalleVivo && (
         <DetallePedido
           pedido={detalleVivo} onClose={() => setDetalle(null)}
-          onAvanzar={avanzar} onAnularItem={setAnularItemSel}
+          onAvanzar={avanzar} onAnularItem={setAnularItemSel} onAnularPedido={setAnularPedidoSel}
           actionLoading={actionLoading} online={online} now={now}
         />
       )}
@@ -172,6 +187,15 @@ export function PedidosScreen() {
           saving={savingAnular}
           onClose={() => setAnularItemSel(null)}
           onConfirm={(motivo, cobrar, observacion) => { void confirmarAnular(motivo, cobrar, observacion); }}
+        />
+      )}
+
+      {anularPedidoSel && (
+        <AnularPedidoModal
+          items={anularPedidoSel.items}
+          saving={savingAnularPedido}
+          onClose={() => setAnularPedidoSel(null)}
+          onConfirm={(motivo, itemsConsumidos) => { void confirmarAnularPedido(motivo, itemsConsumidos); }}
         />
       )}
 

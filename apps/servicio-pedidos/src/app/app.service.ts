@@ -21,6 +21,7 @@ import {
   ActualizarAnulacionCommand,
   InvalidarAnulacionCommand,
   AnularAtencionMesaCommand,
+  AnularPedidoCommand,
 } from '@org/contracts';
 import { Prisma } from '../generated/prisma';
 import { resolveSedeId } from '@org/shared-auth';
@@ -419,6 +420,19 @@ export class AppService {
     usuarioNombre?: string | null,
   ) {
     return this.saga.anularAtencionMesa(mesaId, command, usuarioSedeId, sedeIdSolicitado, usuarioId, usuarioNombre);
+  }
+
+  // Anular UN pedido puntual desde el tablero de Pedidos — delegada también
+  // en PedidosSagaService, mismo criterio que anularAtencionMesa.
+  async anularPedido(
+    pedidoId: string,
+    command: AnularPedidoCommand,
+    usuarioSedeId?: string | null,
+    sedeIdSolicitado?: string,
+    usuarioId?: string | null,
+    usuarioNombre?: string | null,
+  ) {
+    return this.saga.anularPedido(pedidoId, command, usuarioSedeId, sedeIdSolicitado, usuarioId, usuarioNombre);
   }
 
   async listarAnulaciones(query: ListarAnulacionesQuery, usuarioSedeId?: string | null, sedeIdSolicitado?: string) {

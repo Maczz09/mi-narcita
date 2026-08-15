@@ -12,6 +12,7 @@ import type {
   AnularItemPreparadoPayload,
   AnularAtencionMesaPayload,
   AnularAtencionMesaResultado,
+  AnularPedidoPayload,
   AnulacionAuditoriaDto,
   ListarAnulacionesPayload,
   ActualizarAnulacionPayload,
@@ -99,6 +100,16 @@ export async function anularAtencionMesa(mesaId: string, payload: AnularAtencion
     payload,
   );
   return unwrapEntity<AnularAtencionMesaResultado>(response, 'resultado');
+}
+
+// Anular UN pedido puntual desde el tablero de Pedidos (no toda la mesa) —
+// salvavidas operativo para pedidos atascados/duplicados/con error.
+export async function anularPedido(pedidoId: string, payload: AnularPedidoPayload): Promise<PedidoDto> {
+  const response = await client.post<PedidoDto | { pedido: PedidoDto }>(
+    `/pedidos/${pedidoId}/anular`,
+    payload,
+  );
+  return unwrapEntity<PedidoDto>(response, 'pedido');
 }
 
 // ─── CU-05: Auditoría de Anulaciones ──────────────────────────────────────

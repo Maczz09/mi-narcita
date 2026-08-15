@@ -13,6 +13,7 @@ import type {
   AnularItemPreparadoPayload,
   AnularAtencionMesaPayload,
   AnularAtencionMesaResultado,
+  AnularPedidoPayload,
 } from '../../types/pedido.types';
 import type { MesaVM } from '../../types/mesa.types';
 
@@ -304,6 +305,30 @@ export function useAnularAtencionMesaMutation() {
     saving: mutation.isPending,
     anularAtencionMesa: async (mesaId: string, payload: AnularAtencionMesaPayload) => {
       return mutation.mutateAsync({ mesaId, payload });
+    },
+  };
+}
+
+/**
+ * Anular UN pedido puntual desde el tablero de Pedidos (no toda la mesa) —
+ * salvavidas operativo: si un pedido queda atascado (o simplemente se
+ * quiere cancelar uno puntual sin tocar el resto de la mesa), esto lo saca
+ * de la vista sin depender de SQL manual.
+ */
+export function useAnularPedidoMutation() {
+  const mutation = useMutation({
+    mutationFn: async ({ pedidoId, payload }: { pedidoId: string; payload: AnularPedidoPayload }) =>
+      pedidosApi.anularPedido(pedidoId, payload),
+    onSuccess: (pedido) => {
+      invalidateOperationalData(pedido.mesaId);
+      scheduleConsistencyRefetch(pedido.mesaId);
+    },
+  });
+
+  return {
+    saving: mutation.isPending,
+    anularPedido: async (pedidoId: string, payload: AnularPedidoPayload) => {
+      return mutation.mutateAsync({ pedidoId, payload });
     },
   };
 }

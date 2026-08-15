@@ -4,7 +4,7 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { PedidosScreen } from './PedidosScreen';
 import { useOnlineStatus } from '../../hooks/useOnlineStatus';
-import { usePedidosQuery } from '../../hooks/queries/usePedidosQuery';
+import { usePedidosQuery, useAnularPedidoMutation } from '../../hooks/queries/usePedidosQuery';
 import type { PedidoVM } from '../../types/pedido.types';
 
 vi.mock('../../hooks/useOnlineStatus');
@@ -28,6 +28,7 @@ describe('PedidosScreen', () => {
       pedidos: [], nextCursor: null, loading: false, loadingMore: false, error: null,
       fetch: vi.fn(), fetchMore: vi.fn(), avanzarEstado: vi.fn(), avanzarItem: vi.fn(), anularItemPreparado: vi.fn(),
     });
+    (useAnularPedidoMutation as any).mockReturnValue({ saving: false, anularPedido: vi.fn() });
   });
 
   it('renders loading state', () => {

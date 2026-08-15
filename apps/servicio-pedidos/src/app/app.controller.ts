@@ -14,6 +14,7 @@ import {
   ActualizarAnulacionCommand,
   InvalidarAnulacionCommand,
   AnularAtencionMesaCommand,
+  AnularPedidoCommand,
 } from '@org/contracts';
 import { RabbitMQRetryInterceptor, IdempotencyInterceptor } from '@org/resiliencia';
 import { UsuarioActual } from '@org/observabilidad';
@@ -103,6 +104,23 @@ export class AppController {
     @Query('sedeId') sedeId?: string,
   ) {
     return this.appService.anularAtencionMesa(mesaId, body, usuarioSedeId, sedeId, usuarioId, usuarioNombre);
+  }
+
+  // Anular UN pedido puntual desde el tablero de Pedidos (no toda la
+  // mesa) — salvavidas operativo para pedidos atascados, sin depender de
+  // un desarrollador con acceso a la base de datos.
+  @UseGuards(RolesGuard)
+  @Roles('ADMIN', 'SISTEMA', 'CAJERO', 'MESERO')
+  @Post(':id/anular')
+  anularPedido(
+    @Param('id') id: string,
+    @Body() body: AnularPedidoCommand,
+    @UsuarioActual('sedeId') usuarioSedeId: string | null,
+    @UsuarioActual() usuarioId: string | null,
+    @UsuarioActual('nombre') usuarioNombre: string | null,
+    @Query('sedeId') sedeId?: string,
+  ) {
+    return this.appService.anularPedido(id, body, usuarioSedeId, sedeId, usuarioId, usuarioNombre);
   }
 
   // CU-05: panel de fiscalización — solo administración/gerencia.

@@ -371,6 +371,24 @@ export class AnularAtencionMesaCommand {
   itemsConsumidos?: string[];
 }
 
+/**
+ * Body de POST /pedidos/:id/anular — anula UN pedido puntual (no toda la
+ * mesa) directamente desde el tablero de Pedidos. Mismo criterio por ítem
+ * que AnularAtencionMesaCommand, pero acotado a un solo pedido; a
+ * diferencia de la anulación de mesa, cada ítem cancelado/con merma queda
+ * con su propio registro de auditoría (tipo ITEM), así que sí se puede
+ * revertir de verdad después desde "Invalidar anulación".
+ */
+export class AnularPedidoCommand {
+  @IsString()
+  @IsNotEmpty()
+  motivo: string;
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  itemsConsumidos?: string[];
+}
+
 export class AnularAtencionMesaResultado {
   @IsInt()
   itemsCancelados: number;

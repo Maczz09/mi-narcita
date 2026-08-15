@@ -20,6 +20,7 @@ import {
   EstadoPlatoAnulacion,
   AnularAtencionMesaCommand,
   AnularAtencionMesaResultado,
+  AnularPedidoCommand,
   MesaEstado,
 } from '@org/contracts';
 import { resolveSedeId } from '@org/shared-auth';
@@ -472,6 +473,152 @@ export class PedidosSagaService {
   }
 
   /**
+   * Núcleo compartido de "cancelar todos los ítems vivos de UN pedido"
+   * (extraído de anularAtencionMesa para reusarlo en anularPedido — CU-02
+   * anula por MESA, la versión nueva anula por PEDIDO puntual). Cancela
+   * ítem por ítem según el mismo criterio de siempre (¿ya salió?, ¿es
+   * Inventario confirmado?), deja el pedido en el estado correcto (nunca
+   * congelado — ver fix del bug de Pedido.estado), y devuelve todo lo
+   * necesario para que el caller arme su propio registro de auditoría
+   * (por pedido individual o agregado por mesa) y flushee los eventos.
+   */
+  private async cancelarItemsDePedido(
+    prisma: Prisma.TransactionClient,
+    pedido: { id: string; mesaId: string; estado: PedidoEstado; items: Array<{ id: string; productoId: string; nombre: string; cantidad: number; precioUnitario: number | { toNumber(): number }; area: string | null; estado: string }> },
+    itemsConsumidos: Set<string>,
+    motivo: string,
+    usuarioId: string | null | undefined,
+    usuarioNombre: string | null | undefined,
+    eventoOrigen: string,
+  ): Promise<{
+    itemsFinal: typeof pedido.items;
+    cancelados: number;
+    conMerma: number;
+    mantenidos: number;
+    montoAnulado: number;
+    outboxData: Array<{ routingKey: string; payload: string; status: string }>;
+    mermaPayloads: PedidoItemAnuladoConMermaPayload[];
+    stockRestauradoPayloads: StockRestauradoPayload[];
+    itemsCanceladosLimpios: typeof pedido.items;
+    itemsConMermaDetalle: typeof pedido.items;
+  }> {
+    const itemsFinal: typeof pedido.items = [];
+    const itemsCanceladosLimpios: typeof pedido.items = [];
+    const itemsConMermaDetalle: typeof pedido.items = [];
+    let pedidoCambio = false;
+    let cancelados = 0;
+    let conMerma = 0;
+    let mantenidos = 0;
+    let montoAnulado = 0;
+    const outboxData: Array<{ routingKey: string; payload: string; status: string }> = [];
+    const mermaPayloads: PedidoItemAnuladoConMermaPayload[] = [];
+    const stockRestauradoPayloads: StockRestauradoPayload[] = [];
+
+    for (const item of pedido.items) {
+      if (item.estado === EstadoItem.Cancelado || item.estado === EstadoItem.RechazadoSinStock) {
+        itemsFinal.push(item);
+        continue;
+      }
+
+      const esDirecto = item.area === ItemArea.Directo;
+
+      if (esDirecto && itemsConsumidos.has(item.id)) {
+        // Confirmado por el cajero: sí se abrió/sirvió — se mantiene, se cobra normal.
+        mantenidos++;
+        itemsFinal.push(item);
+        continue;
+      }
+
+      if (esDirecto) {
+        // Nunca se abrió: se cancela y se devuelve el stock que ya se había reservado.
+        const actualizado = await prisma.pedidoItem.update({ where: { id: item.id }, data: { estado: EstadoItem.Cancelado } });
+        itemsFinal.push(actualizado);
+        itemsCanceladosLimpios.push(actualizado);
+        cancelados++;
+        pedidoCambio = true;
+        stockRestauradoPayloads.push({
+          eventId: `${item.id}:${eventoOrigen}`,
+          productoId: item.productoId,
+          cantidad: item.cantidad,
+          motivo: `Anulación: ${motivo}`,
+        });
+        continue;
+      }
+
+      // COCINA/BARRA:
+      const actualizado = await prisma.pedidoItem.update({ where: { id: item.id }, data: { estado: EstadoItem.Cancelado } });
+      itemsFinal.push(actualizado);
+      pedidoCambio = true;
+      const monto = Number(item.precioUnitario) * item.cantidad;
+
+      if (item.estado === EstadoItem.Entregado) {
+        // Ya se sirvió: pérdida real, no se cobra.
+        conMerma++;
+        montoAnulado += monto;
+        itemsConMermaDetalle.push(actualizado);
+        mermaPayloads.push({
+          eventId: `${item.id}:${eventoOrigen}`,
+          pedidoId: pedido.id,
+          itemId: item.id,
+          productoId: item.productoId,
+          productoNombre: item.nombre,
+          cantidad: item.cantidad,
+          motivo,
+          cobrado: false,
+          usuarioId: usuarioId ?? undefined,
+          usuarioNombre: usuarioNombre ?? undefined,
+        });
+      } else {
+        // Aún no sale de cocina/barra: cancelación limpia, se avisa al KDS.
+        cancelados++;
+        itemsCanceladosLimpios.push(actualizado);
+        const payload: PedidoItemAnuladoPayload = {
+          pedidoId: pedido.id,
+          itemId: item.id,
+          productoNombre: item.nombre,
+          mesaId: pedido.mesaId,
+        };
+        outboxData.push({ routingKey: RoutingKeys.PedidoItemAnulado, payload: JSON.stringify(payload), status: 'PENDING' });
+      }
+    }
+
+    if (pedidoCambio) {
+      const nuevoTotal = this.recalcularTotalCobrable(itemsFinal);
+      const todosCerrados = itemsFinal.every((i) => i.estado === EstadoItem.Cancelado || i.estado === EstadoItem.RechazadoSinStock);
+      // Si NO todos los ítems se cerraron (p. ej. quedó un ítem de
+      // Inventario "mantenido" para cobro), el pedido no debe quedarse
+      // congelado en el estado de producción que tenía antes de la
+      // anulación — recalculamos igual que actualizarEstadoItem
+      // ("cocina manda") a partir de lo que sobrevive.
+      let nuevoEstado: PedidoEstado | undefined;
+      if (todosCerrados) {
+        nuevoEstado = PedidoEstado.Cancelado;
+      } else {
+        const enProduccion =
+          pedido.estado === PedidoEstado.Pendiente ||
+          pedido.estado === PedidoEstado.EnPreparacion ||
+          pedido.estado === PedidoEstado.Listo;
+        if (enProduccion) {
+          const derivado = this.derivarEstadoPedido(itemsFinal.map((i) => i.estado));
+          if (derivado && derivado !== pedido.estado) nuevoEstado = derivado;
+        }
+      }
+      const pedidoActualizado = await prisma.pedido.update({
+        where: { id: pedido.id },
+        data: { total: nuevoTotal, ...(nuevoEstado ? { estado: nuevoEstado } : {}) },
+        include: { items: true },
+      });
+      outboxData.push({
+        routingKey: RoutingKeys.PedidoActualizado,
+        payload: JSON.stringify({ pedido: mapPedidoToDto(pedidoActualizado) }),
+        status: 'PENDING',
+      });
+    }
+
+    return { itemsFinal, cancelados, conMerma, mantenidos, montoAnulado, outboxData, mermaPayloads, stockRestauradoPayloads, itemsCanceladosLimpios, itemsConMermaDetalle };
+  }
+
+  /**
    * CU-02: el cliente abandona/desiste de la mesa antes de que termine su
    * atención. Cancela TODOS los pedidos activos de la mesa, ítem por ítem,
    * con la misma distinción de fondo que CU-01 (¿ya salió o no?) más el
@@ -524,106 +671,16 @@ export class PedidosSagaService {
         const stockRestauradoPayloads: StockRestauradoPayload[] = [];
 
         for (const pedido of pedidos) {
-          const itemsFinal: typeof pedido.items = [];
-          let pedidoCambio = false;
-
-          for (const item of pedido.items) {
-            if (item.estado === EstadoItem.Cancelado || item.estado === EstadoItem.RechazadoSinStock) {
-              itemsFinal.push(item);
-              continue;
-            }
-
-            const esDirecto = item.area === ItemArea.Directo;
-
-            if (esDirecto && itemsConsumidos.has(item.id)) {
-              // Confirmado por el cajero: sí se abrió/sirvió — se mantiene, se cobra normal.
-              mantenidos++;
-              itemsFinal.push(item);
-              continue;
-            }
-
-            if (esDirecto) {
-              // Nunca se abrió: se cancela y se devuelve el stock que ya se había reservado.
-              const actualizado = await prisma.pedidoItem.update({ where: { id: item.id }, data: { estado: EstadoItem.Cancelado } });
-              itemsFinal.push(actualizado);
-              cancelados++;
-              pedidoCambio = true;
-              stockRestauradoPayloads.push({
-                eventId: `${item.id}:anulacion-mesa`,
-                productoId: item.productoId,
-                cantidad: item.cantidad,
-                motivo: `Anulación de atención de mesa: ${command.motivo}`,
-              });
-              continue;
-            }
-
-            // COCINA/BARRA:
-            const actualizado = await prisma.pedidoItem.update({ where: { id: item.id }, data: { estado: EstadoItem.Cancelado } });
-            itemsFinal.push(actualizado);
-            pedidoCambio = true;
-            const monto = Number(item.precioUnitario) * item.cantidad;
-
-            if (item.estado === EstadoItem.Entregado) {
-              // Ya se sirvió: pérdida real, no se cobra.
-              conMerma++;
-              montoAnulado += monto;
-              mermaPayloads.push({
-                eventId: `${item.id}:anulacion-mesa`,
-                pedidoId: pedido.id,
-                itemId: item.id,
-                productoId: item.productoId,
-                productoNombre: item.nombre,
-                cantidad: item.cantidad,
-                motivo: command.motivo,
-                cobrado: false,
-                usuarioId: usuarioId ?? undefined,
-                usuarioNombre: usuarioNombre ?? undefined,
-              });
-            } else {
-              // Aún no sale de cocina/barra: cancelación limpia, se avisa al KDS.
-              cancelados++;
-              const payload: PedidoItemAnuladoPayload = {
-                pedidoId: pedido.id,
-                itemId: item.id,
-                productoNombre: item.nombre,
-                mesaId: pedido.mesaId,
-              };
-              outboxData.push({ routingKey: RoutingKeys.PedidoItemAnulado, payload: JSON.stringify(payload), status: 'PENDING' });
-            }
-          }
-
-          if (pedidoCambio) {
-            const nuevoTotal = this.recalcularTotalCobrable(itemsFinal);
-            const todosCerrados = itemsFinal.every((i) => i.estado === EstadoItem.Cancelado || i.estado === EstadoItem.RechazadoSinStock);
-            // Si NO todos los ítems se cerraron (p. ej. quedó un ítem de
-            // Inventario "mantenido" para cobro), el pedido no debe quedarse
-            // congelado en el estado de producción que tenía antes de la
-            // anulación — recalculamos igual que actualizarEstadoItem
-            // ("cocina manda") a partir de lo que sobrevive.
-            let nuevoEstado: PedidoEstado | undefined;
-            if (todosCerrados) {
-              nuevoEstado = PedidoEstado.Cancelado;
-            } else {
-              const enProduccion =
-                pedido.estado === PedidoEstado.Pendiente ||
-                pedido.estado === PedidoEstado.EnPreparacion ||
-                pedido.estado === PedidoEstado.Listo;
-              if (enProduccion) {
-                const derivado = this.derivarEstadoPedido(itemsFinal.map((i) => i.estado));
-                if (derivado && derivado !== pedido.estado) nuevoEstado = derivado;
-              }
-            }
-            const pedidoActualizado = await prisma.pedido.update({
-              where: { id: pedido.id },
-              data: { total: nuevoTotal, ...(nuevoEstado ? { estado: nuevoEstado } : {}) },
-              include: { items: true },
-            });
-            outboxData.push({
-              routingKey: RoutingKeys.PedidoActualizado,
-              payload: JSON.stringify({ pedido: mapPedidoToDto(pedidoActualizado) }),
-              status: 'PENDING',
-            });
-          }
+          const r = await this.cancelarItemsDePedido(
+            prisma, pedido, itemsConsumidos, command.motivo, usuarioId, usuarioNombre, 'anulacion-mesa',
+          );
+          cancelados += r.cancelados;
+          conMerma += r.conMerma;
+          mantenidos += r.mantenidos;
+          montoAnulado += r.montoAnulado;
+          outboxData.push(...r.outboxData);
+          mermaPayloads.push(...r.mermaPayloads);
+          stockRestauradoPayloads.push(...r.stockRestauradoPayloads);
         }
 
         if (cancelados === 0 && conMerma === 0) {
@@ -685,6 +742,93 @@ export class PedidosSagaService {
         : 'Atención de mesa anulada y mesa liberada.',
       resultado: { itemsCancelados, itemsConMerma, itemsMantenidosParaCobro, mesaLiberada },
     };
+  }
+
+  /**
+   * Anular UN pedido puntual (no toda la mesa) directamente desde el
+   * tablero de Pedidos — pedido explícito del dueño tras el bug de
+   * Pedido.estado congelado: "poder gestionar también la anulación del
+   * pedido desde pedidos para poder librar un poco la vista", y como
+   * salvavidas operativo si un pedido vuelve a quedar atascado por
+   * cualquier otro motivo, sin depender de un desarrollador con SQL.
+   * A diferencia de anularAtencionMesa (agrega TODOS los pedidos activos
+   * de la mesa en un solo registro tipo MESA, sin detalle por ítem — la
+   * limitación que bloqueó la reversión real en invalidarAnulacion), acá
+   * cada ítem cancelado/con merma queda con su propio registro tipo ITEM
+   * (mismo criterio que actualizarEstadoItem/anularItemPreparado) — así
+   * que una anulación creada por este endpoint SÍ se puede revertir de
+   * verdad más adelante desde "Invalidar anulación".
+   */
+  async anularPedido(
+    pedidoId: string,
+    command: AnularPedidoCommand,
+    usuarioSedeId?: string | null,
+    sedeIdSolicitado?: string,
+    usuarioId?: string | null,
+    usuarioNombre?: string | null,
+  ): Promise<{ message: string; pedido: PedidoDto }> {
+    const sedeId = resolveSedeId(usuarioSedeId, sedeIdSolicitado);
+    const itemsConsumidos = new Set(command.itemsConsumidos ?? []);
+
+    const pedidoFinal = await this.prisma.$transaction(async (prisma) => {
+      const pedido = await prisma.pedido.findUnique({ where: { id: pedidoId }, include: { items: true } });
+      if (!pedido || pedido.sedeId !== sedeId) throw new NotFoundException(`Pedido ${pedidoId} no encontrado`);
+      if (pedido.estado === PedidoEstado.Pagado || pedido.estado === PedidoEstado.Cancelado || pedido.estado === PedidoEstado.RechazadoSinStock) {
+        throw new BadRequestException(`El pedido ya está en estado ${pedido.estado}; no se puede anular.`);
+      }
+
+      await prisma.$executeRaw(Prisma.sql`SELECT pg_advisory_xact_lock(hashtext(${pedido.id}))`);
+
+      const r = await this.cancelarItemsDePedido(
+        prisma, pedido, itemsConsumidos, command.motivo, usuarioId, usuarioNombre, 'anulacion-pedido',
+      );
+
+      if (r.cancelados === 0 && r.conMerma === 0) {
+        throw new BadRequestException('No hay ningún ítem pendiente o preparado que anular en este pedido (todo ya está cancelado o confirmado como consumido).');
+      }
+
+      const auditoriaData = [
+        ...r.itemsCanceladosLimpios.map((item) => ({
+          sedeId, mesaId: pedido.mesaId, mesaNumero: pedido.numeroMesa, pedidoId: pedido.id, itemId: item.id,
+          tipo: TipoAnulacion.Item, productoId: item.productoId, productoNombre: item.nombre, cantidad: item.cantidad,
+          estadoPlato: EstadoPlatoAnulacion.SinPreparar, cobrado: false,
+          montoAnulado: Number(item.precioUnitario) * item.cantidad,
+          motivo: command.motivo, usuarioId: usuarioId ?? undefined, usuarioNombre: usuarioNombre ?? undefined,
+          clienteNombre: pedido.cliente ?? undefined,
+        })),
+        ...r.itemsConMermaDetalle.map((item) => ({
+          sedeId, mesaId: pedido.mesaId, mesaNumero: pedido.numeroMesa, pedidoId: pedido.id, itemId: item.id,
+          tipo: TipoAnulacion.Item, productoId: item.productoId, productoNombre: item.nombre, cantidad: item.cantidad,
+          estadoPlato: EstadoPlatoAnulacion.Preparado, cobrado: false,
+          montoAnulado: Number(item.precioUnitario) * item.cantidad,
+          motivo: command.motivo, usuarioId: usuarioId ?? undefined, usuarioNombre: usuarioNombre ?? undefined,
+          clienteNombre: pedido.cliente ?? undefined,
+        })),
+      ];
+      await prisma.anulacionAuditoria.createMany({ data: auditoriaData });
+
+      const outboxData = [...r.outboxData];
+      for (const merma of r.mermaPayloads) {
+        outboxData.push({ routingKey: RoutingKeys.PedidoItemAnuladoConMerma, payload: JSON.stringify(merma), status: 'PENDING' });
+      }
+      for (const restauracion of r.stockRestauradoPayloads) {
+        outboxData.push({ routingKey: RoutingKeys.StockRestaurado, payload: JSON.stringify(restauracion), status: 'PENDING' });
+      }
+      await prisma.outboxEvent.createMany({ data: outboxData });
+
+      const pedidoActualizado = await prisma.pedido.findUniqueOrThrow({ where: { id: pedido.id }, include: { items: true } });
+
+      this.logger.log({
+        operation: 'anularPedido',
+        aggregateId: pedido.id,
+        resultingState: pedidoActualizado.estado,
+        message: `Pedido ${pedido.id} anulado: ${command.motivo}`,
+      } satisfies OperableLog);
+
+      return pedidoActualizado;
+    });
+
+    return { message: 'Pedido anulado.', pedido: mapPedidoToDto(pedidoFinal) };
   }
 
   // ─── CU-05: Auditoría de Anulaciones ────────────────────────────────────

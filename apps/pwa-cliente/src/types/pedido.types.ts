@@ -15,6 +15,7 @@ import type {
   PedidoItemInput,
   AnularItemPreparadoCommand,
   AnularAtencionMesaCommand,
+  AnularPedidoCommand,
   AnularAtencionMesaResultado as ContractAnularAtencionMesaResultado,
   AnulacionAuditoriaDto as ContractAnulacionAuditoriaDto,
   ListarAnulacionesQuery,
@@ -109,6 +110,9 @@ export type ActualizarEstadoItemPayload = ActualizarEstadoItemCommand;
 export type AnularItemPreparadoPayload = AnularItemPreparadoCommand;
 export type AnularAtencionMesaPayload = AnularAtencionMesaCommand;
 export type AnularAtencionMesaResultado = ContractAnularAtencionMesaResultado;
+// Anular UN pedido puntual desde el tablero de Pedidos (no toda la mesa) —
+// mismo shape que AnularAtencionMesaPayload, endpoint distinto.
+export type AnularPedidoPayload = AnularPedidoCommand;
 
 export interface AnularItemPreparadoResponse {
   message: string;
@@ -118,6 +122,11 @@ export interface AnularItemPreparadoResponse {
 export interface AnularAtencionMesaResponse {
   message: string;
   resultado: AnularAtencionMesaResultado;
+}
+
+export interface AnularPedidoResponse {
+  message: string;
+  pedido: PedidoDto;
 }
 
 // ─── CU-05: Auditoría de Anulaciones ─────────────────────────────
