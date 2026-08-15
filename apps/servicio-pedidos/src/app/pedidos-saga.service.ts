@@ -682,6 +682,13 @@ export class PedidosSagaService {
         let conMerma = 0;
         let mantenidos = 0;
         let montoAnulado = 0;
+        // Al menos un pedido de la mesa ya tenía TODOS sus ítems cerrados de
+        // antes (p. ej. anulados uno por uno en llamadas previas) y quedó
+        // congelado sin pasar a CANCELADO — cancelarItemsDePedido lo
+        // autocorrige igual que en anularPedido, aunque no haya nada nuevo
+        // que cancelar en ESTE pedido puntual. Sin este flag, una mesa cuyos
+        // pedidos ya están todos así nunca podría anularse/liberarse.
+        let algunEstadoForzado = false;
         const outboxData: Array<{ routingKey: string; payload: string; status: string }> = [];
         const mermaPayloads: PedidoItemAnuladoConMermaPayload[] = [];
         const stockRestauradoPayloads: StockRestauradoPayload[] = [];
@@ -694,12 +701,13 @@ export class PedidosSagaService {
           conMerma += r.conMerma;
           mantenidos += r.mantenidos;
           montoAnulado += r.montoAnulado;
+          if (r.estadoForzado) algunEstadoForzado = true;
           outboxData.push(...r.outboxData);
           mermaPayloads.push(...r.mermaPayloads);
           stockRestauradoPayloads.push(...r.stockRestauradoPayloads);
         }
 
-        if (cancelados === 0 && conMerma === 0) {
+        if (cancelados === 0 && conMerma === 0 && !algunEstadoForzado) {
           throw new BadRequestException('No hay ningún ítem pendiente o preparado que anular en esta mesa (todo ya está cancelado o confirmado como consumido).');
         }
 

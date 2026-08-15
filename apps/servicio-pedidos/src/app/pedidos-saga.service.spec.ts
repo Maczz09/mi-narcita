@@ -533,6 +533,31 @@ describe('PedidosSagaService — Pedidos', () => {
       ).rejects.toThrow('No hay ningún ítem');
     });
 
+    it('si el único pedido de la mesa ya tenía TODOS sus ítems anulados de antes (uno por uno), autocorrige y libera la mesa en vez de rechazar', async () => {
+      // Bug reportado en vivo: el mesero anula cada ítem individualmente
+      // hasta que no queda ninguno activo, pero el pedido (y por lo tanto
+      // la mesa) se queda congelado — "Anular atención de mesa" rechazaba
+      // con "No hay ningún ítem" y la mesa nunca se liberaba.
+      const itemYaCancelado = { ...itemCocinaPendiente, estado: PedidoEstado.Cancelado };
+      mockPrisma.pedido.findMany.mockResolvedValue([pedidoBase([itemYaCancelado])]);
+      mockPrisma.anulacionAuditoria.create.mockResolvedValue({ id: 'aud-mesa-forzado' });
+      mockPrisma.pedido.update.mockResolvedValue({ ...pedidoBase([]), estado: PedidoEstado.Cancelado, items: [] });
+
+      const { resultado, message } = await service.anularAtencionMesa(
+        MESA, { motivo: 'cliente se retiro sin pagar' }, SEDE,
+      );
+
+      expect(resultado.mesaLiberada).toBe(true);
+      expect(mockMesasHttp.liberarMesa).toHaveBeenCalledWith(MESA, 'LIBRE');
+      expect(message).toContain('mesa liberada');
+      expect(mockPrisma.pedido.update).toHaveBeenCalledWith(
+        expect.objectContaining({ data: expect.objectContaining({ estado: PedidoEstado.Cancelado }) }),
+      );
+      expect(mockPrisma.anulacionAuditoria.create).toHaveBeenCalledWith(
+        expect.objectContaining({ data: expect.objectContaining({ tipo: 'MESA', motivo: 'cliente se retiro sin pagar' }) }),
+      );
+    });
+
     it('branchea por ítem: cancela lo no servido, hace merma de lo servido, mantiene lo confirmado y restaura stock de lo no confirmado', async () => {
       const items = { 'i-1': itemCocinaPendiente, 'i-2': itemCocinaEntregado, 'i-3': itemDirectoConfirmado, 'i-4': itemDirectoNoConfirmado };
       mockPrisma.pedido.findMany.mockResolvedValue([pedidoBase(Object.values(items))]);
