@@ -22,6 +22,7 @@ describe('AppService — Facturación', () => {
       findUnique: jest.fn(),
       findMany: jest.fn(),
       create: jest.fn(),
+      update: jest.fn(),
     },
   };
 
@@ -198,7 +199,10 @@ describe('AppService — Facturación', () => {
             certificadoPassCifrada: 'enc:clave-cert-secreta',
             codigoEstablecimiento: '0000',
           }) as unknown,
-          select: { id: true, slot: true, ruc: true, razonSocial: true, activo: true },
+          select: {
+            id: true, slot: true, ruc: true, razonSocial: true, nombreComercial: true,
+            direccion: true, ubigeo: true, codigoEstablecimiento: true, solUsuario: true, activo: true,
+          },
         }),
       );
       // El .p12 va cifrado (Uint8Array), nunca los bytes en claro.
@@ -218,6 +222,119 @@ describe('AppService — Facturación', () => {
 
       expect(prisma.empresa.create).toHaveBeenCalledWith(
         expect.objectContaining({ data: expect.objectContaining({ slot: 2 }) as unknown }),
+      );
+    });
+  });
+
+  describe('listarEmpresas', () => {
+    it('lista todas, activas e inactivas — el frontend filtra al elegir con cuál emitir', async () => {
+      prisma.empresa.findMany.mockResolvedValue([]);
+      await service.listarEmpresas();
+      const args = prisma.empresa.findMany.mock.calls.at(-1)[0];
+      expect(args.where).toBeUndefined();
+      expect(args.orderBy).toEqual({ slot: 'asc' });
+    });
+  });
+
+  describe('actualizarEmpresa', () => {
+    const empresaExistente = { id: 'e-1', ruc: '10417758432', razonSocial: 'Salitral 1 SAC', activo: true };
+
+    it('lanza NotFoundException si la empresa no existe', async () => {
+      prisma.empresa.findUnique.mockResolvedValue(null);
+      await expect(service.actualizarEmpresa('inexistente', {})).rejects.toThrow('Empresa no encontrada');
+      expect(prisma.empresa.update).not.toHaveBeenCalled();
+    });
+
+    it('actualiza solo los campos de negocio enviados, sin tocar credenciales', async () => {
+      prisma.empresa.findUnique.mockResolvedValue(empresaExistente);
+      prisma.empresa.update.mockResolvedValue({ ...empresaExistente, razonSocial: 'Nuevo nombre' });
+
+      await service.actualizarEmpresa('e-1', { razonSocial: 'Nuevo nombre' });
+
+      expect(prisma.empresa.update).toHaveBeenCalledWith({
+        where: { id: 'e-1' },
+        data: { razonSocial: 'Nuevo nombre' },
+        select: expect.objectContaining({ id: true, solUsuario: true }) as unknown,
+      });
+      expect(crypto.encriptarTexto).not.toHaveBeenCalled();
+    });
+
+    it('re-cifra la Clave SOL cuando llega solClave', async () => {
+      prisma.empresa.findUnique.mockResolvedValue(empresaExistente);
+      prisma.empresa.update.mockResolvedValue(empresaExistente);
+
+      await service.actualizarEmpresa('e-1', { solClave: 'clave-nueva' });
+
+      expect(crypto.encriptarTexto).toHaveBeenCalledWith('clave-nueva');
+      expect(prisma.empresa.update).toHaveBeenCalledWith(
+        expect.objectContaining({ data: { solClaveCifrada: 'enc:clave-nueva' } }),
+      );
+    });
+
+    it('rechaza certificadoPass sin un archivo nuevo', async () => {
+      prisma.empresa.findUnique.mockResolvedValue(empresaExistente);
+      await expect(
+        service.actualizarEmpresa('e-1', { certificadoPass: 'clave-cert' }, Buffer.alloc(0)),
+      ).rejects.toThrow(/certificado/);
+      expect(prisma.empresa.update).not.toHaveBeenCalled();
+    });
+
+    it('rechaza un archivo nuevo sin certificadoPass', async () => {
+      prisma.empresa.findUnique.mockResolvedValue(empresaExistente);
+      await expect(
+        service.actualizarEmpresa('e-1', {}, Buffer.from('contenido-p12')),
+      ).rejects.toThrow(/certificado/);
+      expect(prisma.empresa.update).not.toHaveBeenCalled();
+    });
+
+    it('rechaza un certificado nuevo inválido y no guarda nada', async () => {
+      prisma.empresa.findUnique.mockResolvedValue(empresaExistente);
+      (extraerClavesDesdePfx as jest.Mock).mockImplementation(() => {
+        throw new Error('Invalid password / mac verify failure');
+      });
+
+      await expect(
+        service.actualizarEmpresa('e-1', { certificadoPass: 'mal' }, Buffer.from('contenido-p12')),
+      ).rejects.toThrow(/certificado o su contraseña/);
+      expect(prisma.empresa.update).not.toHaveBeenCalled();
+    });
+
+    it('valida, cifra y reemplaza el certificado cuando llega uno nuevo junto con su contraseña', async () => {
+      prisma.empresa.findUnique.mockResolvedValue(empresaExistente);
+      prisma.empresa.update.mockResolvedValue(empresaExistente);
+      (extraerClavesDesdePfx as jest.Mock).mockReturnValue({ privateKeyPem: 'pem', certPem: 'pem' });
+
+      await service.actualizarEmpresa('e-1', { certificadoPass: 'clave-cert-nueva' }, Buffer.from('contenido-p12-nuevo'));
+
+      expect(extraerClavesDesdePfx).toHaveBeenCalledWith(Buffer.from('contenido-p12-nuevo'), 'clave-cert-nueva');
+      const dataEnviada = prisma.empresa.update.mock.calls[0][0].data;
+      expect(dataEnviada.certificadoPassCifrada).toBe('enc:clave-cert-nueva');
+      expect(Buffer.from(dataEnviada.certificadoPfxCifrado).toString()).toBe('enc:contenido-p12-nuevo');
+    });
+
+    it('rechaza si la clave de cifrado del servidor no está configurada y se intenta cambiar credenciales', async () => {
+      prisma.empresa.findUnique.mockResolvedValue(empresaExistente);
+      crypto.configurada.mockReturnValue(false);
+      await expect(service.actualizarEmpresa('e-1', { solClave: 'x' })).rejects.toThrow('FACTURACION_CRED_ENCRYPTION_KEY');
+      expect(prisma.empresa.update).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('cambiarEstadoEmpresa', () => {
+    it('lanza NotFoundException si la empresa no existe', async () => {
+      prisma.empresa.findUnique.mockResolvedValue(null);
+      await expect(service.cambiarEstadoEmpresa('inexistente', false)).rejects.toThrow('Empresa no encontrada');
+      expect(prisma.empresa.update).not.toHaveBeenCalled();
+    });
+
+    it('desactiva una empresa sin borrar su historial', async () => {
+      prisma.empresa.findUnique.mockResolvedValue({ id: 'e-1', ruc: '10417758432', razonSocial: 'Salitral 1 SAC', activo: true });
+      prisma.empresa.update.mockResolvedValue({ id: 'e-1', activo: false });
+
+      await service.cambiarEstadoEmpresa('e-1', false);
+
+      expect(prisma.empresa.update).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { id: 'e-1' }, data: { activo: false } }),
       );
     });
   });

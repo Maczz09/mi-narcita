@@ -17,8 +17,9 @@ import { rangoDePeriodo } from '../../utils/periodos';
 import { useFacturacionQuery } from '../../hooks/queries/useFacturacionQuery';
 import { abrirComprobanteParaImprimir } from '../../utils/comprobantePrint';
 import { ConfigurarEmpresaModal } from './ConfigurarEmpresaModal';
+import { EditarEmpresaModal } from './EditarEmpresaModal';
 import { CATALOGO_MOTIVOS_NOTA_CREDITO, CATALOGO_MOTIVOS_NOTA_DEBITO } from '../../types/facturacion.types';
-import type { ComprobanteDto, ComprobantePagoDto, EstadoComprobante, NotaDto, TipoComprobante, TipoNota } from '../../types/facturacion.types';
+import type { ComprobanteDto, ComprobantePagoDto, EmpresaDto, EstadoComprobante, NotaDto, TipoComprobante, TipoNota } from '../../types/facturacion.types';
 
 const ESTADO_BADGE: Record<EstadoComprobante, string> = {
   FIRMADO: 'badge-info',
@@ -68,9 +69,11 @@ export function FacturacionScreen() {
     disponibles, emitidos, notas, notasLoading, empresas, empresasLoading, loading, emitiendo, error, success, fetch,
     emitirComprobante, clearFeedback, crearEmpresa, configurandoEmpresa, errorEmpresa, clearFeedbackEmpresa,
     emitiendoNota, errorNota, emitirNotaCredito, emitirNotaDebito, clearFeedbackNota,
+    actualizarEmpresa, cambiarEstadoEmpresa, actualizandoEmpresa, errorActualizarEmpresa, clearFeedbackActualizarEmpresa,
   } = useFacturacionQuery();
 
   const [configurarSunat, setConfigurarSunat] = useState(false);
+  const [editarEmpresa, setEditarEmpresa] = useState<EmpresaDto | null>(null);
 
   const [desde, setDesde] = useState('');
   const [hasta, setHasta] = useState('');
@@ -187,8 +190,11 @@ export function FacturacionScreen() {
     }
   };
 
-  const empresaUnica = empresas.length === 1 ? empresas[0] : null;
-  const puedeEmitir = empresas.length > 0;
+  // listarEmpresas() ahora devuelve activas e inactivas (para poder
+  // reactivarlas/editarlas) — el selector de emisión solo considera activas.
+  const empresasActivas = useMemo(() => empresas.filter((e) => e.activo), [empresas]);
+  const empresaUnica = empresasActivas.length === 1 ? empresasActivas[0] : null;
+  const puedeEmitir = empresasActivas.length > 0;
 
   const abrirEmision = (c: ComprobantePagoDto) => {
     setEmitir(c);
@@ -272,6 +278,57 @@ export function FacturacionScreen() {
           <span className="spacer" />
           <button className="btn btn-sm btn-ghost" onClick={clearFeedback}>Cerrar</button>
         </div>
+      )}
+
+      {!empresasLoading && empresas.length > 0 && (
+        <section className="panel" style={{ marginBottom: 16 }}>
+          <div className="panel-h">
+            <h3>Empresas configuradas</h3>
+            <span className="spacer" />
+            <span className="badge badge-info">{empresas.length}</span>
+          </div>
+          <div className="table-wrap table-wrap-flat">
+            <table className="dt">
+              <thead>
+                <tr>
+                  <th>Razón social</th>
+                  <th className="col-mobile-hidden">RUC</th>
+                  <th>Estado</th>
+                  <th className="cell-action">Editar</th>
+                </tr>
+              </thead>
+              <tbody>
+                {empresas.map((emp) => (
+                  <tr key={emp.id}>
+                    <td><strong>{emp.razonSocial}</strong></td>
+                    <td className="col-mobile-hidden muted">{emp.ruc}</td>
+                    <td>
+                      <button
+                        className={`toggle ${emp.activo ? 'on' : ''}`}
+                        disabled={actualizandoEmpresa || !online}
+                        title={emp.activo ? 'Desactivar empresa' : 'Reactivar empresa'}
+                        aria-label={`${emp.activo ? 'Desactivar' : 'Reactivar'} ${emp.razonSocial}`}
+                        onClick={() => void cambiarEstadoEmpresa(emp.id, !emp.activo)}
+                      >
+                        <span className="knob" />
+                      </button>
+                    </td>
+                    <td className="cell-action">
+                      <button
+                        className="btn btn-sm btn-ghost"
+                        disabled={!online}
+                        onClick={() => setEditarEmpresa(emp)}
+                        aria-label={`Editar ${emp.razonSocial}`}
+                      >
+                        Editar
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
       )}
 
       <div className="grid-stats" style={{ marginBottom: 16 }}>
@@ -880,6 +937,22 @@ export function FacturacionScreen() {
             toast({ title: 'Empresa configurada', msg: `${empresa.razonSocial} (RUC ${empresa.ruc}) ya puede emitir comprobantes.`, icon: 'Check', kind: 'ok' });
             setConfigurarSunat(false);
             clearFeedbackEmpresa();
+            return empresa;
+          }}
+        />
+      )}
+
+      {editarEmpresa && (
+        <EditarEmpresaModal
+          empresa={editarEmpresa}
+          guardando={actualizandoEmpresa}
+          error={errorActualizarEmpresa}
+          onClose={() => { setEditarEmpresa(null); clearFeedbackActualizarEmpresa(); }}
+          onGuardar={async (payload) => {
+            const empresa = await actualizarEmpresa(editarEmpresa.id, payload);
+            toast({ title: 'Empresa actualizada', msg: `${empresa.razonSocial} (RUC ${empresa.ruc}) se guardó correctamente.`, icon: 'Check', kind: 'ok' });
+            setEditarEmpresa(null);
+            clearFeedbackActualizarEmpresa();
             return empresa;
           }}
         />

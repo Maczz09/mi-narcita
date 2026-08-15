@@ -1,4 +1,4 @@
-import { BadRequestException, ConflictException, Injectable, Logger } from '@nestjs/common';
+import { BadRequestException, ConflictException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { OperableLog } from '@org/observabilidad';
 import { SEDE_PRINCIPAL_ID } from '@org/shared-auth';
 import { PrismaService } from '../prisma/prisma.service';
@@ -6,11 +6,28 @@ import { CuentaCerradaPayload } from '@org/contracts';
 import { CredencialesCryptoService } from '../sunat/credenciales-crypto.service';
 import { extraerClavesDesdePfx } from '../sunat/certificado';
 import { CrearEmpresaDto } from './dto/crear-empresa.dto';
+import { ActualizarEmpresaDto } from './dto/actualizar-empresa.dto';
 
 // Mismo límite que SunatConfigService: el mecanismo de credenciales por
 // variables de entorno solo conoce SUNAT_*_EMPRESA_1_* y _2_* — agregar un
 // tercer slot exigiría tocar ese fallback también, fuera de alcance acá.
 const SLOTS_DISPONIBLES = [1, 2];
+
+// Campos seguros de Empresa: nunca incluye las columnas cifradas
+// (solClaveCifrada, certificadoPfxCifrado, certificadoPassCifrada) — ni
+// siquiera cifradas viajan al frontend, es información write-only.
+const EMPRESA_SELECT = {
+  id: true,
+  slot: true,
+  ruc: true,
+  razonSocial: true,
+  nombreComercial: true,
+  direccion: true,
+  ubigeo: true,
+  codigoEstablecimiento: true,
+  solUsuario: true,
+  activo: true,
+} as const;
 
 @Injectable()
 export class AppService {
@@ -122,13 +139,15 @@ export class AppService {
     });
   }
 
-  // Selector de RUC emisor al emitir: hoy solo hay una empresa activa
-  // (Salitral 1), pero no se hardcodea el RUC en el frontend — cuando se
-  // configure la segunda, aparece sola en este listado.
+  // Selector de RUC emisor al emitir y listado editable de "Facturación →
+  // Empresas configuradas". Devuelve TODAS (activas e inactivas) — el
+  // frontend filtra por activo al elegir con cuál emitir, pero una empresa
+  // desactivada debe seguir viéndose para poder reactivarla o corregirla.
+  // La emisión real vuelve a validar empresa.activo en emision.service.ts,
+  // así que relajar este filtro acá no abre ningún hueco.
   async listarEmpresas() {
     return this.prisma.empresa.findMany({
-      where: { activo: true },
-      select: { id: true, slot: true, ruc: true, razonSocial: true, activo: true },
+      select: EMPRESA_SELECT,
       orderBy: { slot: 'asc' },
     });
   }
@@ -187,7 +206,7 @@ export class AppService {
         certificadoPfxCifrado: new Uint8Array(this.crypto.encriptar(certificadoPfx)),
         certificadoPassCifrada: this.crypto.encriptarTexto(dto.certificadoPass),
       },
-      select: { id: true, slot: true, ruc: true, razonSocial: true, activo: true },
+      select: EMPRESA_SELECT,
     });
 
     this.logger.log({
@@ -198,5 +217,85 @@ export class AppService {
     } satisfies OperableLog);
 
     return empresa;
+  }
+
+  /**
+   * Edición de una empresa ya configurada: datos de negocio (razón social,
+   * dirección, etc.), Clave SOL y/o certificado — todo opcional/parcial. El
+   * certificado solo se reemplaza si llega un archivo nuevo, y siempre junto
+   * con su contraseña (certificadoPass sin archivo, o archivo sin
+   * certificadoPass, no tienen con qué validarse ni re-cifrarse).
+   */
+  async actualizarEmpresa(id: string, dto: ActualizarEmpresaDto, certificadoPfx?: Buffer) {
+    const empresa = await this.prisma.empresa.findUnique({ where: { id } });
+    if (!empresa) {
+      throw new NotFoundException('Empresa no encontrada');
+    }
+
+    const hayCertificadoNuevo = certificadoPfx != null && certificadoPfx.length > 0;
+    if (hayCertificadoNuevo !== (dto.certificadoPass !== undefined)) {
+      throw new BadRequestException(
+        'Para reemplazar el certificado, sube el archivo (.p12/.pfx) junto con su contraseña.',
+      );
+    }
+
+    const necesitaCifrado = hayCertificadoNuevo || dto.solClave !== undefined;
+    if (necesitaCifrado && !this.crypto.configurada()) {
+      throw new BadRequestException(
+        'FACTURACION_CRED_ENCRYPTION_KEY no está configurada en el servidor; no se pueden guardar credenciales de forma segura.',
+      );
+    }
+
+    if (hayCertificadoNuevo) {
+      try {
+        extraerClavesDesdePfx(certificadoPfx, dto.certificadoPass as string);
+      } catch (error) {
+        throw new BadRequestException(
+          `El certificado o su contraseña no son válidos: ${(error as Error).message}`,
+        );
+      }
+    }
+
+    const data: Record<string, unknown> = {};
+    if (dto.razonSocial !== undefined) data.razonSocial = dto.razonSocial;
+    if (dto.nombreComercial !== undefined) data.nombreComercial = dto.nombreComercial || null;
+    if (dto.direccion !== undefined) data.direccion = dto.direccion || null;
+    if (dto.ubigeo !== undefined) data.ubigeo = dto.ubigeo || null;
+    if (dto.codigoEstablecimiento !== undefined) data.codigoEstablecimiento = dto.codigoEstablecimiento;
+    if (dto.solUsuario !== undefined) data.solUsuario = dto.solUsuario;
+    if (dto.solClave !== undefined) data.solClaveCifrada = this.crypto.encriptarTexto(dto.solClave);
+    if (hayCertificadoNuevo) {
+      data.certificadoPfxCifrado = new Uint8Array(this.crypto.encriptar(certificadoPfx));
+      data.certificadoPassCifrada = this.crypto.encriptarTexto(dto.certificadoPass as string);
+    }
+
+    const actualizada = await this.prisma.empresa.update({ where: { id }, data, select: EMPRESA_SELECT });
+
+    this.logger.log({
+      operation: 'actualizarEmpresa',
+      aggregateId: actualizada.id,
+      message: `Empresa ${actualizada.razonSocial} (RUC ${actualizada.ruc}) actualizada.`,
+    } satisfies OperableLog);
+
+    return actualizada;
+  }
+
+  /** Activar/desactivar sin borrar — el historial de comprobantes emitidos queda intacto. */
+  async cambiarEstadoEmpresa(id: string, activo: boolean) {
+    const empresa = await this.prisma.empresa.findUnique({ where: { id } });
+    if (!empresa) {
+      throw new NotFoundException('Empresa no encontrada');
+    }
+
+    const actualizada = await this.prisma.empresa.update({ where: { id }, data: { activo }, select: EMPRESA_SELECT });
+
+    this.logger.log({
+      operation: 'cambiarEstadoEmpresa',
+      aggregateId: actualizada.id,
+      resultingState: activo ? 'ACTIVA' : 'INACTIVA',
+      message: `Empresa ${actualizada.razonSocial} (RUC ${actualizada.ruc}) ${activo ? 'activada' : 'desactivada'}.`,
+    } satisfies OperableLog);
+
+    return actualizada;
   }
 }

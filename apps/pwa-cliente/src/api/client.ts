@@ -383,6 +383,11 @@ export const client = {
   postForm: <T>(path: string, form: FormData, init?: RequestInit) =>
     request<T>(path, withIdempotencyKey({ ...init, method: 'POST', body: form })),
 
+  // Edición con archivo opcional (ej. reemplazar el certificado SUNAT de una
+  // empresa ya configurada) — mismo criterio que postForm, en PATCH.
+  patchForm: <T>(path: string, form: FormData, init?: RequestInit) =>
+    request<T>(path, withIdempotencyKey({ ...init, method: 'PATCH', body: form })),
+
   // Descarga binaria (foto del comprobante). No pasa por res.json().
   getBlob: (path: string, init?: RequestInit) => requestBlob(path, { ...init, method: 'GET' }),
 };

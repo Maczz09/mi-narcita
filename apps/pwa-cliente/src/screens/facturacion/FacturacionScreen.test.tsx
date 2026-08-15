@@ -31,6 +31,16 @@ vi.mock('./ConfigurarEmpresaModal', () => ({
   ),
 }));
 
+vi.mock('./EditarEmpresaModal', () => ({
+  EditarEmpresaModal: ({ empresa, onClose, onGuardar }: any) => (
+    <div data-testid="editar-empresa-modal">
+      <span>{empresa.razonSocial}</span>
+      <button onClick={onClose}>Cerrar modal editar</button>
+      <button onClick={() => void onGuardar({ razonSocial: 'Nombre editado' })}>Guardar edición</button>
+    </div>
+  ),
+}));
+
 vi.mock('../../hooks/useFocusTrap', () => ({
   useFocusTrap: vi.fn(),
 }));
@@ -96,6 +106,11 @@ function baseMock(overrides: Record<string, unknown> = {}) {
     clearFeedback: vi.fn(),
     crearEmpresa: vi.fn().mockResolvedValue({ id: 'e-2', slot: 2, ruc: '20999999999', razonSocial: 'Nueva SAC', activo: true }),
     clearFeedbackEmpresa: vi.fn(),
+    actualizarEmpresa: vi.fn().mockResolvedValue({ id: 'e1', slot: 1, ruc: '10417758432', razonSocial: 'Nombre editado', activo: true }),
+    cambiarEstadoEmpresa: vi.fn().mockResolvedValue({ id: 'e1', activo: false }),
+    actualizandoEmpresa: false,
+    errorActualizarEmpresa: null,
+    clearFeedbackActualizarEmpresa: vi.fn(),
     emitiendoNota: false,
     errorNota: null,
     emitirNotaCredito: vi.fn().mockResolvedValue({ id: 'nota-1', tipo: 'NOTA_CREDITO', serie: 'FC01', correlativo: 1 }),
@@ -523,6 +538,69 @@ describe('FacturacionScreen', () => {
         expect(toast).toHaveBeenCalledWith(expect.objectContaining({ kind: 'ok' }));
         expect(screen.queryByTestId('configurar-empresa-modal')).not.toBeInTheDocument();
       });
+    });
+  });
+
+  describe('empresas configuradas (edición y activo/inactivo)', () => {
+    it('lista las empresas configuradas con su RUC y botón de editar', () => {
+      render(<FacturacionScreen />);
+      expect(screen.getByText('Empresas configuradas')).toBeInTheDocument();
+      expect(screen.getByText('10417758432')).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Editar QUISPE MORALES YUSLUNY YANET' })).toBeInTheDocument();
+    });
+
+    it('no muestra la sección si todavía no hay ninguna empresa', () => {
+      vi.mocked(useFacturacionQuery).mockReturnValue(baseMock({ empresas: [] }) as any);
+      render(<FacturacionScreen />);
+      expect(screen.queryByText('Empresas configuradas')).not.toBeInTheDocument();
+    });
+
+    it('abre y cierra el modal de edición', () => {
+      render(<FacturacionScreen />);
+      expect(screen.queryByTestId('editar-empresa-modal')).not.toBeInTheDocument();
+
+      fireEvent.click(screen.getByRole('button', { name: 'Editar QUISPE MORALES YUSLUNY YANET' }));
+      expect(screen.getByTestId('editar-empresa-modal')).toBeInTheDocument();
+
+      fireEvent.click(screen.getByRole('button', { name: 'Cerrar modal editar' }));
+      expect(screen.queryByTestId('editar-empresa-modal')).not.toBeInTheDocument();
+    });
+
+    it('al guardar la edición, avisa con un toast y cierra el modal', async () => {
+      const toast = vi.fn();
+      vi.mocked(useToast).mockReturnValue({ toast } as any);
+      const actualizarEmpresa = vi.fn().mockResolvedValue({ id: 'e1', slot: 1, ruc: '10417758432', razonSocial: 'Nombre editado', activo: true });
+      vi.mocked(useFacturacionQuery).mockReturnValue(baseMock({ actualizarEmpresa }) as any);
+
+      render(<FacturacionScreen />);
+      fireEvent.click(screen.getByRole('button', { name: 'Editar QUISPE MORALES YUSLUNY YANET' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Guardar edición' }));
+
+      await waitFor(() => {
+        expect(actualizarEmpresa).toHaveBeenCalledWith('e1', { razonSocial: 'Nombre editado' });
+        expect(toast).toHaveBeenCalledWith(expect.objectContaining({ kind: 'ok' }));
+        expect(screen.queryByTestId('editar-empresa-modal')).not.toBeInTheDocument();
+      });
+    });
+
+    it('el toggle de estado desactiva una empresa sin abrir el modal', async () => {
+      const cambiarEstadoEmpresa = vi.fn().mockResolvedValue({ id: 'e1', activo: false });
+      vi.mocked(useFacturacionQuery).mockReturnValue(baseMock({ cambiarEstadoEmpresa }) as any);
+
+      render(<FacturacionScreen />);
+      fireEvent.click(screen.getByRole('button', { name: 'Desactivar QUISPE MORALES YUSLUNY YANET' }));
+
+      await waitFor(() => {
+        expect(cambiarEstadoEmpresa).toHaveBeenCalledWith('e1', false);
+      });
+      expect(screen.queryByTestId('editar-empresa-modal')).not.toBeInTheDocument();
+    });
+
+    it('una empresa inactiva sigue listada, y su toggle ofrece reactivar', () => {
+      const inactiva = { ...empresa, activo: false };
+      vi.mocked(useFacturacionQuery).mockReturnValue(baseMock({ empresas: [inactiva] }) as any);
+      render(<FacturacionScreen />);
+      expect(screen.getByRole('button', { name: 'Reactivar QUISPE MORALES YUSLUNY YANET' })).toBeInTheDocument();
     });
   });
 });

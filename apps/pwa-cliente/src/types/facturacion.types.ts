@@ -90,6 +90,11 @@ export interface EmpresaDto {
   slot: number;
   ruc: string;
   razonSocial: string;
+  nombreComercial: string | null;
+  direccion: string | null;
+  ubigeo: string | null;
+  codigoEstablecimiento: string;
+  solUsuario: string | null;
   activo: boolean;
 }
 
@@ -171,4 +176,19 @@ export interface CrearEmpresaPayload {
   solClave: string;
   certificadoPass: string;
   certificado: File;
+}
+
+// Edición de una empresa ya configurada — todo opcional/parcial, sin RUC (no
+// es editable). El certificado solo se reemplaza si se manda uno nuevo, y
+// siempre junto con certificadoPass (ver AppService.actualizarEmpresa).
+export interface ActualizarEmpresaPayload {
+  razonSocial?: string;
+  nombreComercial?: string;
+  direccion?: string;
+  ubigeo?: string;
+  codigoEstablecimiento?: string;
+  solUsuario?: string;
+  solClave?: string;
+  certificadoPass?: string;
+  certificado?: File;
 }

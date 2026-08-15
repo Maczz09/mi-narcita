@@ -9,7 +9,7 @@ import * as facturacionApi from '../../api/facturacion.api';
 import { useSedeActualQuery } from './useSedesQuery';
 import { queryClient } from '../../api/queryClient';
 import { primerMensaje } from '../../utils/feedback';
-import type { ComprobantePagoDto, EmitirComprobantePayload, EmitirNotaPayload, NotaDto, CrearEmpresaPayload } from '../../types/facturacion.types';
+import type { ComprobantePagoDto, EmitirComprobantePayload, EmitirNotaPayload, NotaDto, CrearEmpresaPayload, ActualizarEmpresaPayload } from '../../types/facturacion.types';
 
 const ESTADOS_PENDIENTES = new Set(['FIRMADO', 'ENVIADO']);
 
@@ -72,6 +72,18 @@ export function useFacturacionQuery() {
     onSuccess: invalidate,
   });
 
+  const mutationActualizarEmpresa = useMutation({
+    mutationFn: ({ id, payload }: { id: string; payload: ActualizarEmpresaPayload }) =>
+      facturacionApi.actualizarEmpresa(id, payload),
+    onSuccess: invalidate,
+  });
+
+  const mutationCambiarEstadoEmpresa = useMutation({
+    mutationFn: ({ id, activo }: { id: string; activo: boolean }) =>
+      facturacionApi.cambiarEstadoEmpresa(id, activo),
+    onSuccess: invalidate,
+  });
+
   const mutationNotaCredito = useMutation({
     mutationFn: ({ comprobanteId, payload }: { comprobanteId: string; payload: EmitirNotaPayload }) =>
       facturacionApi.emitirNotaCredito(comprobanteId, payload),
@@ -94,8 +106,10 @@ export function useFacturacionQuery() {
     loading: disponiblesQuery.isLoading || todosQuery.isLoading,
     emitiendo: mutationEmitir.isPending,
     configurandoEmpresa: mutationCrearEmpresa.isPending,
+    actualizandoEmpresa: mutationActualizarEmpresa.isPending || mutationCambiarEstadoEmpresa.isPending,
     error: disponiblesQuery.error?.message ?? todosQuery.error?.message ?? mutationEmitir.error?.message ?? null,
     errorEmpresa: mutationCrearEmpresa.error?.message ?? null,
+    errorActualizarEmpresa: mutationActualizarEmpresa.error?.message ?? null,
     success: primerMensaje([mutationEmitir.isSuccess, 'Comprobante firmado — enviándose a SUNAT.']),
     fetch: () => {
       void disponiblesQuery.refetch();
@@ -108,6 +122,12 @@ export function useFacturacionQuery() {
     crearEmpresa: async (payload: CrearEmpresaPayload) => {
       return mutationCrearEmpresa.mutateAsync(payload);
     },
+    actualizarEmpresa: async (id: string, payload: ActualizarEmpresaPayload) => {
+      return mutationActualizarEmpresa.mutateAsync({ id, payload });
+    },
+    cambiarEstadoEmpresa: async (id: string, activo: boolean) => {
+      return mutationCambiarEstadoEmpresa.mutateAsync({ id, activo });
+    },
     emitiendoNota: mutationNotaCredito.isPending || mutationNotaDebito.isPending,
     errorNota: mutationNotaCredito.error?.message ?? mutationNotaDebito.error?.message ?? null,
     emitirNotaCredito: async (comprobanteId: string, payload: EmitirNotaPayload) => {
@@ -119,5 +139,9 @@ export function useFacturacionQuery() {
     clearFeedbackNota: () => { mutationNotaCredito.reset(); mutationNotaDebito.reset(); },
     clearFeedback: () => mutationEmitir.reset(),
     clearFeedbackEmpresa: () => mutationCrearEmpresa.reset(),
+    clearFeedbackActualizarEmpresa: () => {
+      mutationActualizarEmpresa.reset();
+      mutationCambiarEstadoEmpresa.reset();
+    },
   };
 }

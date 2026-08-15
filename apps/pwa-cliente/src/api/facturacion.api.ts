@@ -10,6 +10,7 @@ import type {
   EmitirNotaResultado,
   NotaDto,
   CrearEmpresaPayload,
+  ActualizarEmpresaPayload,
 } from '../types/facturacion.types';
 
 export async function listarDisponibles(sedeId?: string): Promise<ComprobantePagoDto[]> {
@@ -60,4 +61,22 @@ export function crearEmpresa(payload: CrearEmpresaPayload): Promise<EmpresaDto> 
   form.append('certificadoPass', payload.certificadoPass);
   form.append('certificado', payload.certificado, payload.certificado.name);
   return client.postForm<EmpresaDto>('/facturacion/empresas', form);
+}
+
+export function actualizarEmpresa(id: string, payload: ActualizarEmpresaPayload): Promise<EmpresaDto> {
+  const form = new FormData();
+  if (payload.razonSocial !== undefined) form.append('razonSocial', payload.razonSocial);
+  if (payload.nombreComercial !== undefined) form.append('nombreComercial', payload.nombreComercial);
+  if (payload.direccion !== undefined) form.append('direccion', payload.direccion);
+  if (payload.ubigeo !== undefined) form.append('ubigeo', payload.ubigeo);
+  if (payload.codigoEstablecimiento !== undefined) form.append('codigoEstablecimiento', payload.codigoEstablecimiento);
+  if (payload.solUsuario !== undefined) form.append('solUsuario', payload.solUsuario);
+  if (payload.solClave !== undefined) form.append('solClave', payload.solClave);
+  if (payload.certificadoPass !== undefined) form.append('certificadoPass', payload.certificadoPass);
+  if (payload.certificado) form.append('certificado', payload.certificado, payload.certificado.name);
+  return client.patchForm<EmpresaDto>(`/facturacion/empresas/${id}`, form);
+}
+
+export function cambiarEstadoEmpresa(id: string, activo: boolean): Promise<EmpresaDto> {
+  return client.patch<EmpresaDto>(`/facturacion/empresas/${id}/estado`, { activo });
 }
