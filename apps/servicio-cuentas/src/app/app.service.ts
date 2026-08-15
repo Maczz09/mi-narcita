@@ -51,6 +51,30 @@ export class AppService {
     private readonly prisma: PrismaService,
   ) {}
 
+  /**
+   * Cuentas ABIERTA de una sede, sin paginar (uso interno: servicio-caja lo
+   * llama antes de permitir el cierre de un turno — bloquea el cierre si
+   * queda algo por cobrar). No expone `pedidos` completo, solo lo necesario
+   * para nombrar la mesa en el mensaje de bloqueo.
+   */
+  async listarCuentasAbiertasPorSede(sedeId: string): Promise<{ cuentas: Array<{ id: string; mesaId: string; numeroMesa?: number; total: number }> }> {
+    const cuentas = await this.prisma.cuenta.findMany({
+      where: { sedeId, estado: CuentaEstado.Abierta },
+      orderBy: { createdAt: 'asc' },
+    });
+    return {
+      cuentas: cuentas.map((c) => {
+        const pedidos = this.parsePedidosSnapshot(c.pedidos);
+        return {
+          id: c.id,
+          mesaId: c.mesaId,
+          numeroMesa: pedidos[0]?.numeroMesa,
+          total: Number(c.total),
+        };
+      }),
+    };
+  }
+
   async listarCuentas(): Promise<{ cuentas: CuentaDto[] }> {
     const cuentas = await this.prisma.cuenta.findMany({
       orderBy: { createdAt: 'desc' },

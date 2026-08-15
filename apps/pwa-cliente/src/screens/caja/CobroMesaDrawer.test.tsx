@@ -40,7 +40,8 @@ vi.mock('../../components/ui/icons', () => ({
     Coins: () => <svg data-testid="icon-coins" />,
     Alert: () => <svg data-testid="icon-alert" />,
     Check: () => <svg data-testid="icon-check" />,
-    Print: () => <svg data-testid="icon-print" />
+    Print: () => <svg data-testid="icon-print" />,
+    Clock: () => <svg data-testid="icon-clock" />
   }
 }));
 
@@ -202,6 +203,28 @@ describe('CobroMesaDrawer', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Listo' }));
     expect(onClose).toHaveBeenCalled();
+  });
+
+  it('si la caja está cerrada, el pago queda en cola: avisa y cierra sin intentar mostrar boleta', async () => {
+    const registrarPago = vi.fn().mockResolvedValue({ queued: true, pendiente: 90 });
+    const toast = vi.fn();
+    vi.mocked(useToast).mockReturnValue({ toast } as any);
+    vi.mocked(useCuentasQuery).mockReturnValue({
+      cuentaActiva: mockCuenta, loading: false, error: null, success: null,
+      registrarPago, clearFeedback: vi.fn(),
+    } as any);
+    const onClose = vi.fn();
+    const onPaid = vi.fn();
+
+    render(<CobroMesaDrawer mesaId="mesa1" mesaNumero="12" onClose={onClose} onPaid={onPaid} />);
+    fireEvent.click(screen.getByRole('button', { name: /Registrar pago y cerrar cuenta/i }));
+
+    await waitFor(() => {
+      expect(toast).toHaveBeenCalledWith(expect.objectContaining({ title: 'Caja cerrada: pago en espera', kind: 'warn' }));
+      expect(onPaid).toHaveBeenCalled();
+      expect(onClose).toHaveBeenCalled();
+    });
+    expect(screen.queryByText('Boleta de venta')).not.toBeInTheDocument();
   });
 
   it('handles other payment methods and insufficient payment', () => {

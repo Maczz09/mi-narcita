@@ -183,9 +183,23 @@ export function CobroMesaDrawer({ mesaId, mesaNumero, mesaUnidaCon, onClose, onP
         tipoComprobante,
         clienteDocumento: clienteDocumento.trim() || undefined,
       });
+      if (respuesta?.queued) {
+        // No hay turno de caja abierto: el cobro ya quedó guardado tal cual
+        // se llenó y se registrará solo en cuanto se abra un turno — no hay
+        // ticket que imprimir todavía, así que solo se avisa y se cierra.
+        toast({
+          title: 'Caja cerrada: pago en espera',
+          msg: 'Se registrará automáticamente en cuanto se abra un turno de caja.',
+          icon: 'Clock',
+          kind: 'warn',
+        });
+        onPaid?.();
+        onClose();
+        return;
+      }
       if (esUltimaParte) {
         onPaid?.();
-        if (respuesta?.ticket) {
+        if (respuesta?.ticket && respuesta.transaccion) {
           setRecibo({ ticket: respuesta.ticket, transaccion: respuesta.transaccion });
         } else {
           onClose();

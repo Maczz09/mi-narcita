@@ -35,6 +35,13 @@ export class AppController {
     return this.appService.obtenerCuentaPorMesa(mesaId);
   }
 
+  // Uso interno (servicio-caja, token SISTEMA): registrado antes de ':id'
+  // para que 'abiertas' no se intente parsear como UUID de cuenta.
+  @Get('abiertas')
+  listarCuentasAbiertasPorSede(@Query('sedeId') sedeId: string) {
+    return this.appService.listarCuentasAbiertasPorSede(sedeId);
+  }
+
   @Get(':id')
   obtenerCuenta(@Param('id', ParseUUIDPipe) id: string) {
     return this.appService.obtenerCuenta(id);

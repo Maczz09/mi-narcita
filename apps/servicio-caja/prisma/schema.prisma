@@ -103,6 +103,40 @@ model CuentaAbierta {
   @@map("cuentas_abiertas")
 }
 
+// Cola de cobros intentados con la caja cerrada (sin turno abierto en la
+// sede): en vez de rechazar el pago, se guarda tal cual el comando que el
+// cajero ya llenó y se reintenta automáticamente en cuanto abre el próximo
+// turno de esa sede (abrirTurno → procesarPagosPendientes), preservando la
+// cuenta/mesa/hora originales del intento.
+model PagoPendiente {
+  id            String    @id @default(uuid())
+  sedeId        String
+  cuentaId      String
+  montoRecibido Decimal   @db.Decimal(10, 2)
+  metodo        String
+  descuento     Decimal?  @db.Decimal(10, 2)
+  propina       Decimal?  @db.Decimal(10, 2)
+  mesaNumero    String?
+  mesaUnidaCon  String?
+  referencia    String?
+  notas         String?
+  tipoComprobante   String?
+  clienteDocumento  String?
+  usuarioId     String?
+  cajeroNombre  String?
+  // PENDIENTE → PROCESANDO (reclamado por un abrirTurno en curso) →
+  // PROCESADO | FALLIDO. PROCESANDO existe para que dos aperturas
+  // concurrentes de la misma sede no reintenten la misma fila dos veces.
+  estado        String    @default("PENDIENTE")
+  transaccionId String?
+  error         String?
+  createdAt     DateTime  @default(now())
+  procesadoAt   DateTime?
+
+  @@index([sedeId, estado])
+  @@map("pagos_pendientes")
+}
+
 model TurnoCaja {
   id            String   @id @default(uuid())
   sedeId        String

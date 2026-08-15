@@ -62,6 +62,24 @@ describe('AppService — Cuentas (comprehensive)', () => {
     service = new AppService(mockPrisma as unknown as PrismaService);
   });
 
+  // ─── listarCuentasAbiertasPorSede ──────────────────────────────────────────
+
+  describe('listarCuentasAbiertasPorSede', () => {
+    it('solo consulta cuentas ABIERTA de la sede pedida', async () => {
+      mockPrisma.cuenta.findMany.mockResolvedValue([]);
+      await service.listarCuentasAbiertasPorSede('sede-001');
+      expect(mockPrisma.cuenta.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { sedeId: 'sede-001', estado: CuentaEstado.Abierta } }),
+      );
+    });
+
+    it('incluye el número de mesa leído del primer pedido de la cuenta (para nombrarla en el bloqueo de cierre de caja)', async () => {
+      mockPrisma.cuenta.findMany.mockResolvedValue([cuentaAbierta]);
+      const result = await service.listarCuentasAbiertasPorSede('sede-001');
+      expect(result.cuentas).toEqual([{ id: 'c-001', mesaId: 'm-001', numeroMesa: 1, total: 50 }]);
+    });
+  });
+
   // ─── listarCuentas ────────────────────────────────────────────────────────
 
   describe('listarCuentas', () => {

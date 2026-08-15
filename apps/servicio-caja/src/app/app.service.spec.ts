@@ -63,6 +63,12 @@ function createMockPrismaService(): any {
       create: jest.fn(),
       updateMany: jest.fn(),
     },
+    pagoPendiente: {
+      findMany: jest.fn().mockResolvedValue([]),
+      updateMany: jest.fn(),
+      create: jest.fn(),
+      update: jest.fn(),
+    },
     $executeRaw: jest.fn(),
   };
   return mock;
@@ -363,6 +369,76 @@ describe('AppService — Caja', () => {
     });
   });
 
+  describe('abrirTurno — reintenta los pagos que quedaron en cola con la caja cerrada', () => {
+    const turnoAbierto = {
+      id: 'turno-001', cajaId: 'T01', cajaNombre: 'Terminal 01', usuarioId: 'u-001', cajeroNombre: 'Caja',
+      fondoInicial: 300, estado: 'ABIERTA', abiertoAt: new Date(), cerradoAt: null, createdAt: new Date(), updatedAt: new Date(),
+    };
+    const pagoPendiente = {
+      id: 'pp-1', sedeId: 'sede-001', cuentaId: 'c-001', montoRecibido: 50, metodo: 'EFECTIVO',
+      descuento: null, propina: null, mesaNumero: '3', mesaUnidaCon: null, referencia: null, notas: null,
+      tipoComprobante: 'BOLETA', clienteDocumento: null, usuarioId: 'u-mesero', cajeroNombre: 'Ana',
+      estado: 'PENDIENTE', transaccionId: null, error: null, createdAt: new Date(), procesadoAt: null,
+    };
+
+    it('al abrir turno, registra el pago que había quedado en espera para esa sede', async () => {
+      mockPrisma.turnoCaja.findFirst.mockResolvedValueOnce(null);
+      mockPrisma.turnoCaja.create.mockResolvedValue(turnoAbierto);
+      mockPrisma.movimientoCaja.create.mockResolvedValue({});
+      mockPrisma.outboxEvent.create.mockResolvedValue({});
+      mockPrisma.pagoPendiente.findMany.mockResolvedValueOnce([pagoPendiente]);
+      mockPrisma.pagoPendiente.updateMany.mockResolvedValue({ count: 1 });
+      // El replay llama a registrarPago de nuevo: ahora SÍ hay turno abierto
+      // (findFirst ya no está en modo "una sola vez", así que devuelve turnoAbierto).
+      mockPrisma.turnoCaja.findFirst.mockResolvedValue(turnoAbierto);
+      jest.mocked(axios.get).mockResolvedValue({ data: { id: 'c-001', mesaId: 'm-001', sedeId: 'sede-001', total: 50, estado: 'ABIERTA' } });
+      mockPrisma.cuentaAbierta.upsert.mockResolvedValue({ cuentaId: 'c-001', mesaId: 'm-001', total: 50, estado: 'ABIERTA' });
+      mockPrisma.transaccion.aggregate.mockResolvedValue({ _sum: { monto: 0 } });
+      mockPrisma.transaccion.create.mockResolvedValue({ id: 'tx-1', cuentaId: 'c-001', monto: 50, metodo: 'EFECTIVO', createdAt: new Date() });
+
+      await service.abrirTurno({ fondoInicial: 300 } as any, 'u-001', 'sede-001');
+
+      expect(mockPrisma.pagoPendiente.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { id: 'pp-1', estado: 'PENDIENTE' }, data: { estado: 'PROCESANDO' } }),
+      );
+      expect(mockPrisma.transaccion.create).toHaveBeenCalledWith(
+        expect.objectContaining({ data: expect.objectContaining({ cuentaId: 'c-001', turnoId: 'turno-001' }) }),
+      );
+      expect(mockPrisma.pagoPendiente.update).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { id: 'pp-1' }, data: expect.objectContaining({ estado: 'PROCESADO', transaccionId: 'tx-1' }) }),
+      );
+    });
+
+    it('si un pago en cola ya no se puede registrar (p. ej. la cuenta ya no existe), lo marca FALLIDO sin tumbar la apertura', async () => {
+      mockPrisma.turnoCaja.findFirst.mockResolvedValueOnce(null);
+      mockPrisma.turnoCaja.create.mockResolvedValue(turnoAbierto);
+      mockPrisma.movimientoCaja.create.mockResolvedValue({});
+      mockPrisma.outboxEvent.create.mockResolvedValue({});
+      mockPrisma.pagoPendiente.findMany.mockResolvedValueOnce([pagoPendiente]);
+      mockPrisma.pagoPendiente.updateMany.mockResolvedValue({ count: 1 });
+      mockPrisma.turnoCaja.findFirst.mockResolvedValue(turnoAbierto);
+      jest.mocked(axios.get).mockRejectedValue({ response: { status: 404 } });
+
+      const result = await service.abrirTurno({ fondoInicial: 300 } as any, 'u-001', 'sede-001');
+
+      expect(result.id).toBe('turno-001');
+      expect(mockPrisma.pagoPendiente.update).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { id: 'pp-1' }, data: expect.objectContaining({ estado: 'FALLIDO' }) }),
+      );
+    });
+
+    it('no reintenta una fila que otra apertura concurrente ya reclamó (count 0)', async () => {
+      mockPrisma.turnoCaja.findFirst.mockResolvedValue(turnoAbierto);
+      mockPrisma.pagoPendiente.findMany.mockResolvedValueOnce([pagoPendiente]);
+      mockPrisma.pagoPendiente.updateMany.mockResolvedValue({ count: 0 });
+
+      await service.abrirTurno({ fondoInicial: 300 } as any, 'u-001', 'sede-001');
+
+      expect(mockPrisma.pagoPendiente.update).not.toHaveBeenCalled();
+      expect(mockPrisma.transaccion.create).not.toHaveBeenCalled();
+    });
+  });
+
   describe('cerrarTurno', () => {
     const turnoParaCerrar = {
       id: 'turno-001',
@@ -392,6 +468,8 @@ describe('AppService — Caja', () => {
       });
       mockPrisma.turnoCaja.update.mockResolvedValue({ ...turnoParaCerrar, estado: 'CERRADA', cerradoAt: new Date() });
       mockPrisma.outboxEvent.create.mockResolvedValue({});
+      // Guard de cierre (verificarSinCuentasAbiertas): sin cuentas pendientes.
+      jest.mocked(axios.get).mockResolvedValue({ data: { cuentas: [] } });
     });
 
     it('emite TurnoCajaCerrado para que identidad desactive a los meseros de la sede', async () => {
