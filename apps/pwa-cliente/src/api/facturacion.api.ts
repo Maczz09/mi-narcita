@@ -52,6 +52,7 @@ export function crearEmpresa(payload: CrearEmpresaPayload): Promise<EmpresaDto> 
   const form = new FormData();
   form.append('ruc', payload.ruc);
   form.append('razonSocial', payload.razonSocial);
+  if (payload.sedeId) form.append('sedeId', payload.sedeId);
   if (payload.nombreComercial) form.append('nombreComercial', payload.nombreComercial);
   if (payload.direccion) form.append('direccion', payload.direccion);
   if (payload.ubigeo) form.append('ubigeo', payload.ubigeo);
@@ -66,6 +67,7 @@ export function crearEmpresa(payload: CrearEmpresaPayload): Promise<EmpresaDto> 
 export function actualizarEmpresa(id: string, payload: ActualizarEmpresaPayload): Promise<EmpresaDto> {
   const form = new FormData();
   if (payload.razonSocial !== undefined) form.append('razonSocial', payload.razonSocial);
+  if (payload.sedeId !== undefined) form.append('sedeId', payload.sedeId);
   if (payload.nombreComercial !== undefined) form.append('nombreComercial', payload.nombreComercial);
   if (payload.direccion !== undefined) form.append('direccion', payload.direccion);
   if (payload.ubigeo !== undefined) form.append('ubigeo', payload.ubigeo);

@@ -89,6 +89,8 @@ export interface EmpresaDto {
   id: string;
   slot: number;
   ruc: string;
+  /** Sede (servicio-identidad) a la que emite — null si aún no se enlazó. */
+  sedeId: string | null;
   razonSocial: string;
   nombreComercial: string | null;
   direccion: string | null;
@@ -168,6 +170,7 @@ export interface EmitirNotaResultado {
 export interface CrearEmpresaPayload {
   ruc: string;
   razonSocial: string;
+  sedeId?: string;
   nombreComercial?: string;
   direccion?: string;
   ubigeo?: string;
@@ -183,6 +186,8 @@ export interface CrearEmpresaPayload {
 // siempre junto con certificadoPass (ver AppService.actualizarEmpresa).
 export interface ActualizarEmpresaPayload {
   razonSocial?: string;
+  /** '' desvincula la sede actual. */
+  sedeId?: string;
   nombreComercial?: string;
   direccion?: string;
   ubigeo?: string;

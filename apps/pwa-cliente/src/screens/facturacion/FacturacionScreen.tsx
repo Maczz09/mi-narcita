@@ -15,6 +15,7 @@ import { useOnlineStatus } from '../../hooks/useOnlineStatus';
 import { fmt } from '../../utils/format';
 import { rangoDePeriodo } from '../../utils/periodos';
 import { useFacturacionQuery } from '../../hooks/queries/useFacturacionQuery';
+import { useSedesQuery } from '../../hooks/queries/useSedesQuery';
 import { abrirComprobanteParaImprimir } from '../../utils/comprobantePrint';
 import { ConfigurarEmpresaModal } from './ConfigurarEmpresaModal';
 import { EditarEmpresaModal } from './EditarEmpresaModal';
@@ -71,9 +72,27 @@ export function FacturacionScreen() {
     emitiendoNota, errorNota, emitirNotaCredito, emitirNotaDebito, clearFeedbackNota,
     actualizarEmpresa, cambiarEstadoEmpresa, actualizandoEmpresa, errorActualizarEmpresa, clearFeedbackActualizarEmpresa,
   } = useFacturacionQuery();
+  const { sedes } = useSedesQuery();
 
   const [configurarSunat, setConfigurarSunat] = useState(false);
   const [editarEmpresa, setEditarEmpresa] = useState<EmpresaDto | null>(null);
+
+  const sedeNombrePorId = useMemo(() => new Map(sedes.map((s) => [s.id, s.nombre])), [sedes]);
+  // Una sede no puede tener dos empresas emisoras — "libre" = ninguna
+  // empresa ya la tiene enlazada (o es la propia empresa que se está
+  // editando, para no bloquearse a sí misma al reabrir el modal).
+  const sedesConEmpresa = useMemo(
+    () => new Set(empresas.filter((e) => e.sedeId).map((e) => e.sedeId as string)),
+    [empresas],
+  );
+  const sedesLibresParaCrear = useMemo(
+    () => sedes.filter((s) => s.activa && !sedesConEmpresa.has(s.id)),
+    [sedes, sedesConEmpresa],
+  );
+  const sedesDisponiblesParaEditar = useMemo(() => {
+    if (!editarEmpresa) return [];
+    return sedes.filter((s) => s.activa && (!sedesConEmpresa.has(s.id) || s.id === editarEmpresa.sedeId));
+  }, [sedes, sedesConEmpresa, editarEmpresa]);
 
   const [desde, setDesde] = useState('');
   const [hasta, setHasta] = useState('');
@@ -293,6 +312,7 @@ export function FacturacionScreen() {
                 <tr>
                   <th>Razón social</th>
                   <th className="col-mobile-hidden">RUC</th>
+                  <th>Sede</th>
                   <th>Estado</th>
                   <th className="cell-action">Editar</th>
                 </tr>
@@ -302,6 +322,9 @@ export function FacturacionScreen() {
                   <tr key={emp.id}>
                     <td><strong>{emp.razonSocial}</strong></td>
                     <td className="col-mobile-hidden muted">{emp.ruc}</td>
+                    <td className="muted">
+                      {emp.sedeId ? (sedeNombrePorId.get(emp.sedeId) ?? '—') : 'Sin asignar'}
+                    </td>
                     <td>
                       <button
                         className={`toggle ${emp.activo ? 'on' : ''}`}
@@ -931,6 +954,7 @@ export function FacturacionScreen() {
         <ConfigurarEmpresaModal
           guardando={configurandoEmpresa}
           error={errorEmpresa}
+          sedesDisponibles={sedesLibresParaCrear}
           onClose={() => { setConfigurarSunat(false); clearFeedbackEmpresa(); }}
           onGuardar={async (payload) => {
             const empresa = await crearEmpresa(payload);
@@ -947,6 +971,7 @@ export function FacturacionScreen() {
           empresa={editarEmpresa}
           guardando={actualizandoEmpresa}
           error={errorActualizarEmpresa}
+          sedesDisponibles={sedesDisponiblesParaEditar}
           onClose={() => { setEditarEmpresa(null); clearFeedbackActualizarEmpresa(); }}
           onGuardar={async (payload) => {
             const empresa = await actualizarEmpresa(editarEmpresa.id, payload);

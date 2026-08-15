@@ -9,17 +9,22 @@ import { Scrim } from '../../components/ui/Scrim';
 import { Icons } from '../../components/ui/icons';
 import { useFocusTrap } from '../../hooks/useFocusTrap';
 import type { ActualizarEmpresaPayload, EmpresaDto } from '../../types/facturacion.types';
+import type { SedeDto } from '../../types/sede.types';
 
 interface Props {
   empresa: EmpresaDto;
   guardando: boolean;
   error: string | null;
+  // Sedes libres + la que ya tiene esta empresa (si tiene una) — así se
+  // puede mantener la actual o mover a otra libre, pero no a una ocupada.
+  sedesDisponibles: SedeDto[];
   onGuardar: (payload: ActualizarEmpresaPayload) => Promise<unknown>;
   onClose: () => void;
 }
 
-export function EditarEmpresaModal({ empresa, guardando, error, onGuardar, onClose }: Readonly<Props>) {
+export function EditarEmpresaModal({ empresa, guardando, error, sedesDisponibles, onGuardar, onClose }: Readonly<Props>) {
   const [razonSocial, setRazonSocial] = useState(empresa.razonSocial);
+  const [sedeId, setSedeId] = useState(empresa.sedeId ?? '');
   const [nombreComercial, setNombreComercial] = useState(empresa.nombreComercial ?? '');
   const [direccion, setDireccion] = useState(empresa.direccion ?? '');
   const [ubigeo, setUbigeo] = useState(empresa.ubigeo ?? '');
@@ -47,6 +52,7 @@ export function EditarEmpresaModal({ empresa, guardando, error, onGuardar, onClo
       nombreComercial: nombreComercial.trim(),
       direccion: direccion.trim(),
     };
+    if (sedeId !== (empresa.sedeId ?? '')) payload.sedeId = sedeId;
     // ubigeo y solUsuario tienen validación de "no vacío" en el backend
     // (6 dígitos / MinLength 1) — a diferencia de nombreComercial/dirección,
     // que sí se pueden vaciar. Si el campo quedó en blanco, se omite (no se
@@ -96,6 +102,19 @@ export function EditarEmpresaModal({ empresa, guardando, error, onGuardar, onClo
               <label htmlFor="edit-emp-comercial">Nombre comercial</label>
               <div className="input">
                 <input id="edit-emp-comercial" value={nombreComercial} onChange={(e) => setNombreComercial(e.target.value)} placeholder="Opcional" />
+              </div>
+            </div>
+          </div>
+          <div className="row wrap" style={{ gap: 12, marginBottom: 20 }}>
+            <div className="field" style={{ marginBottom: 0, flex: '1 1 220px' }}>
+              <label htmlFor="edit-emp-sede">Sede que emite</label>
+              <div className="input">
+                <select id="edit-emp-sede" value={sedeId} onChange={(e) => setSedeId(e.target.value)}>
+                  <option value="">Sin asignar</option>
+                  {sedesDisponibles.map((sede) => (
+                    <option key={sede.id} value={sede.id}>{sede.nombre}</option>
+                  ))}
+                </select>
               </div>
             </div>
           </div>

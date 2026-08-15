@@ -20,6 +20,7 @@ const EMPRESA_SELECT = {
   id: true,
   slot: true,
   ruc: true,
+  sedeId: true,
   razonSocial: true,
   nombreComercial: true,
   direccion: true,
@@ -175,6 +176,13 @@ export class AppService {
       throw new ConflictException(`Ya existe una empresa configurada con el RUC ${dto.ruc}`);
     }
 
+    if (dto.sedeId) {
+      const sedeOcupada = await this.prisma.empresa.findUnique({ where: { sedeId: dto.sedeId } });
+      if (sedeOcupada) {
+        throw new ConflictException('Esa sede ya tiene una empresa emisora enlazada.');
+      }
+    }
+
     const ocupados = await this.prisma.empresa.findMany({ select: { slot: true } });
     const slot = SLOTS_DISPONIBLES.find((s) => !ocupados.some((o) => o.slot === s));
     if (!slot) {
@@ -193,6 +201,7 @@ export class AppService {
       data: {
         slot,
         ruc: dto.ruc,
+        sedeId: dto.sedeId ?? null,
         razonSocial: dto.razonSocial,
         nombreComercial: dto.nombreComercial ?? null,
         direccion: dto.direccion ?? null,
@@ -256,7 +265,15 @@ export class AppService {
       }
     }
 
+    if (dto.sedeId !== undefined && dto.sedeId !== '') {
+      const sedeOcupada = await this.prisma.empresa.findUnique({ where: { sedeId: dto.sedeId } });
+      if (sedeOcupada && sedeOcupada.id !== id) {
+        throw new ConflictException('Esa sede ya tiene una empresa emisora enlazada.');
+      }
+    }
+
     const data: Record<string, unknown> = {};
+    if (dto.sedeId !== undefined) data.sedeId = dto.sedeId || null;
     if (dto.razonSocial !== undefined) data.razonSocial = dto.razonSocial;
     if (dto.nombreComercial !== undefined) data.nombreComercial = dto.nombreComercial || null;
     if (dto.direccion !== undefined) data.direccion = dto.direccion || null;

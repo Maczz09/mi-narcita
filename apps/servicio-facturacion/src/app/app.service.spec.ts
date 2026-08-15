@@ -200,7 +200,7 @@ describe('AppService — Facturación', () => {
             codigoEstablecimiento: '0000',
           }) as unknown,
           select: {
-            id: true, slot: true, ruc: true, razonSocial: true, nombreComercial: true,
+            id: true, slot: true, ruc: true, sedeId: true, razonSocial: true, nombreComercial: true,
             direccion: true, ubigeo: true, codigoEstablecimiento: true, solUsuario: true, activo: true,
           },
         }),
@@ -210,6 +210,29 @@ describe('AppService — Facturación', () => {
       expect(Buffer.from(dataEnviada.certificadoPfxCifrado).toString()).toBe('enc:contenido-p12-simulado');
       // La respuesta al front no lleva ningún campo cifrado/secreto.
       expect(resultado).toEqual({ id: 'e-nueva', slot: 1, ruc: dto.ruc, razonSocial: dto.razonSocial, activo: true });
+    });
+
+    it('rechaza si la sede pedida ya tiene otra empresa enlazada', async () => {
+      prisma.empresa.findUnique.mockImplementation(({ where }) =>
+        Promise.resolve(where.sedeId ? { id: 'e-otra', sedeId: 'sede-1' } : null),
+      );
+      await expect(
+        service.crearEmpresa({ ...dto, sedeId: 'sede-1' }, pfxBuffer),
+      ).rejects.toThrow(/ya tiene una empresa emisora enlazada/);
+      expect(prisma.empresa.create).not.toHaveBeenCalled();
+    });
+
+    it('guarda la sede cuando viene y no está ocupada', async () => {
+      prisma.empresa.findUnique.mockResolvedValue(null);
+      prisma.empresa.findMany.mockResolvedValue([]);
+      (extraerClavesDesdePfx as jest.Mock).mockReturnValue({ privateKeyPem: 'pem', certPem: 'pem' });
+      prisma.empresa.create.mockImplementation(({ data }) => ({ id: 'e-nueva', ...data }));
+
+      await service.crearEmpresa({ ...dto, sedeId: 'sede-1' }, pfxBuffer);
+
+      expect(prisma.empresa.create).toHaveBeenCalledWith(
+        expect.objectContaining({ data: expect.objectContaining({ sedeId: 'sede-1' }) }),
+      );
     });
 
     it('asigna el slot 2 cuando el slot 1 ya está ocupado', async () => {
@@ -310,6 +333,51 @@ describe('AppService — Facturación', () => {
       const dataEnviada = prisma.empresa.update.mock.calls[0][0].data;
       expect(dataEnviada.certificadoPassCifrada).toBe('enc:clave-cert-nueva');
       expect(Buffer.from(dataEnviada.certificadoPfxCifrado).toString()).toBe('enc:contenido-p12-nuevo');
+    });
+
+    it('enlaza una sede libre a la empresa', async () => {
+      prisma.empresa.findUnique.mockImplementation(({ where }) =>
+        Promise.resolve(where.id ? empresaExistente : null),
+      );
+      prisma.empresa.update.mockResolvedValue({ ...empresaExistente, sedeId: 'sede-1' });
+
+      await service.actualizarEmpresa('e-1', { sedeId: 'sede-1' });
+
+      expect(prisma.empresa.update).toHaveBeenCalledWith(
+        expect.objectContaining({ data: { sedeId: 'sede-1' } }),
+      );
+    });
+
+    it('rechaza si la sede pedida ya tiene OTRA empresa enlazada', async () => {
+      prisma.empresa.findUnique.mockImplementation(({ where }) =>
+        Promise.resolve(where.id ? empresaExistente : { id: 'e-otra', sedeId: 'sede-1' }),
+      );
+      await expect(service.actualizarEmpresa('e-1', { sedeId: 'sede-1' })).rejects.toThrow(/ya tiene una empresa emisora enlazada/);
+      expect(prisma.empresa.update).not.toHaveBeenCalled();
+    });
+
+    it('permite "reenlazar" la misma sede que ya tenía (no choca consigo misma)', async () => {
+      const conSede = { ...empresaExistente, sedeId: 'sede-1' };
+      prisma.empresa.findUnique.mockImplementation(({ where }) =>
+        Promise.resolve(where.id ? conSede : conSede),
+      );
+      prisma.empresa.update.mockResolvedValue(conSede);
+
+      await expect(service.actualizarEmpresa('e-1', { sedeId: 'sede-1' })).resolves.toBeDefined();
+      expect(prisma.empresa.update).toHaveBeenCalledWith(
+        expect.objectContaining({ data: { sedeId: 'sede-1' } }),
+      );
+    });
+
+    it('desvincula la sede cuando llega vacío', async () => {
+      prisma.empresa.findUnique.mockResolvedValue(empresaExistente);
+      prisma.empresa.update.mockResolvedValue({ ...empresaExistente, sedeId: null });
+
+      await service.actualizarEmpresa('e-1', { sedeId: '' });
+
+      expect(prisma.empresa.update).toHaveBeenCalledWith(
+        expect.objectContaining({ data: { sedeId: null } }),
+      );
     });
 
     it('rechaza si la clave de cifrado del servidor no está configurada y se intenta cambiar credenciales', async () => {

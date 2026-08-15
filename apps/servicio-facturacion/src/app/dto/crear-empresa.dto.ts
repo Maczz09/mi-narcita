@@ -11,6 +11,13 @@ export class CrearEmpresaDto {
   @MinLength(3)
   razonSocial: string;
 
+  // Sede (servicio-identidad) a la que emite esta empresa — opcional: se
+  // puede configurar SUNAT antes de decidir la sede, o dejarla sin asignar
+  // (mismo criterio que el resto de campos "todavía no configurado").
+  @IsOptional()
+  @IsString()
+  sedeId?: string;
+
   @IsOptional()
   @IsString()
   nombreComercial?: string;

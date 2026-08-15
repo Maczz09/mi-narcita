@@ -11,10 +11,14 @@ import { Scrim } from '../../components/ui/Scrim';
 import { Icons } from '../../components/ui/icons';
 import { useFocusTrap } from '../../hooks/useFocusTrap';
 import type { CrearEmpresaPayload } from '../../types/facturacion.types';
+import type { SedeDto } from '../../types/sede.types';
 
 interface Props {
   guardando: boolean;
   error: string | null;
+  // Solo sedes que todavía no tienen otra empresa enlazada — una sede no
+  // puede emitir con dos empresas distintas (ver AppService.crearEmpresa).
+  sedesDisponibles: SedeDto[];
   onGuardar: (payload: CrearEmpresaPayload) => Promise<unknown>;
   onClose: () => void;
 }
@@ -22,6 +26,7 @@ interface Props {
 const initialForm = {
   ruc: '',
   razonSocial: '',
+  sedeId: '',
   nombreComercial: '',
   direccion: '',
   ubigeo: '',
@@ -30,7 +35,7 @@ const initialForm = {
   certificadoPass: '',
 };
 
-export function ConfigurarEmpresaModal({ guardando, error, onGuardar, onClose }: Readonly<Props>) {
+export function ConfigurarEmpresaModal({ guardando, error, sedesDisponibles, onGuardar, onClose }: Readonly<Props>) {
   const [form, setForm] = useState(initialForm);
   const [certificado, setCertificado] = useState<File | null>(null);
   const [validacion, setValidacion] = useState<string | null>(null);
@@ -59,6 +64,7 @@ export function ConfigurarEmpresaModal({ guardando, error, onGuardar, onClose }:
       await onGuardar({
         ruc: form.ruc,
         razonSocial: form.razonSocial.trim(),
+        sedeId: form.sedeId || undefined,
         nombreComercial: form.nombreComercial.trim() || undefined,
         direccion: form.direccion.trim() || undefined,
         ubigeo: form.ubigeo.trim() || undefined,
@@ -103,6 +109,22 @@ export function ConfigurarEmpresaModal({ guardando, error, onGuardar, onClose }:
               <div className="input">
                 <input id="emp-razon" value={form.razonSocial} onChange={(e) => set('razonSocial', e.target.value)} placeholder="Como figura en SUNAT" />
               </div>
+            </div>
+          </div>
+          <div className="row wrap" style={{ gap: 12, marginBottom: 12 }}>
+            <div className="field" style={{ marginBottom: 0, flex: '1 1 220px' }}>
+              <label htmlFor="emp-sede">Sede que emite</label>
+              <div className="input">
+                <select id="emp-sede" value={form.sedeId} onChange={(e) => set('sedeId', e.target.value)}>
+                  <option value="">Sin asignar (configurar después)</option>
+                  {sedesDisponibles.map((sede) => (
+                    <option key={sede.id} value={sede.id}>{sede.nombre}</option>
+                  ))}
+                </select>
+              </div>
+              {sedesDisponibles.length === 0 && (
+                <span className="hint">Todas las sedes ya tienen una empresa emisora enlazada.</span>
+              )}
             </div>
           </div>
           <div className="row wrap" style={{ gap: 12, marginBottom: 20 }}>

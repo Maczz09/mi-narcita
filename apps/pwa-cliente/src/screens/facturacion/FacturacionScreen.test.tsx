@@ -3,12 +3,17 @@ import { render, screen, within, fireEvent, waitFor } from '@testing-library/rea
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { FacturacionScreen } from './FacturacionScreen';
 import { useFacturacionQuery } from '../../hooks/queries/useFacturacionQuery';
+import { useSedesQuery } from '../../hooks/queries/useSedesQuery';
 import { useOnlineStatus } from '../../hooks/useOnlineStatus';
 import { useToast } from '../../components/ui/ToastProvider';
 import { abrirComprobanteParaImprimir } from '../../utils/comprobantePrint';
 
 vi.mock('../../hooks/queries/useFacturacionQuery', () => ({
   useFacturacionQuery: vi.fn(),
+}));
+
+vi.mock('../../hooks/queries/useSedesQuery', () => ({
+  useSedesQuery: vi.fn(),
 }));
 
 vi.mock('../../utils/comprobantePrint', () => ({
@@ -49,7 +54,11 @@ vi.mock('../../components/ui/ToastProvider', () => ({
   useToast: vi.fn(),
 }));
 
-const empresa = { id: 'e1', slot: 1, ruc: '10417758432', razonSocial: 'QUISPE MORALES YUSLUNY YANET', activo: true };
+const empresa = { id: 'e1', slot: 1, ruc: '10417758432', sedeId: 'sede-1', razonSocial: 'QUISPE MORALES YUSLUNY YANET', activo: true };
+const sedesMock = [
+  { id: 'sede-1', nombre: 'Mi Narcita 1', activa: true },
+  { id: 'sede-2', nombre: 'Mi Narcita 2', activa: true },
+];
 
 const disponible = {
   id: 'cp1', cuentaId: 'c1', sedeId: 's1', mesaId: 'm1', total: '15.00',
@@ -124,6 +133,7 @@ describe('FacturacionScreen', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.mocked(useFacturacionQuery).mockReturnValue(baseMock() as any);
+    vi.mocked(useSedesQuery).mockReturnValue({ sedes: sedesMock } as any);
     vi.mocked(useOnlineStatus).mockReturnValue(true);
     vi.mocked(useToast).mockReturnValue({ toast: vi.fn() } as any);
   });
@@ -547,6 +557,15 @@ describe('FacturacionScreen', () => {
       expect(screen.getByText('Empresas configuradas')).toBeInTheDocument();
       expect(screen.getByText('10417758432')).toBeInTheDocument();
       expect(screen.getByRole('button', { name: 'Editar QUISPE MORALES YUSLUNY YANET' })).toBeInTheDocument();
+    });
+
+    it('muestra el nombre de la sede enlazada, o "Sin asignar" si no tiene', () => {
+      const sinSede = { ...empresa, id: 'e2', sedeId: null, razonSocial: 'Otra SAC' };
+      vi.mocked(useFacturacionQuery).mockReturnValue(baseMock({ empresas: [empresa, sinSede] }) as any);
+      render(<FacturacionScreen />);
+
+      expect(screen.getByText('Mi Narcita 1')).toBeInTheDocument();
+      expect(screen.getByText('Sin asignar')).toBeInTheDocument();
     });
 
     it('no muestra la sección si todavía no hay ninguna empresa', () => {

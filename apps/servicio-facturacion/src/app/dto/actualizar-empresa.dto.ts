@@ -12,6 +12,13 @@ export class ActualizarEmpresaDto {
   @MinLength(3)
   razonSocial?: string;
 
+  // Permite asignar/corregir la sede después de creada (ej. la primera
+  // empresa, configurada antes de que existiera este campo). Vacío ('')
+  // desvincula la sede — ver AppService.actualizarEmpresa.
+  @IsOptional()
+  @IsString()
+  sedeId?: string;
+
   @IsOptional()
   @IsString()
   nombreComercial?: string;
