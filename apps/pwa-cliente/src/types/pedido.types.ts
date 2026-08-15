@@ -162,6 +162,8 @@ export interface AnulacionResponse {
 
 export interface AnulacionAuditoriaVM {
   id: string;
+  /** Código legible propio de este registro ("AN0000001"), independiente de la atención. */
+  correlativo: string | null;
   fechaLabel: string;
   mesaNumero: number | null;
   pedidoId: string;

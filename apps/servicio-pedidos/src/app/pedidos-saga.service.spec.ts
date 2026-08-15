@@ -16,7 +16,10 @@ function createMockPrismaService(overrides: Record<string, any> = {}) {
       create: jest.fn(),
       findUnique: jest.fn(),
       findUniqueOrThrow: jest.fn(),
-      findMany: jest.fn(),
+      // Usado por cuentaQuedoTotalmenteAnulada (cascada de auto-cancelación)
+      // — [] por defecto significa "sin cuenta que cascadear" en los tests
+      // que no ejercitan esa lógica explícitamente.
+      findMany: jest.fn().mockResolvedValue([]),
       update: jest.fn(),
       updateMany: jest.fn().mockResolvedValue({ count: 1 }),
     },
@@ -40,6 +43,9 @@ function createMockPrismaService(overrides: Record<string, any> = {}) {
       create: jest.fn().mockResolvedValue({}),
       createMany: jest.fn().mockResolvedValue({ count: 2 }),
     },
+    secuenciaAnulacion: {
+      upsert: jest.fn().mockResolvedValue({ sedeId: 'sede-001', ultimo: 1 }),
+    },
     ...overrides,
   };
   prisma.$transaction = jest.fn(async (cb: any) => cb(prisma));
@@ -61,16 +67,22 @@ function createMockMesasHttp() {
   return { liberarMesa: jest.fn().mockResolvedValue(true) };
 }
 
+function createMockCuentasHttp() {
+  return { cancelarCuenta: jest.fn().mockResolvedValue(true) };
+}
+
 describe('PedidosSagaService — Pedidos', () => {
   let service: PedidosSagaService;
   let mockPrisma: ReturnType<typeof createMockPrismaService>;
   let mockMesasHttp: ReturnType<typeof createMockMesasHttp>;
+  let mockCuentasHttp: ReturnType<typeof createMockCuentasHttp>;
 
   beforeEach(() => {
     jest.clearAllMocks();
     mockPrisma = createMockPrismaService();
     mockMesasHttp = createMockMesasHttp();
-    service = new PedidosSagaService(mockPrisma, mockMesasHttp as never);
+    mockCuentasHttp = createMockCuentasHttp();
+    service = new PedidosSagaService(mockPrisma, mockMesasHttp as never, mockCuentasHttp as never);
   });
 
   afterEach(() => {
@@ -249,6 +261,219 @@ describe('PedidosSagaService — Pedidos', () => {
     });
   });
 
+  // Pedido del dueño (interjección mid-sesión): "cuando ya se han anulado
+  // todos los items de la cuenta actual, atencion de mesa se anule
+  // inmediatamente, cuando todos sus item son anulados uno por uno" — a
+  // diferencia del botón manual "Anular atención de mesa", esto dispara
+  // solo desde cancelar ítems uno por uno (o un pedido puntual), sin que
+  // el usuario tenga que presionar nada.
+  describe('cascada automática: cancelar el último ítem de la cuenta la cancela sola', () => {
+    const itemBase = { id: 'i-1', pedidoId: 'p-001', nombre: 'Plato', cantidad: 1, precioUnitario: 10, area: 'COCINA', notas: null };
+
+    it('actualizarEstadoItem: al cancelar el último ítem de la única cuenta, libera la mesa y cancela la cuenta', async () => {
+      jest.spyOn(mockPrisma.pedidoItem, 'update').mockResolvedValue({ id: 'i-1', pedidoId: 'p-001' } as never);
+      jest.spyOn(mockPrisma.pedido, 'findUnique').mockResolvedValue({
+        ...basePedido, cuentaId: 'c-1', estado: PedidoEstado.Pendiente,
+        items: [{ ...itemBase, estado: PedidoEstado.Cancelado }],
+      } as never);
+      jest.spyOn(mockPrisma.pedido, 'update').mockResolvedValue({
+        ...basePedido, cuentaId: 'c-1', estado: PedidoEstado.Cancelado, items: [],
+      } as never);
+      mockPrisma.pedido.findMany.mockResolvedValue([
+        { mesaId: 'm-001', items: [{ estado: PedidoEstado.Cancelado }] },
+      ]);
+
+      await service.actualizarEstadoItem('i-1', { estado: PedidoEstado.Cancelado, motivo: 'Último ítem' });
+
+      expect(mockPrisma.pedido.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { cuentaId: 'c-1' } }),
+      );
+      expect(mockMesasHttp.liberarMesa).toHaveBeenCalledWith('m-001', 'LIBRE');
+      expect(mockCuentasHttp.cancelarCuenta).toHaveBeenCalledWith('c-1');
+    });
+
+    it('actualizarEstadoItem: si queda un ítem vivo en OTRO pedido de la misma cuenta, no cascadea', async () => {
+      jest.spyOn(mockPrisma.pedidoItem, 'update').mockResolvedValue({ id: 'i-1', pedidoId: 'p-001' } as never);
+      jest.spyOn(mockPrisma.pedido, 'findUnique').mockResolvedValue({
+        ...basePedido, cuentaId: 'c-1', estado: PedidoEstado.Pendiente,
+        items: [{ ...itemBase, estado: PedidoEstado.Cancelado }],
+      } as never);
+      jest.spyOn(mockPrisma.pedido, 'update').mockResolvedValue({
+        ...basePedido, cuentaId: 'c-1', estado: PedidoEstado.Cancelado, items: [],
+      } as never);
+      // Otro pedido de la misma cuenta todavía tiene un ítem PENDIENTE.
+      mockPrisma.pedido.findMany.mockResolvedValue([
+        { mesaId: 'm-001', items: [{ estado: PedidoEstado.Cancelado }] },
+        { mesaId: 'm-001', items: [{ estado: PedidoEstado.Pendiente }] },
+      ]);
+
+      await service.actualizarEstadoItem('i-1', { estado: PedidoEstado.Cancelado });
+
+      expect(mockMesasHttp.liberarMesa).not.toHaveBeenCalled();
+      expect(mockCuentasHttp.cancelarCuenta).not.toHaveBeenCalled();
+    });
+
+    it('actualizarEstadoItem: sin cuentaId (pedido de antes del backfill), no intenta cascadear ni revienta', async () => {
+      jest.spyOn(mockPrisma.pedidoItem, 'update').mockResolvedValue({ id: 'i-1', pedidoId: 'p-001' } as never);
+      jest.spyOn(mockPrisma.pedido, 'findUnique').mockResolvedValue({
+        ...basePedido, cuentaId: null, estado: PedidoEstado.Pendiente,
+        items: [{ ...itemBase, estado: PedidoEstado.Cancelado }],
+      } as never);
+      jest.spyOn(mockPrisma.pedido, 'update').mockResolvedValue({
+        ...basePedido, cuentaId: null, estado: PedidoEstado.Cancelado, items: [],
+      } as never);
+
+      await expect(
+        service.actualizarEstadoItem('i-1', { estado: PedidoEstado.Cancelado }),
+      ).resolves.toBeDefined();
+
+      expect(mockPrisma.pedido.findMany).not.toHaveBeenCalled();
+      expect(mockMesasHttp.liberarMesa).not.toHaveBeenCalled();
+      expect(mockCuentasHttp.cancelarCuenta).not.toHaveBeenCalled();
+    });
+
+    it('anularItemPreparado (NO COBRAR): al cancelar el último ítem, libera la mesa y cancela la cuenta', async () => {
+      const item = {
+        id: 'i-1', pedidoId: 'p-001', productoId: 'prod-1', nombre: 'Lomo', cantidad: 1, precioUnitario: 15,
+        area: 'COCINA', estado: PedidoEstado.Listo,
+        pedido: { id: 'p-001', sedeId: 'sede-001', mesaId: 'm-001', numeroMesa: 5, cliente: null },
+      };
+      mockPrisma.pedidoItem.findUnique.mockResolvedValue(item as never);
+      mockPrisma.pedidoItem.update.mockResolvedValue({ ...item, estado: PedidoEstado.Cancelado } as never);
+      mockPrisma.pedido.findUniqueOrThrow.mockResolvedValue({
+        id: 'p-001', mesaId: 'm-001', numeroMesa: 5, sedeId: 'sede-001', cliente: null, cuentaId: 'c-1',
+        estado: PedidoEstado.Listo, total: 15, createdAt: new Date(),
+        items: [{ ...item, estado: PedidoEstado.Listo }],
+      } as never);
+      mockPrisma.pedido.update.mockResolvedValue({
+        id: 'p-001', mesaId: 'm-001', numeroMesa: 5, sedeId: 'sede-001', cliente: null, cuentaId: 'c-1',
+        estado: PedidoEstado.Cancelado, total: 0, createdAt: new Date(),
+        items: [{ ...item, estado: PedidoEstado.Cancelado }],
+      } as never);
+      mockPrisma.pedido.findMany.mockResolvedValue([
+        { mesaId: 'm-001', items: [{ estado: PedidoEstado.Cancelado }] },
+      ]);
+      mockPrisma.anulacionAuditoria.create.mockResolvedValue({ id: 'aud-x' } as never);
+
+      await service.anularItemPreparado('i-1', { cobrar: false, motivo: 'Se le cayó al mesero' }, null, 'sede-001');
+
+      expect(mockMesasHttp.liberarMesa).toHaveBeenCalledWith('m-001', 'LIBRE');
+      expect(mockCuentasHttp.cancelarCuenta).toHaveBeenCalledWith('c-1');
+    });
+
+    it('anularItemPreparado (SÍ COBRAR): nunca cascadea, aunque quede como el único ítem de la cuenta', async () => {
+      const item = {
+        id: 'i-1', pedidoId: 'p-001', productoId: 'prod-1', nombre: 'Lomo', cantidad: 1, precioUnitario: 15,
+        area: 'COCINA', estado: PedidoEstado.Listo,
+        pedido: { id: 'p-001', sedeId: 'sede-001', mesaId: 'm-001', numeroMesa: 5, cliente: null },
+      };
+      mockPrisma.pedidoItem.findUnique.mockResolvedValue(item as never);
+      mockPrisma.pedido.findUniqueOrThrow.mockResolvedValue({
+        id: 'p-001', mesaId: 'm-001', numeroMesa: 5, sedeId: 'sede-001', cliente: null, cuentaId: 'c-1',
+        estado: PedidoEstado.Listo, total: 15, createdAt: new Date(), items: [item],
+      } as never);
+      mockPrisma.anulacionAuditoria.create.mockResolvedValue({ id: 'aud-x' } as never);
+
+      await service.anularItemPreparado('i-1', { cobrar: true, motivo: 'Cliente lo comió igual' }, null, 'sede-001');
+
+      expect(mockPrisma.pedido.findMany).not.toHaveBeenCalled();
+      expect(mockMesasHttp.liberarMesa).not.toHaveBeenCalled();
+      expect(mockCuentasHttp.cancelarCuenta).not.toHaveBeenCalled();
+    });
+
+    it('anularAtencionMesa: además de liberar la mesa, cancela la cuenta cuando no queda nada pendiente de cobro', async () => {
+      const SEDE = 'sede-001';
+      const MESA = 'm-001';
+      const itemPendiente = { id: 'i-1', pedidoId: 'p-1', productoId: 'prod-a', nombre: 'Sopa', cantidad: 1, precioUnitario: 10, area: 'COCINA', estado: PedidoEstado.Pendiente, notas: null };
+      const pedidoConCuenta = {
+        id: 'p-1', mesaId: MESA, sedeId: SEDE, cuentaId: 'c-1', numeroMesa: 3, cliente: null,
+        estado: PedidoEstado.Pendiente, total: 10, createdAt: new Date(), items: [itemPendiente],
+      };
+      mockPrisma.pedido.findMany.mockResolvedValue([pedidoConCuenta]);
+      mockPrisma.pedidoItem.update.mockResolvedValue({ ...itemPendiente, estado: PedidoEstado.Cancelado });
+      mockPrisma.pedido.update.mockResolvedValue({ ...pedidoConCuenta, estado: PedidoEstado.Cancelado, items: [] });
+      mockPrisma.anulacionAuditoria.create.mockResolvedValue({ id: 'aud-x' } as never);
+
+      const { resultado } = await service.anularAtencionMesa(MESA, { motivo: 'Cliente se retiró' }, SEDE);
+
+      expect(resultado.mesaLiberada).toBe(true);
+      expect(mockMesasHttp.liberarMesa).toHaveBeenCalledWith(MESA, 'LIBRE');
+      expect(mockCuentasHttp.cancelarCuenta).toHaveBeenCalledWith('c-1');
+    });
+
+    it('anularAtencionMesa: si sobrevive algo cobrable, no cancela la cuenta (queda para que caja cierre)', async () => {
+      const SEDE = 'sede-001';
+      const MESA = 'm-001';
+      // Mezcla: un ítem cancelable (para no chocar con el guard de "nada
+      // que anular") + uno DIRECTO confirmado como consumido, que se
+      // mantiene cobrable — mismo patrón que el test "branchea por ítem".
+      const itemPendiente = { id: 'i-1', pedidoId: 'p-1', productoId: 'prod-a', nombre: 'Sopa', cantidad: 1, precioUnitario: 10, area: 'COCINA', estado: PedidoEstado.Pendiente, notas: null };
+      const itemDirectoConfirmado = { id: 'i-3', pedidoId: 'p-1', productoId: 'prod-c', nombre: 'Cerveza', cantidad: 1, precioUnitario: 8, area: 'DIRECTO', estado: PedidoEstado.Entregado, notas: null };
+      const pedidoConCuenta = {
+        id: 'p-1', mesaId: MESA, sedeId: SEDE, cuentaId: 'c-1', numeroMesa: 3, cliente: null,
+        estado: PedidoEstado.Pendiente, total: 18, createdAt: new Date(), items: [itemPendiente, itemDirectoConfirmado],
+      };
+      mockPrisma.pedido.findMany.mockResolvedValue([pedidoConCuenta]);
+      mockPrisma.pedidoItem.update.mockResolvedValue({ ...itemPendiente, estado: PedidoEstado.Cancelado });
+      mockPrisma.pedido.update.mockResolvedValue({ ...pedidoConCuenta, items: [] });
+      mockPrisma.anulacionAuditoria.create.mockResolvedValue({ id: 'aud-x' } as never);
+
+      const { resultado } = await service.anularAtencionMesa(MESA, { motivo: 'x', itemsConsumidos: ['i-3'] }, SEDE);
+
+      expect(resultado.mesaLiberada).toBe(false);
+      expect(mockMesasHttp.liberarMesa).not.toHaveBeenCalled();
+      expect(mockCuentasHttp.cancelarCuenta).not.toHaveBeenCalled();
+    });
+
+    it('anularPedido: si al cancelar este pedido la cuenta queda totalmente anulada (otros pedidos ya lo estaban), cascadea', async () => {
+      const SEDE = 'sede-001';
+      const MESA = 'm-001';
+      const itemPendiente = { id: 'i-1', pedidoId: 'p-1', productoId: 'prod-a', nombre: 'Sopa', cantidad: 1, precioUnitario: 10, area: 'COCINA', estado: PedidoEstado.Pendiente, notas: null };
+      const pedidoConCuenta = {
+        id: 'p-1', mesaId: MESA, sedeId: SEDE, cuentaId: 'c-1', numeroMesa: 1, cliente: null,
+        estado: PedidoEstado.Pendiente, total: 10, createdAt: new Date(), items: [itemPendiente],
+      };
+      mockPrisma.pedido.findUnique.mockResolvedValue(pedidoConCuenta);
+      mockPrisma.pedidoItem.update.mockResolvedValue({ ...itemPendiente, estado: PedidoEstado.Cancelado });
+      mockPrisma.pedido.update.mockResolvedValue({ ...pedidoConCuenta, estado: PedidoEstado.Cancelado, items: [] });
+      mockPrisma.pedido.findUniqueOrThrow.mockResolvedValue({ ...pedidoConCuenta, estado: PedidoEstado.Cancelado, items: [] });
+      // Otro pedido "p-2" de la misma cuenta ya estaba cancelado de antes.
+      mockPrisma.pedido.findMany.mockResolvedValue([
+        { mesaId: MESA, items: [{ estado: PedidoEstado.Cancelado }] },
+        { mesaId: MESA, items: [{ estado: PedidoEstado.Cancelado }] },
+      ]);
+
+      await service.anularPedido('p-1', { motivo: 'Cliente se arrepintió' }, SEDE);
+
+      expect(mockPrisma.pedido.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { cuentaId: 'c-1' } }),
+      );
+      expect(mockMesasHttp.liberarMesa).toHaveBeenCalledWith(MESA, 'LIBRE');
+      expect(mockCuentasHttp.cancelarCuenta).toHaveBeenCalledWith('c-1');
+    });
+
+    it('anularPedido: si el pedido cancelado mantiene algo cobrable (itemsConsumidos), no cascadea', async () => {
+      const SEDE = 'sede-001';
+      const MESA = 'm-001';
+      const itemDirectoMantenido = { id: 'i-3', pedidoId: 'p-1', productoId: 'prod-c', nombre: 'Cerveza', cantidad: 1, precioUnitario: 8, area: 'DIRECTO', estado: PedidoEstado.Entregado, notas: null };
+      const itemPendiente = { id: 'i-1', pedidoId: 'p-1', productoId: 'prod-a', nombre: 'Sopa', cantidad: 1, precioUnitario: 10, area: 'COCINA', estado: PedidoEstado.Pendiente, notas: null };
+      const pedidoConCuenta = {
+        id: 'p-1', mesaId: MESA, sedeId: SEDE, cuentaId: 'c-1', numeroMesa: 1, cliente: null,
+        estado: PedidoEstado.Pendiente, total: 18, createdAt: new Date(), items: [itemPendiente, itemDirectoMantenido],
+      };
+      mockPrisma.pedido.findUnique.mockResolvedValue(pedidoConCuenta);
+      mockPrisma.pedidoItem.update.mockResolvedValue({ ...itemPendiente, estado: PedidoEstado.Cancelado });
+      mockPrisma.pedido.update.mockResolvedValue({ ...pedidoConCuenta, items: [] });
+      mockPrisma.pedido.findUniqueOrThrow.mockResolvedValue({ ...pedidoConCuenta, items: [] });
+
+      await service.anularPedido('p-1', { motivo: 'x', itemsConsumidos: ['i-3'] }, SEDE);
+
+      expect(mockPrisma.pedido.findMany).not.toHaveBeenCalled();
+      expect(mockMesasHttp.liberarMesa).not.toHaveBeenCalled();
+      expect(mockCuentasHttp.cancelarCuenta).not.toHaveBeenCalled();
+    });
+  });
+
   describe('procesarStockInsuficiente — compensación de saga', () => {
     const itemRechazado = (over: Record<string, any> = {}) => ({
       id: 'it-1', productoId: 'prod-a', nombre: 'A', cantidad: 1, precioUnitario: 10,
@@ -370,8 +595,8 @@ describe('PedidosSagaService — Pedidos', () => {
     });
   });
 
-  describe('procesarCuentaAsociada — backfill del correlativo de la atención', () => {
-    it('guarda el correlativo en el pedido', async () => {
+  describe('procesarCuentaAsociada — backfill del cuentaId y correlativo de la atención', () => {
+    it('guarda cuentaId y el correlativo en el pedido', async () => {
       const prisma = createMockPrismaService({
         pedido: { updateMany: jest.fn().mockResolvedValue({ count: 1 }) },
       });
@@ -381,18 +606,32 @@ describe('PedidosSagaService — Pedidos', () => {
 
       expect(prisma.pedido.updateMany).toHaveBeenCalledWith({
         where: { id: 'p-1' },
-        data: { cuentaCorrelativo: 'A0000042' },
+        data: { cuentaId: 'c-1', cuentaCorrelativo: 'A0000042' },
       });
     });
 
-    it('no hace nada si el payload no trae pedidoId o correlativo', async () => {
+    it('guarda cuentaId aunque el correlativo todavía no venga (cuenta sin backfill retroactivo)', async () => {
+      const prisma = createMockPrismaService({
+        pedido: { updateMany: jest.fn().mockResolvedValue({ count: 1 }) },
+      });
+      const svc = new PedidosSagaService(prisma as never);
+
+      await svc.procesarCuentaAsociada({ pedidoId: 'p-1', cuentaId: 'c-1', sedeId: 'sede-001' });
+
+      expect(prisma.pedido.updateMany).toHaveBeenCalledWith({
+        where: { id: 'p-1' },
+        data: { cuentaId: 'c-1' },
+      });
+    });
+
+    it('no hace nada si el payload no trae pedidoId o cuentaId', async () => {
       const prisma = createMockPrismaService({
         pedido: { updateMany: jest.fn() },
       });
       const svc = new PedidosSagaService(prisma as never);
 
       await svc.procesarCuentaAsociada({ pedidoId: '', cuentaId: 'c-1', sedeId: 'sede-001', correlativo: 'A0000042' });
-      await svc.procesarCuentaAsociada({ pedidoId: 'p-1', cuentaId: 'c-1', sedeId: 'sede-001' });
+      await svc.procesarCuentaAsociada({ pedidoId: 'p-1', cuentaId: '', sedeId: 'sede-001', correlativo: 'A0000042' });
 
       expect(prisma.pedido.updateMany).not.toHaveBeenCalled();
     });
@@ -775,12 +1014,18 @@ describe('PedidosSagaService — Pedidos', () => {
         expect(result.anulaciones[0].montoAnulado).toBe(30);
       });
 
-      it('busca por el código de la atención cuando se indica search', async () => {
+      it('busca por el código propio de la anulación o el de la atención cuando se indica search', async () => {
         mockPrisma.anulacionAuditoria.findMany.mockResolvedValue([]);
         await service.listarAnulaciones({ search: 'A000004' } as any, SEDE);
         expect(mockPrisma.anulacionAuditoria.findMany).toHaveBeenCalledWith(
           expect.objectContaining({
-            where: { sedeId: SEDE, cuentaCorrelativo: { contains: 'A000004', mode: 'insensitive' } },
+            where: {
+              sedeId: SEDE,
+              OR: [
+                { correlativo: { contains: 'A000004', mode: 'insensitive' } },
+                { cuentaCorrelativo: { contains: 'A000004', mode: 'insensitive' } },
+              ],
+            },
           }),
         );
       });

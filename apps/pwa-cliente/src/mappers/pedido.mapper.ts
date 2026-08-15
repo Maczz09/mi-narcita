@@ -106,6 +106,7 @@ const ESTADO_PLATO_LABEL: Record<EstadoPlatoAnulacion, string> = {
 export function mapAnulacionAuditoria(dto: AnulacionAuditoriaDto): AnulacionAuditoriaVM {
   return {
     id: dto.id,
+    correlativo: dto.correlativo ?? null,
     fechaLabel: new Date(dto.fecha).toLocaleString('es-PE', { dateStyle: 'short', timeStyle: 'short' }),
     mesaNumero: dto.mesaNumero ?? null,
     pedidoId: dto.pedidoId,

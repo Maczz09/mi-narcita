@@ -136,7 +136,7 @@ export function ReservasScreen() {
               <table className="dt">
                 <thead>
                   <tr>
-                    <th>Hora</th>
+                    <th>Fecha y hora</th>
                     <th>Cliente</th>
                     <th className="col-mobile-hidden">Mesa</th>
                     <th className="col-mobile-hidden">Personas</th>
@@ -149,7 +149,7 @@ export function ReservasScreen() {
                   {reservas.map((reserva) => (
                     <tr key={reserva.id}>
                       <td>
-                        <strong>{reserva.hora}</strong>
+                        <strong>{reserva.fechaHoraLabel}</strong>
                         {reserva.correlativo && <div className="muted mono" style={{ fontSize: 11 }}>{reserva.correlativo}</div>}
                       </td>
                       <td>

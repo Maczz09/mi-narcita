@@ -411,6 +411,62 @@ describe('AppService — Cuentas (comprehensive)', () => {
     });
   });
 
+  // ─── cancelarCuenta ───────────────────────────────────────────────────────
+
+  describe('cancelarCuenta', () => {
+    it('cancela una cuenta abierta y emite cuenta.cancelada', async () => {
+      mockPrisma.cuenta.findUnique.mockResolvedValue(cuentaAbierta);
+      mockPrisma.cuenta.updateMany.mockResolvedValue({ count: 1 });
+      mockPrisma.outboxEvent.create.mockResolvedValue({});
+
+      const result = await service.cancelarCuenta('c-001');
+
+      expect(result.message).toBe('Cuenta cancelada exitosamente');
+      expect(mockPrisma.cuenta.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { id: 'c-001', estado: CuentaEstado.Abierta }, data: { estado: CuentaEstado.Cancelada } }),
+      );
+      const evento = mockPrisma.outboxEvent.create.mock.calls.at(-1)[0].data;
+      expect(evento.routingKey).toBe('cuenta.cancelada');
+      expect(JSON.parse(evento.payload)).toEqual({ cuentaId: 'c-001', mesaId: 'm-001', sedeId: undefined });
+    });
+
+    it('no exige que la cuenta tenga pedidos (a diferencia de cerrarCuenta)', async () => {
+      mockPrisma.cuenta.findUnique.mockResolvedValue({ ...cuentaAbierta, pedidos: [] });
+      mockPrisma.cuenta.updateMany.mockResolvedValue({ count: 1 });
+
+      await expect(service.cancelarCuenta('c-001')).resolves.toEqual({ message: 'Cuenta cancelada exitosamente' });
+    });
+
+    it('lanza NotFoundException si la cuenta no existe', async () => {
+      mockPrisma.cuenta.findUnique.mockResolvedValue(null);
+      await expect(service.cancelarCuenta('no-existe')).rejects.toThrow(NotFoundException);
+    });
+
+    it('es idempotente: si ya está CANCELADA, no falla ni repite el evento', async () => {
+      mockPrisma.cuenta.findUnique.mockResolvedValue({ ...cuentaAbierta, estado: CuentaEstado.Cancelada });
+
+      const result = await service.cancelarCuenta('c-001');
+
+      expect(result.message).toBe('La cuenta ya estaba cancelada.');
+      expect(mockPrisma.cuenta.updateMany).not.toHaveBeenCalled();
+      expect(mockPrisma.outboxEvent.create).not.toHaveBeenCalled();
+    });
+
+    it('lanza BadRequestException si la cuenta ya está CERRADA (pagada)', async () => {
+      mockPrisma.cuenta.findUnique.mockResolvedValue({ ...cuentaAbierta, estado: CuentaEstado.Cerrada });
+      await expect(service.cancelarCuenta('c-001')).rejects.toThrow(BadRequestException);
+    });
+
+    it('rechaza cancelación concurrente (updateMany count 0) sin emitir el evento', async () => {
+      mockPrisma.cuenta.findUnique.mockResolvedValue(cuentaAbierta);
+      mockPrisma.cuenta.updateMany.mockResolvedValue({ count: 0 });
+
+      const result = await service.cancelarCuenta('c-001');
+      expect(result.message).toBe('La cuenta ya estaba cancelada.');
+      expect(mockPrisma.outboxEvent.create).not.toHaveBeenCalled();
+    });
+  });
+
   // ─── dividirCuenta ────────────────────────────────────────────────────────
 
   describe('dividirCuenta', () => {

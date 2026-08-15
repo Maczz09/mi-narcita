@@ -38,7 +38,13 @@ export function AnularAtencionMesaModal({ mesaNumero, items, saving, onClose, on
     });
   };
 
-  const valido = motivo.trim() !== '' && activos.length > 0;
+  // Antes exigía activos.length > 0 — pero eso deshabilitaba este botón
+  // justo en el caso que existe para resolver: una mesa cuyos ítems ya
+  // quedaron todos anulados uno por uno (o por una falla previa) y se quedó
+  // "ocupada" sin nada que cancelar. El backend ya tolera este caso
+  // (autocorrige el pedido/cuenta en vez de rechazar) — el único requisito
+  // real es que haya algo que limpiar, no que quede "activo".
+  const valido = motivo.trim() !== '' && items.length > 0;
 
   return (
     <div className="modal-wrap">
@@ -51,7 +57,9 @@ export function AnularAtencionMesaModal({ mesaNumero, items, saving, onClose, on
         </div>
         <div style={{ padding: '4px 20px 20px' }}>
           {activos.length === 0 ? (
-            <div className="muted" style={{ marginBottom: 14 }}>No hay ítems activos que anular en esta mesa.</div>
+            <div className="muted" style={{ marginBottom: 14 }}>
+              No hay ítems activos que anular — todos ya están anulados o rechazados. Confirma para liberar la mesa.
+            </div>
           ) : (
             <>
               <div className="muted" style={{ marginBottom: 14, fontSize: 13 }}>

@@ -11,6 +11,7 @@ import {
   RoutingKeys,
   CuentaCerradaPayload,
   CuentaAsociadaPayload,
+  CuentaCanceladaPayload,
   TicketGeneradoPayload,
   PedidoActualizadoPayload,
   PedidoCreadoPayload,
@@ -575,6 +576,56 @@ export class AppService {
     } satisfies OperableLog);
 
     return { message: 'Cuenta cerrada exitosamente', ticket };
+  }
+
+  /**
+   * Cascada automática desde servicio-pedidos: todos los ítems de la
+   * atención quedaron anulados (uno por uno, o vía "Anular atención de
+   * mesa") sin que nada se cobrara. A diferencia de cerrarCuenta, no genera
+   * ticket ni exige que la cuenta tenga pedidos — puede llegar con total 0.
+   * Idempotente: si ya está CANCELADA (dos cancelaciones concurrentes desde
+   * servicio-pedidos, ej. el último ítem de dos pedidos distintos anulado
+   * casi al mismo tiempo) no falla, solo no repite el evento.
+   */
+  async cancelarCuenta(id: string): Promise<{ message: string }> {
+    const cuenta = await this.prisma.$transaction(async (prisma) => {
+      const cuentaBase = await prisma.cuenta.findUnique({ where: { id } });
+      if (!cuentaBase) throw new NotFoundException(`Cuenta con ID ${id} no encontrada`);
+      await prisma.$executeRaw`SELECT pg_advisory_xact_lock(1234, ('x' || substr(md5(${cuentaBase.mesaId}), 1, 8))::bit(32)::int)`;
+
+      const actual = await prisma.cuenta.findUnique({ where: { id } });
+      if (!actual) throw new NotFoundException(`Cuenta con ID ${id} no encontrada`);
+      if (actual.estado === CuentaEstado.Cancelada) return null;
+      if (actual.estado !== CuentaEstado.Abierta) {
+        throw new BadRequestException(`La cuenta no está abierta. Estado actual: ${actual.estado}`);
+      }
+
+      const actualizada = await prisma.cuenta.updateMany({
+        where: { id, estado: CuentaEstado.Abierta },
+        data: { estado: CuentaEstado.Cancelada },
+      });
+      if (actualizada.count !== 1) return null;
+
+      const payload: CuentaCanceladaPayload = { cuentaId: id, mesaId: actual.mesaId, sedeId: actual.sedeId };
+      await prisma.outboxEvent.create({
+        data: { routingKey: RoutingKeys.CuentaCancelada, payload: JSON.stringify(payload), status: 'PENDING' },
+      });
+
+      return actual;
+    });
+
+    if (!cuenta) {
+      return { message: 'La cuenta ya estaba cancelada.' };
+    }
+
+    this.logger.log({
+      operation: 'cancelarCuenta',
+      aggregateId: id,
+      resultingState: 'CANCELADA',
+      message: `Cuenta cancelada — todos sus ítems fueron anulados sin cobro.`,
+    } satisfies OperableLog);
+
+    return { message: 'Cuenta cancelada exitosamente' };
   }
 
   async dividirCuenta(id: string, command: DividirCuentaCommand): Promise<DivisionCuentaResult> {

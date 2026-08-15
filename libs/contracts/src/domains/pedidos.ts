@@ -432,6 +432,12 @@ export type EstadoPlatoAnulacion = (typeof EstadoPlatoAnulacion)[keyof typeof Es
 export class AnulacionAuditoriaDto {
   @IsString()
   id: string;
+  // Código legible propio de este registro ("AN0000001"), independiente del
+  // correlativo de la atención — identifica la anulación en sí. Nullable:
+  // registros creados antes de este campo no tienen uno retroactivo.
+  @IsOptional()
+  @IsString()
+  correlativo?: string | null;
   @IsString()
   fecha: string;
   @IsString()

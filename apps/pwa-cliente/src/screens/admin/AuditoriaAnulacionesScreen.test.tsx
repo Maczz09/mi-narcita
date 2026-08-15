@@ -11,7 +11,7 @@ vi.mock('../../hooks/queries/useAnulacionesQuery');
 vi.mock('../../components/ui/ToastProvider', () => ({ useToast: vi.fn() }));
 
 const anulacionItem = {
-  id: 'aud-1', fechaLabel: '13/8/26, 14:00', mesaNumero: 3, pedidoId: 'p-1', tipo: 'ITEM' as const, tipoLabel: 'Ítem',
+  id: 'aud-1', correlativo: 'AN0000001', fechaLabel: '13/8/26, 14:00', mesaNumero: 3, pedidoId: 'p-1', cuentaCorrelativo: 'A0000007', tipo: 'ITEM' as const, tipoLabel: 'Ítem',
   productoNombre: 'Cerveza', cantidad: 1, estadoPlato: 'PREPARADO' as const, cobrado: false, montoAnulado: 20,
   montoLabel: 'S/ 20.00', motivo: 'Se cayó al servirlo', observacion: null, usuarioNombre: 'Ana', clienteNombre: null,
   invalidada: false, invalidadaMotivo: null, invalidadaPorNombre: null,
@@ -55,6 +55,16 @@ describe('AuditoriaAnulacionesScreen', () => {
     expect(screen.getAllByText('S/ 20.00').length).toBeGreaterThan(0);
     expect(screen.getByText('Se cayó al servirlo')).toBeInTheDocument();
     expect(screen.getByText('Vigente')).toBeInTheDocument();
+  });
+
+  it('muestra el código propio de la anulación junto con el de la atención a la que pertenece', () => {
+    (useAnulacionesQuery as any).mockReturnValue({
+      anulaciones: [anulacionItem], loading: false, saving: false, fetch, actualizarAnulacion, invalidarAnulacion,
+    });
+    render(<AuditoriaAnulacionesScreen />);
+
+    expect(screen.getByText('AN0000001')).toBeInTheDocument();
+    expect(screen.getByText('Atención A0000007')).toBeInTheDocument();
   });
 
   it('las anulaciones invalidadas no muestran acciones y se marcan como Inválida', () => {

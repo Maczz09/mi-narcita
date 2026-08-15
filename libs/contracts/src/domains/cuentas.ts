@@ -5,6 +5,10 @@ export const CuentaEstado = {
   Abierta: 'ABIERTA',
   Cerrada: 'CERRADA',
   Pagada: 'PAGADA',
+  // Todos los ítems de la atención se anularon (nunca se cobró nada) — a
+  // diferencia de CERRADA, no genera ticket ni evento CuentaCerrada. Ver
+  // AppService.cancelarCuenta.
+  Cancelada: 'CANCELADA',
 } as const;
 
 export type CuentaEstado = (typeof CuentaEstado)[keyof typeof CuentaEstado];
@@ -63,6 +67,21 @@ export class TicketGeneradoPayload {
   ticketId: string;
   @IsString()
   cuentaId: string;
+}
+
+/**
+ * Cascada automática (servicio-pedidos → servicio-cuentas): cuando todos los
+ * ítems de la atención quedan anulados uno por uno (o vía "Anular atención de
+ * mesa"), la cuenta pasa a CANCELADA sin generar ticket — a diferencia de
+ * CuentaCerradaPayload, que sí implica un cobro real.
+ */
+export class CuentaCanceladaPayload {
+  @IsString()
+  cuentaId: string;
+  @IsString()
+  mesaId: string;
+  @IsString()
+  sedeId: string;
 }
 
 export class CuentaDto {

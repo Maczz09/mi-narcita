@@ -30,6 +30,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { mapPedidoToDto } from './pedido.mapper';
 import { Prisma } from '../generated/prisma';
 import { MesasHttpClient } from './mesas-http.client';
+import { CuentasHttpClient } from './cuentas-http.client';
 
 
 /**
@@ -47,6 +48,7 @@ export class PedidosSagaService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly mesasHttp: MesasHttpClient,
+    private readonly cuentasHttp: CuentasHttpClient,
   ) {}
 
   /**
@@ -127,6 +129,57 @@ export class PedidosSagaService {
       }, 0);
   }
 
+  /**
+   * Correlativo legible por sede ("AN0000001") para AnulacionAuditoria —
+   * mismo patrón que siguienteCorrelativo en servicio-cuentas/reservas.
+   */
+  private async siguienteCorrelativoAnulacion(prisma: Prisma.TransactionClient, sedeId: string): Promise<string> {
+    const secuencia = await prisma.secuenciaAnulacion.upsert({
+      where: { sedeId },
+      create: { sedeId, ultimo: 1 },
+      update: { ultimo: { increment: 1 } },
+    });
+    return `AN${String(secuencia.ultimo).padStart(7, '0')}`;
+  }
+
+  /**
+   * CU-02 automático: tras anular un ítem uno por uno (o un pedido entero),
+   * si TODOS los ítems de TODOS los pedidos de la misma atención (cuentaId)
+   * quedaron en un estado terminal no cobrable, la atención se cancela
+   * sola — mismo criterio "mantenidos === 0" que el botón manual "Anular
+   * atención de mesa" (ver anularAtencionMesa), pero sin que el usuario
+   * tenga que presionarlo. Debe llamarse DENTRO de la transacción, después
+   * de aplicar el cambio de estado del ítem que la dispara.
+   */
+  private async cuentaQuedoTotalmenteAnulada(
+    prisma: Prisma.TransactionClient,
+    cuentaId: string | null | undefined,
+  ): Promise<{ mesaId: string } | null> {
+    if (!cuentaId) return null;
+    const pedidos = await prisma.pedido.findMany({
+      where: { cuentaId },
+      include: { items: true },
+    });
+    if (pedidos.length === 0) return null;
+    const todoAnulado = pedidos.every((p) =>
+      p.items.every((i) => i.estado === EstadoItem.Cancelado || i.estado === EstadoItem.RechazadoSinStock),
+    );
+    return todoAnulado ? { mesaId: pedidos[0].mesaId } : null;
+  }
+
+  /**
+   * Ejecuta el efecto de la cascada FUERA de la transacción (llamadas HTTP a
+   * otros servicios, mismo criterio que anularAtencionMesa): libera la mesa
+   * y cancela la cuenta. Best-effort — un fallo de red no revierte nada, ya
+   * quedó anulado en nuestra BD; solo se loguea dentro de cada cliente HTTP.
+   */
+  private async ejecutarCascadaCancelacion(cuentaId: string, mesaId: string): Promise<void> {
+    await Promise.all([
+      this.mesasHttp.liberarMesa(mesaId, MesaEstado.Libre),
+      this.cuentasHttp.cancelarCuenta(cuentaId),
+    ]);
+  }
+
   async actualizarEstado(id: string, command: ActualizarEstadoPedidoCommand): Promise<{ message: string; pedido: PedidoDto }> {
     const pedido = await this.prisma.$transaction(async (prisma) => {
       const actual = await prisma.pedido.findUnique({ where: { id } });
@@ -184,7 +237,7 @@ export class PedidosSagaService {
     usuarioId?: string | null,
     usuarioNombre?: string | null,
   ): Promise<{ message: string }> {
-    return this.prisma.$transaction(async (prisma) => {
+    const resultado = await this.prisma.$transaction(async (prisma) => {
       const item = await prisma.pedidoItem.update({
         where: { id: itemId },
         data: { estado: command.estado }
@@ -202,7 +255,7 @@ export class PedidosSagaService {
         include: { items: true },
       });
       if (!pedidoActual) {
-        return { message: 'Estado del ítem actualizado exitosamente' };
+        return { message: 'Estado del ítem actualizado exitosamente', cascada: null };
       }
 
 
@@ -267,9 +320,12 @@ export class PedidosSagaService {
       // CU-05 Caso A: un ítem que se anula sin haber salido de cocina/barra
       // (nunca se cobró, nunca se preparó) también queda en la auditoría —
       // no solo el Caso B (ya preparado) de anularItemPreparado.
+      let cascada: { cuentaId: string; mesaId: string } | null = null;
       if (seAnuloItem) {
+        const correlativoAnulacion = await this.siguienteCorrelativoAnulacion(prisma, pedidoActual.sedeId);
         await prisma.anulacionAuditoria.create({
           data: {
+            correlativo: correlativoAnulacion,
             sedeId: pedidoActual.sedeId,
             mesaId: pedidoFinal.mesaId,
             mesaNumero: pedidoFinal.numeroMesa,
@@ -289,6 +345,9 @@ export class PedidosSagaService {
             clienteNombre: pedidoFinal.cliente ?? undefined,
           },
         });
+
+        const cuentaAnulada = await this.cuentaQuedoTotalmenteAnulada(prisma, pedidoFinal.cuentaId);
+        if (cuentaAnulada) cascada = { cuentaId: pedidoFinal.cuentaId as string, mesaId: cuentaAnulada.mesaId };
       }
       outboxData.push({
         routingKey: RoutingKeys.PedidoActualizado,
@@ -297,8 +356,14 @@ export class PedidosSagaService {
       });
       await prisma.outboxEvent.createMany({ data: outboxData });
 
-      return { message: 'Estado del ítem actualizado exitosamente' };
+      return { message: 'Estado del ítem actualizado exitosamente', cascada };
     });
+
+    if (resultado.cascada) {
+      await this.ejecutarCascadaCancelacion(resultado.cascada.cuentaId, resultado.cascada.mesaId);
+    }
+
+    return { message: resultado.message };
   }
 
   private normalizeLimit(limit?: number): number {
@@ -309,6 +374,7 @@ export class PedidosSagaService {
 
   private toAnulacionDto(a: {
     id: string;
+    correlativo?: string | null;
     fecha: Date;
     mesaId: string;
     mesaNumero: number | null;
@@ -334,6 +400,7 @@ export class PedidosSagaService {
   }): AnulacionAuditoriaDto {
     return {
       id: a.id,
+      correlativo: a.correlativo,
       fecha: a.fecha.toISOString(),
       mesaId: a.mesaId,
       mesaNumero: a.mesaNumero,
@@ -382,7 +449,7 @@ export class PedidosSagaService {
     usuarioNombre?: string | null,
   ): Promise<{ message: string; pedido: PedidoDto }> {
     const sedeId = resolveSedeId(usuarioSedeId, sedeIdSolicitado);
-    const pedidoFinal = await this.prisma.$transaction(async (prisma) => {
+    const { pedido: pedidoFinal, cascada } = await this.prisma.$transaction(async (prisma) => {
       const item = await prisma.pedidoItem.findUnique({ where: { id: itemId }, include: { pedido: true } });
       if (!item || item.pedido.sedeId !== sedeId) throw new NotFoundException(`Ítem ${itemId} no encontrado`);
       if (item.estado === EstadoItem.Pendiente) {
@@ -412,8 +479,10 @@ export class PedidosSagaService {
       }
 
       const montoAnulado = Number(item.precioUnitario) * item.cantidad;
+      const correlativoAnulacion = await this.siguienteCorrelativoAnulacion(prisma, sedeId);
       const auditoria = await prisma.anulacionAuditoria.create({
         data: {
+          correlativo: correlativoAnulacion,
           sedeId,
           mesaId: pedido.mesaId,
           mesaNumero: pedido.numeroMesa,
@@ -434,6 +503,12 @@ export class PedidosSagaService {
           clienteNombre: pedido.cliente ?? undefined,
         },
       });
+
+      let cascada: { cuentaId: string; mesaId: string } | null = null;
+      if (!command.cobrar) {
+        const cuentaAnulada = await this.cuentaQuedoTotalmenteAnulada(prisma, pedido.cuentaId);
+        if (cuentaAnulada) cascada = { cuentaId: pedido.cuentaId as string, mesaId: cuentaAnulada.mesaId };
+      }
 
       const mermaPayload: PedidoItemAnuladoConMermaPayload = {
         eventId: auditoria.id,
@@ -462,8 +537,12 @@ export class PedidosSagaService {
       }
       await prisma.outboxEvent.createMany({ data: outboxData });
 
-      return pedido;
+      return { pedido, cascada };
     });
+
+    if (cascada) {
+      await this.ejecutarCascadaCancelacion(cascada.cuentaId, cascada.mesaId);
+    }
 
     this.logger.log({
       operation: 'anularItemPreparado',
@@ -662,7 +741,7 @@ export class PedidosSagaService {
     const sedeId = resolveSedeId(usuarioSedeId, sedeIdSolicitado);
     const itemsConsumidos = new Set(command.itemsConsumidos ?? []);
 
-    const { itemsCancelados, itemsConMerma, itemsMantenidosParaCobro, debeLiberarMesa } =
+    const { itemsCancelados, itemsConMerma, itemsMantenidosParaCobro, debeLiberarMesa, cuentaIdParaCancelar } =
       await this.prisma.$transaction(async (prisma) => {
         await prisma.$executeRaw(Prisma.sql`SELECT pg_advisory_xact_lock(hashtext(${mesaId}))`);
 
@@ -712,8 +791,10 @@ export class PedidosSagaService {
         }
 
         const primero = pedidos[0];
+        const correlativoAnulacion = await this.siguienteCorrelativoAnulacion(prisma, sedeId);
         const auditoria = await prisma.anulacionAuditoria.create({
           data: {
+            correlativo: correlativoAnulacion,
             sedeId,
             mesaId,
             mesaNumero: primero.numeroMesa,
@@ -750,16 +831,21 @@ export class PedidosSagaService {
           itemsConMerma: conMerma,
           itemsMantenidosParaCobro: mantenidos,
           debeLiberarMesa: mantenidos === 0,
+          cuentaIdParaCancelar: mantenidos === 0 ? (primero.cuentaId ?? null) : null,
         };
       });
 
-    // La liberación de la mesa es una llamada HTTP a otro servicio: fuera de
-    // la transacción a propósito (no se puede/debe hacer 2PC con otra BD). Si
-    // falla, el pedido ya quedó cancelado correctamente en nuestra BD — solo
-    // queda logueado para liberación manual.
-    const mesaLiberada = debeLiberarMesa
-      ? await this.mesasHttp.liberarMesa(mesaId, MesaEstado.Libre)
-      : false;
+    // La liberación de la mesa y la cancelación de la cuenta son llamadas
+    // HTTP a otros servicios: fuera de la transacción a propósito (no se
+    // puede/debe hacer 2PC con otra BD). Si fallan, el pedido ya quedó
+    // cancelado correctamente en nuestra BD — solo queda logueado para
+    // liberación/cancelación manual. Sin cancelar la cuenta, quedaba
+    // ABIERTA con total 0 para siempre y bloqueaba el cierre de turno en
+    // caja (verificarSinCuentasAbiertas).
+    const [mesaLiberada] = await Promise.all([
+      debeLiberarMesa ? this.mesasHttp.liberarMesa(mesaId, MesaEstado.Libre) : Promise.resolve(false),
+      cuentaIdParaCancelar ? this.cuentasHttp.cancelarCuenta(cuentaIdParaCancelar) : Promise.resolve(false),
+    ]);
 
     return {
       message: itemsMantenidosParaCobro > 0
@@ -795,7 +881,7 @@ export class PedidosSagaService {
     const sedeId = resolveSedeId(usuarioSedeId, sedeIdSolicitado);
     const itemsConsumidos = new Set(command.itemsConsumidos ?? []);
 
-    const pedidoFinal = await this.prisma.$transaction(async (prisma) => {
+    const { pedido: pedidoFinal, cascada } = await this.prisma.$transaction(async (prisma) => {
       const pedido = await prisma.pedido.findUnique({ where: { id: pedidoId }, include: { items: true } });
       if (!pedido || pedido.sedeId !== sedeId) throw new NotFoundException(`Pedido ${pedidoId} no encontrado`);
       if (pedido.estado === PedidoEstado.Pagado || pedido.estado === PedidoEstado.Cancelado || pedido.estado === PedidoEstado.RechazadoSinStock) {
@@ -812,24 +898,22 @@ export class PedidosSagaService {
         throw new BadRequestException('No hay ningún ítem pendiente o preparado que anular en este pedido (todo ya está cancelado o confirmado como consumido).');
       }
 
-      const auditoriaData = [
-        ...r.itemsCanceladosLimpios.map((item) => ({
-          sedeId, mesaId: pedido.mesaId, mesaNumero: pedido.numeroMesa, pedidoId: pedido.id, cuentaCorrelativo: pedido.cuentaCorrelativo, itemId: item.id,
-          tipo: TipoAnulacion.Item, productoId: item.productoId, productoNombre: item.nombre, cantidad: item.cantidad,
-          estadoPlato: EstadoPlatoAnulacion.SinPreparar, cobrado: false,
-          montoAnulado: Number(item.precioUnitario) * item.cantidad,
-          motivo: command.motivo, usuarioId: usuarioId ?? undefined, usuarioNombre: usuarioNombre ?? undefined,
-          clienteNombre: pedido.cliente ?? undefined,
-        })),
-        ...r.itemsConMermaDetalle.map((item) => ({
-          sedeId, mesaId: pedido.mesaId, mesaNumero: pedido.numeroMesa, pedidoId: pedido.id, cuentaCorrelativo: pedido.cuentaCorrelativo, itemId: item.id,
-          tipo: TipoAnulacion.Item, productoId: item.productoId, productoNombre: item.nombre, cantidad: item.cantidad,
-          estadoPlato: EstadoPlatoAnulacion.Preparado, cobrado: false,
-          montoAnulado: Number(item.precioUnitario) * item.cantidad,
-          motivo: command.motivo, usuarioId: usuarioId ?? undefined, usuarioNombre: usuarioNombre ?? undefined,
-          clienteNombre: pedido.cliente ?? undefined,
-        })),
+      const itemsAnulados = [
+        ...r.itemsCanceladosLimpios.map((item) => ({ item, estadoPlato: EstadoPlatoAnulacion.SinPreparar })),
+        ...r.itemsConMermaDetalle.map((item) => ({ item, estadoPlato: EstadoPlatoAnulacion.Preparado })),
       ];
+      const auditoriaData = [];
+      for (const { item, estadoPlato } of itemsAnulados) {
+        auditoriaData.push({
+          correlativo: await this.siguienteCorrelativoAnulacion(prisma, sedeId),
+          sedeId, mesaId: pedido.mesaId, mesaNumero: pedido.numeroMesa, pedidoId: pedido.id, cuentaCorrelativo: pedido.cuentaCorrelativo, itemId: item.id,
+          tipo: TipoAnulacion.Item, productoId: item.productoId, productoNombre: item.nombre, cantidad: item.cantidad,
+          estadoPlato, cobrado: false,
+          montoAnulado: Number(item.precioUnitario) * item.cantidad,
+          motivo: command.motivo, usuarioId: usuarioId ?? undefined, usuarioNombre: usuarioNombre ?? undefined,
+          clienteNombre: pedido.cliente ?? undefined,
+        });
+      }
       await prisma.anulacionAuditoria.createMany({ data: auditoriaData });
 
       const outboxData = [...r.outboxData];
@@ -843,6 +927,12 @@ export class PedidosSagaService {
 
       const pedidoActualizado = await prisma.pedido.findUniqueOrThrow({ where: { id: pedido.id }, include: { items: true } });
 
+      let cascada: { cuentaId: string; mesaId: string } | null = null;
+      if (r.mantenidos === 0) {
+        const cuentaAnulada = await this.cuentaQuedoTotalmenteAnulada(prisma, pedido.cuentaId);
+        if (cuentaAnulada) cascada = { cuentaId: pedido.cuentaId as string, mesaId: cuentaAnulada.mesaId };
+      }
+
       this.logger.log({
         operation: 'anularPedido',
         aggregateId: pedido.id,
@@ -850,8 +940,12 @@ export class PedidosSagaService {
         message: `Pedido ${pedido.id} anulado: ${command.motivo}`,
       } satisfies OperableLog);
 
-      return pedidoActualizado;
+      return { pedido: pedidoActualizado, cascada };
     });
+
+    if (cascada) {
+      await this.ejecutarCascadaCancelacion(cascada.cuentaId, cascada.mesaId);
+    }
 
     return { message: 'Pedido anulado.', pedido: mapPedidoToDto(pedidoFinal) };
   }
@@ -877,8 +971,16 @@ export class PedidosSagaService {
               },
             }
           : {}),
+        // Busca por el código propio de la anulación ("AN0000001") o por el
+        // de la atención a la que pertenece ("A0000001") — cualquiera de
+        // los dos identifica el registro para quien está reclamando.
         ...(query.search
-          ? { cuentaCorrelativo: { contains: query.search, mode: 'insensitive' } }
+          ? {
+              OR: [
+                { correlativo: { contains: query.search, mode: 'insensitive' } },
+                { cuentaCorrelativo: { contains: query.search, mode: 'insensitive' } },
+              ],
+            }
           : {}),
       },
       orderBy: { fecha: 'desc' },
@@ -1056,10 +1158,10 @@ export class PedidosSagaService {
    * reordenamiento de red — simplemente no actualiza nada.
    */
   async procesarCuentaAsociada(payload: CuentaAsociadaPayload): Promise<void> {
-    if (!payload.pedidoId || !payload.correlativo) return;
+    if (!payload.pedidoId || !payload.cuentaId) return;
     await this.prisma.pedido.updateMany({
       where: { id: payload.pedidoId },
-      data: { cuentaCorrelativo: payload.correlativo },
+      data: { cuentaId: payload.cuentaId, ...(payload.correlativo ? { cuentaCorrelativo: payload.correlativo } : {}) },
     });
   }
 

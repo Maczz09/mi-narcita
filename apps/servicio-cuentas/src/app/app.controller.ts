@@ -57,4 +57,11 @@ export class AppController {
   cerrarCuenta(@Param('id', ParseUUIDPipe) id: string, @Body() command: CerrarCuentaCommand) {
     return this.appService.cerrarCuenta(id, command);
   }
+
+  // Uso interno (servicio-pedidos, token SISTEMA): cascada cuando todos los
+  // ítems de la atención quedan anulados sin cobro (ver AppService.cancelarCuenta).
+  @Post(':id/cancelar')
+  cancelarCuenta(@Param('id', ParseUUIDPipe) id: string) {
+    return this.appService.cancelarCuenta(id);
+  }
 }

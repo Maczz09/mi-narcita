@@ -102,10 +102,10 @@ export function AuditoriaAnulacionesScreen() {
           <Icons.Search s={16} />
           <input
             type="search"
-            placeholder="Buscar por código (A0000001)…"
+            placeholder="Buscar por código (AN0000001 o A0000001)…"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            aria-label="Buscar anulaciones por código de atención"
+            aria-label="Buscar anulaciones por su código o el de la atención"
           />
         </div>
         <div className="input toolbar-input">
@@ -153,7 +153,12 @@ export function AuditoriaAnulacionesScreen() {
                   <tr key={a.id} style={{ opacity: a.invalidada ? 0.6 : undefined }}>
                     <td className="muted">
                       {a.fechaLabel}
-                      {a.cuentaCorrelativo && <div className="mono" style={{ fontSize: 11 }}>{a.cuentaCorrelativo}</div>}
+                      {a.correlativo && <div className="mono" style={{ fontSize: 11 }}>{a.correlativo}</div>}
+                      {a.cuentaCorrelativo && (
+                        <div className="mono" style={{ fontSize: 11 }} title="Código de la atención">
+                          Atención {a.cuentaCorrelativo}
+                        </div>
+                      )}
                     </td>
                     <td>{a.mesaNumero ?? '—'}</td>
                     <td><span className="badge badge-muted">{a.tipoLabel}</span></td>

@@ -23,6 +23,9 @@ export const RoutingKeys = {
   // Cuentas
   CuentaAbierta: 'cuenta.abierta',
   CuentaCerrada: 'cuenta.cerrada',
+  // Todos los ítems de la atención se anularon uno por uno (o "Anular
+  // atención de mesa") sin que nada se cobrara — ver AppService.cancelarCuenta.
+  CuentaCancelada: 'cuenta.cancelada',
   // Backfill del correlativo de la atención ("A0000001") hacia el pedido que
   // la originó/se le sumó — ver PedidosSagaService / events.controller.
   CuentaAsociada: 'cuenta.asociada',
