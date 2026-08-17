@@ -6,6 +6,12 @@ services:
     image: rabbitmq:3-management
     container_name: nachopps-rabbitmq
     restart: unless-stopped
+    # Sin mem_limit el OOM-killer del kernel puede matar cualquier contenedor al
+    # azar bajo presión de memoria (visto en dev: "los 9 db-* murieron a la vez",
+    # infra/docker-compose.yml:306-314). mem_limit contiene el fallo a UN
+    # contenedor. VPS de 8GB: valores portados de dev, ajustar con `docker stats`
+    # tras unos días de tráfico real.
+    mem_limit: 1g
     # Sin puertos expuestos al host
     environment:
       RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-nachopps}
@@ -21,6 +27,7 @@ services:
     image: postgres:16-alpine
     container_name: nachopps-db-reservas
     restart: unless-stopped
+    mem_limit: 512m
     environment:
       POSTGRES_USER: ${DB_USER:-nachopps}
       POSTGRES_PASSWORD: ${DB_PASS:?DB_PASS es obligatorio en produccion}
@@ -37,6 +44,7 @@ services:
     image: postgres:16-alpine
     container_name: nachopps-db-mesas
     restart: unless-stopped
+    mem_limit: 512m
     environment:
       POSTGRES_USER: ${DB_USER:-nachopps}
       POSTGRES_PASSWORD: ${DB_PASS:?DB_PASS es obligatorio en produccion}
@@ -53,6 +61,7 @@ services:
     image: postgres:16-alpine
     container_name: nachopps-db-pedidos
     restart: unless-stopped
+    mem_limit: 512m
     environment:
       POSTGRES_USER: ${DB_USER:-nachopps}
       POSTGRES_PASSWORD: ${DB_PASS:?DB_PASS es obligatorio en produccion}
@@ -69,6 +78,7 @@ services:
     image: postgres:16-alpine
     container_name: nachopps-db-cuentas
     restart: unless-stopped
+    mem_limit: 512m
     environment:
       POSTGRES_USER: ${DB_USER:-nachopps}
       POSTGRES_PASSWORD: ${DB_PASS:?DB_PASS es obligatorio en produccion}
@@ -85,6 +95,7 @@ services:
     image: postgres:16-alpine
     container_name: nachopps-db-inventario
     restart: unless-stopped
+    mem_limit: 512m
     environment:
       POSTGRES_USER: ${DB_USER:-nachopps}
       POSTGRES_PASSWORD: ${DB_PASS:?DB_PASS es obligatorio en produccion}
@@ -101,6 +112,7 @@ services:
     image: postgres:16-alpine
     container_name: nachopps-db-reportes
     restart: unless-stopped
+    mem_limit: 512m
     environment:
       POSTGRES_USER: ${DB_USER:-nachopps}
       POSTGRES_PASSWORD: ${DB_PASS:?DB_PASS es obligatorio en produccion}
@@ -117,6 +129,7 @@ services:
     image: postgres:16-alpine
     container_name: nachopps-db-facturacion
     restart: unless-stopped
+    mem_limit: 512m
     environment:
       POSTGRES_USER: ${DB_USER:-nachopps}
       POSTGRES_PASSWORD: ${DB_PASS:?DB_PASS es obligatorio en produccion}
@@ -133,6 +146,7 @@ services:
     image: postgres:16-alpine
     container_name: nachopps-db-compras
     restart: unless-stopped
+    mem_limit: 512m
     environment:
       POSTGRES_USER: ${DB_USER:-nachopps}
       POSTGRES_PASSWORD: ${DB_PASS:?DB_PASS es obligatorio en produccion}
@@ -149,6 +163,7 @@ services:
     image: postgres:16-alpine
     container_name: nachopps-db-caja
     restart: unless-stopped
+    mem_limit: 512m
     environment:
       POSTGRES_USER: ${DB_USER:-nachopps}
       POSTGRES_PASSWORD: ${DB_PASS:?DB_PASS es obligatorio en produccion}
@@ -165,6 +180,7 @@ services:
     image: postgres:16-alpine
     container_name: nachopps-db-identidad
     restart: unless-stopped
+    mem_limit: 512m
     environment:
       POSTGRES_USER: ${DB_USER:-nachopps}
       POSTGRES_PASSWORD: ${DB_PASS:?DB_PASS es obligatorio en produccion}
@@ -181,6 +197,7 @@ services:
     image: postgres:16-alpine
     container_name: nachopps-db-notificaciones
     restart: unless-stopped
+    mem_limit: 512m
     environment:
       POSTGRES_USER: ${DB_USER:-nachopps}
       POSTGRES_PASSWORD: ${DB_PASS:?DB_PASS es obligatorio en produccion}
@@ -203,6 +220,7 @@ services:
       - com.centurylinklabs.watchtower.enable=true
     restart: unless-stopped
     stop_grace_period: 30s
+    mem_limit: 512m
     environment:
       PORT: '3000'
       DATABASE_URL: 'postgresql://${DB_USER:-nachopps}:${DB_PASS:?DB_PASS es obligatorio en produccion}@db-identidad:5432/identidad_db?schema=public'
@@ -236,6 +254,7 @@ services:
       - com.centurylinklabs.watchtower.enable=true
     restart: unless-stopped
     stop_grace_period: 30s
+    mem_limit: 512m
     environment:
       PORT: '3000'
       DATABASE_URL: 'postgresql://${DB_USER:-nachopps}:${DB_PASS:?DB_PASS es obligatorio en produccion}@db-mesas:5432/mesas_db?schema=public'
@@ -266,6 +285,7 @@ services:
       - com.centurylinklabs.watchtower.enable=true
     restart: unless-stopped
     stop_grace_period: 30s
+    mem_limit: 512m
     environment:
       PORT: '3000'
       DATABASE_URL: 'postgresql://${DB_USER:-nachopps}:${DB_PASS:?DB_PASS es obligatorio en produccion}@db-pedidos:5432/pedidos_db?schema=public'
@@ -298,6 +318,7 @@ services:
       - com.centurylinklabs.watchtower.enable=true
     restart: unless-stopped
     stop_grace_period: 30s
+    mem_limit: 512m
     environment:
       PORT: '3000'
       DATABASE_URL: 'postgresql://${DB_USER:-nachopps}:${DB_PASS:?DB_PASS es obligatorio en produccion}@db-cuentas:5432/cuentas_db?schema=public'
@@ -330,6 +351,7 @@ services:
       - com.centurylinklabs.watchtower.enable=true
     restart: unless-stopped
     stop_grace_period: 30s
+    mem_limit: 512m
     environment:
       PORT: '3000'
       DATABASE_URL: 'postgresql://${DB_USER:-nachopps}:${DB_PASS:?DB_PASS es obligatorio en produccion}@db-reservas:5432/reservas_db?schema=public'
@@ -360,6 +382,7 @@ services:
       - com.centurylinklabs.watchtower.enable=true
     restart: unless-stopped
     stop_grace_period: 30s
+    mem_limit: 512m
     environment:
       PORT: '3000'
       DATABASE_URL: 'postgresql://${DB_USER:-nachopps}:${DB_PASS:?DB_PASS es obligatorio en produccion}@db-inventario:5432/inventario_db?schema=public'
@@ -390,6 +413,7 @@ services:
       - com.centurylinklabs.watchtower.enable=true
     restart: unless-stopped
     stop_grace_period: 30s
+    mem_limit: 512m
     environment:
       PORT: '3000'
       DATABASE_URL: 'postgresql://${DB_USER:-nachopps}:${DB_PASS:?DB_PASS es obligatorio en produccion}@db-notificaciones:5432/notificaciones_db?schema=public'
@@ -420,6 +444,7 @@ services:
       - com.centurylinklabs.watchtower.enable=true
     restart: unless-stopped
     stop_grace_period: 30s
+    mem_limit: 512m
     environment:
       PORT: '3000'
       DATABASE_URL: 'postgresql://${DB_USER:-nachopps}:${DB_PASS:?DB_PASS es obligatorio en produccion}@db-caja:5432/caja_db?schema=public'
@@ -451,6 +476,7 @@ services:
       - com.centurylinklabs.watchtower.enable=true
     restart: unless-stopped
     stop_grace_period: 30s
+    mem_limit: 512m
     environment:
       PORT: '3000'
       DATABASE_URL: 'postgresql://${DB_USER:-nachopps}:${DB_PASS:?DB_PASS es obligatorio en produccion}@db-reportes:5432/reportes_db?schema=public'
@@ -481,6 +507,7 @@ services:
       - com.centurylinklabs.watchtower.enable=true
     restart: unless-stopped
     stop_grace_period: 30s
+    mem_limit: 512m
     environment:
       PORT: '3000'
       DATABASE_URL: 'postgresql://${DB_USER:-nachopps}:${DB_PASS:?DB_PASS es obligatorio en produccion}@db-facturacion:5432/facturacion_db?schema=public'
@@ -532,6 +559,7 @@ services:
       - com.centurylinklabs.watchtower.enable=true
     restart: unless-stopped
     stop_grace_period: 30s
+    mem_limit: 512m
     environment:
       PORT: '3000'
       DATABASE_URL: 'postgresql://${DB_USER:-nachopps}:${DB_PASS:?DB_PASS es obligatorio en produccion}@db-compras:5432/compras_db?schema=public'
@@ -572,6 +600,7 @@ services:
     labels:
       - com.centurylinklabs.watchtower.enable=true
     restart: unless-stopped
+    mem_limit: 128m
     ports:
       - '8080:8080'
 
@@ -588,6 +617,9 @@ services:
     labels:
       - com.centurylinklabs.watchtower.enable=true
     restart: unless-stopped
+    # Medido en dev (L2, 4 workers bajo meseta sostenida): 512m rozaba 97% y
+    # perdía workers por OOM-kill. 768m es el mínimo probado que aguanta.
+    mem_limit: 768m
     environment:
       KONG_DATABASE: 'off'
       # No exponer versión de Kong/nginx en cabeceras (hallazgo ZAP 10036)
@@ -634,6 +666,7 @@ services:
     depends_on:
       - jaeger
     restart: unless-stopped
+    mem_limit: 256m
     # Sin puertos al host: los servicios lo alcanzan por la red interna.
 
     # La imagen :latest corre como UID 10001 no-root; un volumen nombrado nuevo
@@ -649,6 +682,7 @@ services:
       - jaeger_data:/badger
     command: [ 'chown', '-R', '10001:10001', '/badger' ]
     restart: 'no'
+    mem_limit: 64m
 
   # Backend de trazas persistente (Badger en volumen). UI 16686 solo por red
   # interna / túnel SSH (sin publicar al host en prod).
@@ -666,6 +700,9 @@ services:
     volumes:
       - jaeger_data:/badger
     restart: unless-stopped
+    # Badger reserva ~256m solo de BlockCache + tablas al abrir; con 512m
+    # entraba en OOM-loop (exit 137) en dev. 1g es el mínimo probado.
+    mem_limit: 1g
 
   prometheus:
     image: prom/prometheus:latest
@@ -678,6 +715,7 @@ services:
       # Persistencia de exemplars (trace_id) para el salto métrica→Jaeger.
       - '--enable-feature=exemplar-storage'
     restart: unless-stopped
+    mem_limit: 512m
     volumes:
       - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - ./prometheus/alert.rules.yml:/etc/prometheus/alert.rules.yml:ro
@@ -693,6 +731,7 @@ services:
       - '--storage.path=/alertmanager'
       - '--cluster.listen-address='
     restart: unless-stopped
+    mem_limit: 128m
     volumes:
       - ./alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
 
@@ -700,6 +739,7 @@ services:
     image: grafana/grafana:latest
     container_name: nachopps-grafana
     restart: unless-stopped
+    mem_limit: 384m
     ports:
       - '3000:3000'
     environment:
@@ -725,6 +765,7 @@ services:
       - nachopps-backups:/backups
     entrypoint: [ '/bin/sh', '-c', 'while true; do sh /usr/local/bin/backup.sh || echo "[db-backup] ciclo con fallos"; sleep 86400; done' ]
     restart: unless-stopped
+    mem_limit: 256m
 
   watchtower:
     image: containrrr/watchtower:latest
@@ -743,6 +784,7 @@ services:
     # no debe auto-actualizarse solo.
     command: --interval 300 --cleanup --label-enable
     restart: unless-stopped
+    mem_limit: 128m
 
 volumes:
   nachopps-backups: # Observabilidad persistente.
