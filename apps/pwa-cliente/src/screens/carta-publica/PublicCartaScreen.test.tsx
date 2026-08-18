@@ -110,6 +110,25 @@ describe('PublicCartaScreen', () => {
     await waitFor(() => expect(screen.getByText('Ceviche de Filete')).toBeDefined());
   });
 
+  it('agrupa las categorías de Inventario aparte, bajo "Abarrotes"', async () => {
+    vi.mocked(obtenerCartaPublica).mockResolvedValue({
+      categorias: [...CATEGORIAS, { id: 'cat-3', nombre: 'Agua Mineral', descripcion: null, area: 'INVENTARIO' }],
+      productos: [...PRODUCTOS, { id: 'p4', categoriaId: 'cat-3', nombre: 'Agua Alcalina', descripcion: null, precio: 3, disponible: true, stockActual: 12 }],
+    } as any);
+
+    render(<PublicCartaScreen />);
+    await waitFor(() => expect(screen.getByText('Salitral 1')).toBeDefined());
+    fireEvent.click(screen.getByRole('button', { name: /ver la carta/i }));
+
+    await waitFor(() => expect(screen.getByText('Agua Mineral')).toBeDefined());
+    expect(screen.getByText('Abarrotes')).toBeDefined();
+    expect(screen.getByText('1 disponible')).toBeDefined();
+
+    fireEvent.click(screen.getByText('Agua Mineral'));
+    await waitFor(() => expect(screen.getByText('Agua Alcalina')).toBeDefined());
+    expect(screen.getByText('S/ 3.00')).toBeDefined();
+  });
+
   it('muestra un estado de error si falla la carga', async () => {
     vi.mocked(obtenerCartaPublica).mockRejectedValue(new Error('network'));
     render(<PublicCartaScreen />);

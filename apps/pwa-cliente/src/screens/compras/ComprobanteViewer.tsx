@@ -108,7 +108,13 @@ function ComprobanteVisorModal({ comprobante, onClose, onEliminar }: Readonly<Co
   };
 
   return createPortal(
-    <div className="modal-wrap" style={{ zIndex: 80 }}>
+    // Sin z-index inline: hereda el default global de .modal-wrap (85,
+    // styles.css) igual que OrdenDetalleModal. Un valor fijo aquí (antes 80)
+    // queda huérfano cada vez que ese default cambie en otro módulo — ya
+    // pasó una vez (ver commit ca622e6, fix de Pedidos que subió 70→85 sin
+    // tocar este archivo) y este visor terminó pintando detrás del modal de
+    // detalle de OC que lo abre.
+    <div className="modal-wrap">
       <Scrim onClose={onClose} />
       <div className="modal" style={{ width: 'min(520px, 100%)', position: 'relative', zIndex: 1 }}>
         <div className="panel-h" style={{ padding: '16px 20px' }}>

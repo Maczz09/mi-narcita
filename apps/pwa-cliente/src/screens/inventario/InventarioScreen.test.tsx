@@ -8,13 +8,24 @@ import * as onlineStatusHook from '../../hooks/useOnlineStatus';
 import * as inventarioQueryHook from '../../hooks/queries/useInventarioQuery';
 
 vi.mock('../../components/inventario/ProductoTable', () => ({
-  ProductoTable: ({ onToggleDisponible, onReponer, onReponerQuick, onLoadMore, onStockInput, stockInputs }: any) => (
+  ProductoTable: ({ onToggleDisponible, onReponer, onReponerQuick, onLoadMore, onStockInput, stockInputs, onEditar }: any) => (
     <div data-testid="producto-table">
       <button onClick={() => onToggleDisponible({ id: 'P1', disponible: true })}>Toggle P1</button>
       <button onClick={() => onReponer('P1')}>Reponer P1</button>
       <button onClick={() => onReponerQuick('P1', 5)}>Quick Reponer P1</button>
       <button onClick={() => onLoadMore()}>Load More</button>
       <input data-testid="stock-input-P1" value={stockInputs['P1'] || ''} onChange={(e) => onStockInput('P1', e.target.value)} />
+      <button onClick={() => onEditar({ id: 'P1', nombre: 'Producto 1', categoriaId: 'C1', precio: 10 })}>Editar P1</button>
+    </div>
+  )
+}));
+
+vi.mock('../../components/inventario/EditarProductoModal', () => ({
+  EditarProductoModal: ({ producto, onSave, onClose }: any) => (
+    <div data-testid="editar-producto-modal">
+      <span>Editando {producto.nombre}</span>
+      <button onClick={() => onSave({ nombre: 'Producto 1 editado', categoriaId: 'C1', precio: 12 })}>Guardar edición</button>
+      <button onClick={onClose}>Cerrar edición</button>
     </div>
   )
 }));
@@ -231,6 +242,45 @@ describe('InventarioScreen', () => {
       expect(screen.getByText('No se pudo reponer el stock')).toBeInTheDocument();
       expect(screen.getByText('error reponer')).toBeInTheDocument();
     });
+  });
+
+  it('abre el modal de edición, guarda y lo cierra', async () => {
+    renderScreen();
+
+    expect(screen.queryByTestId('editar-producto-modal')).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByText('Editar P1'));
+    expect(screen.getByTestId('editar-producto-modal')).toBeInTheDocument();
+    expect(screen.getByText('Editando Producto 1')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByText('Guardar edición'));
+    await waitFor(() => {
+      expect(mockActualizarProducto).toHaveBeenCalledWith('P1', { nombre: 'Producto 1 editado', categoriaId: 'C1', precio: 12 });
+    });
+    await waitFor(() => {
+      expect(screen.queryByTestId('editar-producto-modal')).not.toBeInTheDocument();
+    });
+  });
+
+  it('cierra el modal de edición sin guardar', () => {
+    renderScreen();
+    fireEvent.click(screen.getByText('Editar P1'));
+    expect(screen.getByTestId('editar-producto-modal')).toBeInTheDocument();
+    fireEvent.click(screen.getByText('Cerrar edición'));
+    expect(screen.queryByTestId('editar-producto-modal')).not.toBeInTheDocument();
+  });
+
+  it('muestra error si falla la actualización del producto', async () => {
+    mockActualizarProducto.mockRejectedValueOnce(new Error('error actualizar'));
+    renderScreen();
+    fireEvent.click(screen.getByText('Editar P1'));
+    fireEvent.click(screen.getByText('Guardar edición'));
+    await waitFor(() => {
+      expect(screen.getByText('No se pudo actualizar el producto')).toBeInTheDocument();
+      expect(screen.getByText('error actualizar')).toBeInTheDocument();
+    });
+    // El modal se mantiene abierto para que el usuario pueda reintentar.
+    expect(screen.getByTestId('editar-producto-modal')).toBeInTheDocument();
   });
 
   it('catches errors in handleReponer', async () => {

@@ -209,9 +209,10 @@ export class ProductoListResponse {
 }
 
 /**
- * Carta pública/QR (T-XX): respuesta del endpoint sin autenticación. Solo
- * categorías de Carta (COCINA/BARRA) y productos disponibles ya filtrados
- * server-side — no lleva stockActual ni ningún dato de Inventario.
+ * Carta pública/QR (T-XX): respuesta del endpoint sin autenticación.
+ * Categorías/productos de Carta (COCINA/BARRA, sin stock) más los de
+ * Inventario ("Abarrotes" de cara al cliente) que todavía tengan stock —
+ * ya filtrados server-side, listos para mostrar.
  */
 export class CartaPublicaResponse {
   @IsArray()

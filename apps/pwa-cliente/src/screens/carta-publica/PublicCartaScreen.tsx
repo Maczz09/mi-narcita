@@ -51,7 +51,9 @@ function Orla() {
 }
 
 function iconoDeCategoria(area: CategoriaDto['area']) {
-  return area === 'BARRA' ? Icons.Drink : Icons.Chef;
+  if (area === 'BARRA') return Icons.Drink;
+  if (area === 'INVENTARIO') return Icons.Bag;
+  return Icons.Chef;
 }
 
 interface Datos {
@@ -103,6 +105,12 @@ export function PublicCartaScreen() {
     const idsConProductos = new Set(datos.productos.map((p) => p.categoriaId));
     return datos.categorias.filter((c) => idsConProductos.has(c.id));
   }, [datos]);
+
+  // Categorías de área INVENTARIO (agua, cerveza, gaseosas…) se muestran
+  // agrupadas aparte bajo "Abarrotes" — de cara al cliente es un nombre más
+  // claro que "Inventario", que es solo la palabra interna del staff.
+  const categoriasCarta = useMemo(() => categoriasConItems.filter((c) => c.area !== 'INVENTARIO'), [categoriasConItems]);
+  const categoriasAbarrotes = useMemo(() => categoriasConItems.filter((c) => c.area === 'INVENTARIO'), [categoriasConItems]);
 
   const categoriaActiva = categoriasConItems.find((c) => c.id === categoriaActivaId);
 
@@ -230,7 +238,7 @@ export function PublicCartaScreen() {
             <h2 className="cp-nombre-sede-min">{datos.sede.nombre}</h2>
           </header>
           <div className="cp-cat-grid">
-            {categoriasConItems.map((cat) => {
+            {categoriasCarta.map((cat) => {
               const Ic = iconoDeCategoria(cat.area);
               const cantidad = datos.productos.filter((p) => p.categoriaId === cat.id).length;
               return (
@@ -241,6 +249,22 @@ export function PublicCartaScreen() {
                 </button>
               );
             })}
+            {categoriasAbarrotes.length > 0 && (
+              <>
+                <div className="cp-cat-section-h">Abarrotes</div>
+                {categoriasAbarrotes.map((cat) => {
+                  const Ic = iconoDeCategoria(cat.area);
+                  const cantidad = datos.productos.filter((p) => p.categoriaId === cat.id).length;
+                  return (
+                    <button key={cat.id} type="button" className="cp-cat-card" onClick={() => abrirCategoria(cat.id)}>
+                      <Ic s={26} />
+                      <span className="cp-cat-nombre">{cat.nombre}</span>
+                      <span className="cp-cat-conteo">{cantidad} disponible{cantidad === 1 ? '' : 's'}</span>
+                    </button>
+                  );
+                })}
+              </>
+            )}
           </div>
         </>
       )}

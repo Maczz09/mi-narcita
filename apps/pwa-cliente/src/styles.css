@@ -1301,13 +1301,21 @@ fieldset { border: 0; padding: 0; margin: 0; min-width: 0; }
    .module-grid/.report-stack/.inventory-list — mismo fix. */
 .cmd-catalog { display: flex; flex-direction: column; min-height: 0; min-width: 0; padding: 16px; gap: 12px; }
 .cmd-filters { display: flex; align-items: center; gap: 10px; }
-.cmd-cats { display: flex; gap: 6px; flex-wrap: wrap; flex: 1; }
+.cmd-cats { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; flex: 1; }
+/* Separador no clickeable entre categorías de Carta (Cocina/Barra) y las de
+   Inventario (Agua Mineral, Cerveza…) dentro del mismo cmd-cats — antes se
+   mezclaban alfabéticamente sin distinción visual. */
+.cmd-cats-sep { flex: none; padding-left: 8px; margin-left: 2px; border-left: 1px solid var(--border); font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: .05em; color: var(--faint); white-space: nowrap; }
 .cmd-search { width: 220px; flex: none; }
 /* Sin -webkit-overflow-scrolling el arrastre táctil dentro de este
    overflow:auto anidado en un modal fixed se sentía trabado/estático en
    iOS Safari (no bajaba la lista de platos), aunque el scroll programático
-   sí funcionaba — activa el scroll con inercia nativo de WebKit. */
-.cmd-grid { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; display: grid; grid-template-columns: repeat(auto-fill, minmax(168px, 1fr)); gap: 11px; align-content: start; padding-bottom: 8px; }
+   sí funcionaba — activa el scroll con inercia nativo de WebKit.
+   min-height:0 — sin esto un flex:1 que también es contenedor de scroll
+   puede negarse a encoger por debajo del alto de su contenido (default
+   min-height:auto de flexbox); con 184 platos reales eso lo infla en vez
+   de scrollear "adentro". */
+.cmd-grid { flex: 1; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; display: grid; grid-template-columns: repeat(auto-fill, minmax(168px, 1fr)); gap: 11px; align-content: start; padding-bottom: 8px; }
 .dish-card { position: relative; text-align: left; background: var(--surface); border: 1px solid var(--border); border-radius: var(--r); padding: 13px; display: flex; flex-direction: column; gap: 8px; min-height: 96px; transition: border-color .1s, transform .1s, box-shadow .1s; color: var(--cmd-ink); }
 .dish-card:hover { border-color: var(--accent); transform: translateY(-1px); box-shadow: var(--shadow-sm); }
 .dish-card.has { border-color: var(--accent); background: var(--accent-soft); }
@@ -1670,6 +1678,21 @@ table.dt tbody tr.row-out:hover td { filter: brightness(.99); }
     transform: translateY(100%);
     animation: sheetup .24s cubic-bezier(.2,.8,.2,1) forwards;
   }
+  /* Medido en vivo (canal Delivery, 375px): .cmd-context llegaba a 295px de
+     alto porque Cliente y Teléfono (sin .grow, sin width propio) heredan el
+     ancho intrínseco por defecto del <input> (~222px) y no entran juntos en
+     una fila de 339px útiles — cada uno se va solo a su propia fila. Con
+     Proveedor + Cliente + Teléfono + Dirección/Referencia eso son 4 filas
+     apiladas, y le dejaban a .cmd-grid apenas ~145-245px de alto real: el
+     scroll interno seguía siendo técnicamente correcto (scrollTop
+     programático sí se movía) pero un swipe real con el dedo apenas tenía
+     margen para agarrar el gesto. :has(.input) alcanza solo a los campos de
+     texto (Cliente/Teléfono/Dirección/Referencia/Hora de retiro) sin tocar
+     Proveedor (.seg) ni Mesa/Comensales (Salón), que sí necesitan su ancho. */
+  .cmd-context { padding: 10px 14px; }
+  .ctx-row { gap: 8px 10px; }
+  .ctx-row .ctx-field:has(.input) { flex: 1 1 130px; min-width: 130px; }
+  .ctx-row .ctx-field:has(.input) .input { width: 100%; }
 }
 
 @media (max-width: 560px) {

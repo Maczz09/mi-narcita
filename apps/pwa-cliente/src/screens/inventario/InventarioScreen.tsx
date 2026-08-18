@@ -8,10 +8,11 @@ import { StatKpi } from '../../components/ui/StatKpi';
 import { ProductoTable } from '../../components/inventario/ProductoTable';
 import { NuevoProductoForm } from '../../components/inventario/NuevoProductoForm';
 import { RegistrarMermaModal } from '../../components/inventario/RegistrarMermaModal';
+import { EditarProductoModal } from '../../components/inventario/EditarProductoModal';
 import { useMermasQuery } from '../../hooks/queries/useMermasQuery';
 import { useToast } from '../../components/ui/ToastProvider';
 import { INITIAL_PRODUCT, STOCK_BAJO, computeInventarioKpis } from '../../domain/inventario';
-import type { CrearProductoPayload, ProductoVM } from '../../types/inventario.types';
+import type { ActualizarProductoPayload, CrearProductoPayload, ProductoVM } from '../../types/inventario.types';
 
 export function InventarioScreen() {
   const online = useOnlineStatus();
@@ -32,6 +33,7 @@ export function InventarioScreen() {
   const [productoForm, setProductoForm] = useState<CrearProductoPayload>(INITIAL_PRODUCT);
   const [stockInputs, setStockInputs] = useState<Record<string, string>>({});
   const [mermaProducto, setMermaProducto] = useState<ProductoVM | null>(null);
+  const [editProducto, setEditProducto] = useState<ProductoVM | null>(null);
 
   useEffect(() => {
     const el = document.querySelector('.content');
@@ -81,6 +83,16 @@ export function InventarioScreen() {
       setStockInputs((prev) => ({ ...prev, [productoId]: '' }));
     } catch (err) {
       toast({ title: 'No se pudo reponer el stock', msg: err instanceof Error ? err.message : 'Inténtalo de nuevo', icon: 'Alert', kind: 'err' });
+    }
+  };
+
+  const handleActualizarProducto = async (payload: ActualizarProductoPayload) => {
+    if (!editProducto || !online) return;
+    try {
+      await actualizarProducto(editProducto.id, payload);
+      setEditProducto(null);
+    } catch (err) {
+      toast({ title: 'No se pudo actualizar el producto', msg: err instanceof Error ? err.message : 'Inténtalo de nuevo', icon: 'Alert', kind: 'err' });
     }
   };
 
@@ -172,6 +184,7 @@ export function InventarioScreen() {
             onReponer={handleReponer}
             onReponerQuick={(id, cant) => { if (online) { reponerStock(id, cant).catch((e: unknown) => toast({ title: 'No se pudo reponer el stock', msg: e instanceof Error ? e.message : 'Inténtalo de nuevo', icon: 'Alert', kind: 'err' })); } }}
             onRegistrarMerma={setMermaProducto}
+            onEditar={setEditProducto}
             nextCursor={nextCursor}
             loadingMore={loadingMore}
             onLoadMore={fetchMore}
@@ -194,6 +207,17 @@ export function InventarioScreen() {
           saving={savingMerma}
           onClose={() => setMermaProducto(null)}
           onSave={handleRegistrarMerma}
+        />
+      )}
+
+      {editProducto && (
+        <EditarProductoModal
+          producto={editProducto}
+          categorias={categorias}
+          saving={saving}
+          online={online}
+          onClose={() => setEditProducto(null)}
+          onSave={handleActualizarProducto}
         />
       )}
 

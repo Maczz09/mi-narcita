@@ -99,9 +99,23 @@ export class AppService {
     return { gte: this.parseFechaLimite(hoyLima, 'inicio'), lte: new Date() };
   }
 
+  // fecha.getHours() usa la zona horaria del contenedor (UTC en Docker,
+  // igual que el bug ya documentado arriba en rango()) — una venta de las
+  // 16:00 Lima queda leída como las 21:00. Mismo remedio: leer la hora vía
+  // Intl con el timezone anclado explícitamente en vez de confiar en el TZ
+  // del proceso.
+  private horaLima(fecha: Date): number {
+    const horaStr = new Intl.DateTimeFormat('en-US', {
+      timeZone: 'America/Lima',
+      hour: '2-digit',
+      hour12: false,
+    }).format(fecha);
+    return Number(horaStr) % 24;
+  }
+
   /** Deriva el turno a partir de la hora de la venta (plan 6.3). */
   private turnoDe(fecha: Date): 'ALMUERZO' | 'CENA' | 'OTRO' {
-    const h = fecha.getHours();
+    const h = this.horaLima(fecha);
     if (h >= 12 && h < 17) return 'ALMUERZO';
     if (h >= 18) return 'CENA';
     return 'OTRO';
@@ -202,10 +216,9 @@ export class AppService {
     }
     
     for (const v of ventas) {
-      const fechaVenta = new Date(v.fecha);
-      const hora = fechaVenta.getHours();
+      const hora = this.horaLima(new Date(v.fecha));
       const horaKey = `${String(hora).padStart(2, '0')}:00`;
-      
+
       horasMap.set(horaKey, (horasMap.get(horaKey) || 0) + Number(v.total));
     }
 

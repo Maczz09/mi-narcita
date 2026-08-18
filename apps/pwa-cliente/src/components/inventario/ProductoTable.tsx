@@ -20,6 +20,7 @@ interface ProductoTableProps {
   onReponer: (id: string) => void;
   onReponerQuick: (id: string, cantidad: number) => void;
   onRegistrarMerma: (p: ProductoVM) => void;
+  onEditar: (p: ProductoVM) => void;
   nextCursor: string | null;
   loadingMore: boolean;
   onLoadMore: () => void;
@@ -28,7 +29,7 @@ interface ProductoTableProps {
 
 export function ProductoTable({
   grupos, stockInputs, onStockInput, saving, online,
-  onToggleDisponible, onReponer, onReponerQuick, onRegistrarMerma,
+  onToggleDisponible, onReponer, onReponerQuick, onRegistrarMerma, onEditar,
   nextCursor, loadingMore, onLoadMore, loading,
 }: Readonly<ProductoTableProps>) {
   if (loading) return <LoadingRows />;
@@ -70,7 +71,12 @@ export function ProductoTable({
                   const nivel = stockNivel(producto.stockActual);
                   const rowCls = { out: 'row-out', low: 'row-low' }[nivel as string] ?? '';
                   return (
-                    <tr key={producto.id} className={rowCls}>
+                    <tr
+                      key={producto.id}
+                      className={`dt-row-click ${rowCls}`}
+                      onClick={() => onEditar(producto)}
+                      title="Editar producto"
+                    >
                       <td>
                         <strong>{producto.nombre}</strong>
                         {producto.descripcion && <div className="muted">{producto.descripcion}</div>}
@@ -83,7 +89,7 @@ export function ProductoTable({
                           {nivel === 'low' && <span className="sc-note low">Stock bajo</span>}
                         </div>
                       </td>
-                      <td>
+                      <td onClick={(e) => e.stopPropagation()}>
                         <div className="avail-cell">
                           <button
                             type="button"
@@ -101,7 +107,7 @@ export function ProductoTable({
                           </span>
                         </div>
                       </td>
-                      <td>
+                      <td onClick={(e) => e.stopPropagation()}>
                         <div className="repo-cell">
                           <div className="repo-quick">
                             <button disabled={saving || !online} aria-label={`Reponer 5 de ${producto.nombre}`} onClick={() => onReponerQuick(producto.id, 5)}>+5</button>
@@ -127,7 +133,7 @@ export function ProductoTable({
                           </button>
                         </div>
                       </td>
-                      <td>
+                      <td onClick={(e) => e.stopPropagation()}>
                         <button
                           className="btn btn-sm btn-ghost"
                           disabled={saving || !online || (producto.stockActual ?? 0) <= 0}

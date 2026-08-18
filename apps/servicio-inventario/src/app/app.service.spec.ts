@@ -452,16 +452,16 @@ describe('AppService — Inventario (comprehensive)', () => {
   // ─── listarCartaPublica (carta pública/QR, sin auth) ───────────────────────
 
   describe('listarCartaPublica', () => {
-    it('filtra categorías a COCINA/BARRA en la query de Prisma', async () => {
+    it('filtra categorías a COCINA/BARRA/INVENTARIO en la query de Prisma', async () => {
       mockPrisma.categoria.findMany.mockResolvedValue([]);
       mockPrisma.producto.findMany.mockResolvedValue([]);
       await service.listarCartaPublica(SEDE);
       expect(mockPrisma.categoria.findMany).toHaveBeenCalledWith(
-        expect.objectContaining({ where: { sedeId: SEDE, area: { in: ['COCINA', 'BARRA'] } } }),
+        expect.objectContaining({ where: { sedeId: SEDE, area: { in: ['COCINA', 'BARRA', 'INVENTARIO'] } } }),
       );
     });
 
-    it('filtra productos a disponible=true, stockActual=null (Carta, no Inventario) y área COCINA/BARRA', async () => {
+    it('filtra productos a disponible=true, y (Carta sin stock) o (Inventario con stock > 0)', async () => {
       mockPrisma.categoria.findMany.mockResolvedValue([]);
       mockPrisma.producto.findMany.mockResolvedValue([]);
       await service.listarCartaPublica(SEDE);
@@ -470,8 +470,10 @@ describe('AppService — Inventario (comprehensive)', () => {
           where: {
             sedeId: SEDE,
             disponible: true,
-            stockActual: null,
-            categoria: { area: { in: ['COCINA', 'BARRA'] } },
+            OR: [
+              { stockActual: null, categoria: { area: { in: ['COCINA', 'BARRA'] } } },
+              { stockActual: { gt: 0 }, categoria: { area: 'INVENTARIO' } },
+            ],
           },
         }),
       );
@@ -488,6 +490,20 @@ describe('AppService — Inventario (comprehensive)', () => {
       expect(result.categorias).toHaveLength(1);
       expect(result.productos).toHaveLength(1);
       expect(result.productos[0].precio).toBe(40);
+    });
+
+    it('incluye un producto de Inventario ("Abarrotes") con stock', async () => {
+      mockPrisma.categoria.findMany.mockResolvedValue([
+        { id: 'cat-002', nombre: 'Agua Mineral', descripcion: null, sedeId: SEDE, area: 'INVENTARIO' },
+      ]);
+      mockPrisma.producto.findMany.mockResolvedValue([
+        { ...productoBase, id: 'prod-002', nombre: 'Agua Alcalina', precio: 3, disponible: true, stockActual: 12 },
+      ]);
+
+      const result = await service.listarCartaPublica(SEDE);
+
+      expect(result.categorias[0].nombre).toBe('Agua Mineral');
+      expect(result.productos[0].nombre).toBe('Agua Alcalina');
     });
   });
 
