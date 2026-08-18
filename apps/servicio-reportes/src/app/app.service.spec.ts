@@ -230,11 +230,17 @@ describe('AppService — Reportes', () => {
     });
 
     it('por-turno deriva ALMUERZO/CENA/OTRO de la hora', async () => {
+      // Offset -05:00 explícito (hora Lima) — sin él, `new Date('...T13:00:00')`
+      // se parsea en la zona horaria LOCAL del proceso que corre el test:
+      // en la máquina del dev eso "cancela" con turnoDe() leyendo también en
+      // local y el test pasa de pura casualidad, pero en el runner de CI
+      // (UTC) turnoDe() ahora sí convierte a Lima de verdad (ver horaLima())
+      // y esas mismas horas "sin offset" quedan interpretadas en UTC, no Lima.
       prisma.ventaDiaria.findMany.mockResolvedValue([
-        { total: 50, fecha: new Date('2026-01-02T13:00:00') },
-        { total: 30, fecha: new Date('2026-01-02T14:00:00') },
-        { total: 90, fecha: new Date('2026-01-02T20:00:00') },
-        { total: 20, fecha: new Date('2026-01-02T09:00:00') }, // antes del almuerzo → OTRO
+        { total: 50, fecha: new Date('2026-01-02T13:00:00-05:00') },
+        { total: 30, fecha: new Date('2026-01-02T14:00:00-05:00') },
+        { total: 90, fecha: new Date('2026-01-02T20:00:00-05:00') },
+        { total: 20, fecha: new Date('2026-01-02T09:00:00-05:00') }, // antes del almuerzo → OTRO
       ]);
       const r = await service.obtenerPorTurno({});
       const almuerzo = r.turnos.find((t) => t.turno === 'ALMUERZO');
