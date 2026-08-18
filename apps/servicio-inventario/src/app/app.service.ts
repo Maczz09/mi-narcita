@@ -293,21 +293,26 @@ export class AppService {
   }
 
   // Carta pública/QR (T-XX): SIN autenticación, cualquiera con el link la
-  // llama. El filtrado (disponible, Carta-no-Inventario, área COCINA/BARRA)
-  // se hace acá y no en el cliente — el navegador nunca recibe productos
-  // ocultos ni bebidas de Inventario mezcladas con platos.
+  // llama. El filtrado (disponible, área) se hace acá y no en el cliente.
+  // Incluye COCINA/BARRA (platos preparados, sin stock — siempre "hay") y
+  // también INVENTARIO ("Abarrotes" de cara al cliente, ver
+  // PublicCartaScreen.tsx: agua/cerveza/gaseosas con stock real) pero SOLO
+  // si les queda stock — a diferencia de Carta, acá si se agotan no se
+  // muestran en vez de aparecer como "agotado" clickeable.
   async listarCartaPublica(sedeId: string): Promise<CartaPublicaResponse> {
     const [categorias, productos] = await Promise.all([
       this.prisma.categoria.findMany({
-        where: { sedeId, area: { in: [CategoriaArea.COCINA, CategoriaArea.BARRA] } },
+        where: { sedeId, area: { in: [CategoriaArea.COCINA, CategoriaArea.BARRA, CategoriaArea.INVENTARIO] } },
         orderBy: { nombre: 'asc' },
       }),
       this.prisma.producto.findMany({
         where: {
           sedeId,
           disponible: true,
-          stockActual: null,
-          categoria: { area: { in: [CategoriaArea.COCINA, CategoriaArea.BARRA] } },
+          OR: [
+            { stockActual: null, categoria: { area: { in: [CategoriaArea.COCINA, CategoriaArea.BARRA] } } },
+            { stockActual: { gt: 0 }, categoria: { area: CategoriaArea.INVENTARIO } },
+          ],
         },
         include: { categoria: true },
         orderBy: { nombre: 'asc' },
