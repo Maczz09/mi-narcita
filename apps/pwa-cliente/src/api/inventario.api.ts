@@ -87,6 +87,36 @@ export async function getProductos(categoriaId?: string): Promise<ProductoDto[]>
   return response.data;
 }
 
+/** Tope duro del listado: 500 tanto en el DTO (`@Max`) como en el clamp del
+ *  servicio. Pedir más no trae más, así que se pide exactamente eso. */
+const PAGINA_MAXIMA = 500;
+/** Corta el recorrido a 10 000 productos. Es un seguro contra un cursor que no
+ *  avance (bug de servidor): sin esto el navegador giraría para siempre. */
+const PAGINAS_MAXIMAS = 20;
+
+/**
+ * Recorre TODAS las páginas del listado. La pantalla de Inventario pagina de a
+ * 50, pero un PDF de cuadre con la mitad de los productos es peor que no
+ * tenerlo: el conteo físico se haría contra una lista incompleta.
+ */
+export async function getTodosLosProductos(query: ProductoListQuery = {}): Promise<ProductoDto[]> {
+  const productos: ProductoDto[] = [];
+  let cursor: string | undefined = query.cursor;
+
+  for (let pagina = 0; pagina < PAGINAS_MAXIMAS; pagina++) {
+    const response: ProductoListResponse = await getProductosPage({
+      ...query,
+      cursor,
+      limit: PAGINA_MAXIMA,
+    });
+    productos.push(...response.data);
+    if (!response.nextCursor || response.data.length === 0) break;
+    cursor = response.nextCursor;
+  }
+
+  return productos;
+}
+
 export async function crearProducto(payload: CrearProductoPayload): Promise<ProductoDto> {
   const response = await client.post<ProductoResponse | ProductoDto>('/inventario/productos', payload);
   return unwrapEntity<ProductoDto>(response, 'producto');

@@ -49,6 +49,9 @@ export const RoutingKeys = {
 
   // Compras
   CompraRecibida: 'compra.recibida',
+  // T-50: un movimiento del almacén de cocina dejó al insumo en/por debajo de
+  // su mínimo. Solo en el CRUCE hacia abajo, no en cada salida posterior.
+  InsumoStockBajo: 'insumo.stock_bajo',
 } as const;
 
 export type RoutingKey = (typeof RoutingKeys)[keyof typeof RoutingKeys];

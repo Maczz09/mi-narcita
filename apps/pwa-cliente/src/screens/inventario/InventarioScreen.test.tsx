@@ -30,6 +30,28 @@ vi.mock('../../components/inventario/EditarProductoModal', () => ({
   )
 }));
 
+// La pantalla lee la sede activa (para la cabecera del PDF) con react-query;
+// estos tests renderizan sin QueryClientProvider, así que se stubea el hook.
+const mockGetTodosLosProductos = vi.fn();
+vi.mock('../../api/inventario.api', () => ({
+  getTodosLosProductos: (...args: any[]) => mockGetTodosLosProductos(...args),
+}));
+
+const mockExportarInventarioPdf = vi.fn();
+vi.mock('../../utils/inventarioPdf', () => ({
+  exportarInventarioPdf: (...args: any[]) => mockExportarInventarioPdf(...args),
+}));
+
+vi.mock('../../hooks/queries/useSedesQuery', () => ({
+  useSedeActualQuery: () => ({ sede: { id: 'S1', nombre: 'Sede Centro' }, loading: false }),
+}));
+
+// La pestaña de almacén trae sus propias queries; acá solo se prueba la de
+// productos de venta, así que se reemplaza por un marcador.
+vi.mock('../../components/inventario/AlmacenCocinaTab', () => ({
+  AlmacenCocinaTab: () => <div data-testid="almacen-cocina-tab" />,
+}));
+
 vi.mock('../../hooks/queries/useMermasQuery', () => ({
   useMermasQuery: () => ({
     mermas: [],
@@ -294,6 +316,84 @@ describe('InventarioScreen', () => {
     await waitFor(() => {
       expect(screen.getByText('No se pudo reponer el stock')).toBeInTheDocument();
       expect(screen.getByText('error handle reponer')).toBeInTheDocument();
+    });
+  });
+
+  describe('descarga de PDF (T-49)', () => {
+    beforeEach(() => {
+      mockGetTodosLosProductos.mockResolvedValue([
+        { id: 'P1', nombre: 'Producto 1', categoriaId: 'C1', stockActual: 10, disponible: true, precio: 10 },
+      ]);
+      mockExportarInventarioPdf.mockResolvedValue('inventario-cuadre_2026-08-24.pdf');
+    });
+
+    it('el botón PDF abre el modal de opciones', () => {
+      renderScreen();
+      fireEvent.click(screen.getByRole('button', { name: /PDF/i }));
+      expect(screen.getByLabelText('Descargar inventario en PDF')).toBeInTheDocument();
+    });
+
+    it('se deshabilita sin conexión: el PDF necesita recorrer todo el inventario', () => {
+      vi.spyOn(onlineStatusHook, 'useOnlineStatus').mockReturnValue(false);
+      renderScreen();
+      expect(screen.getByRole('button', { name: /PDF/i })).toBeDisabled();
+    });
+
+    it('exporta con TODO el inventario, no solo la página en pantalla', async () => {
+      renderScreen();
+      fireEvent.click(screen.getByRole('button', { name: /PDF/i }));
+      fireEvent.click(screen.getByRole('button', { name: 'Descargar PDF' }));
+
+      await waitFor(() => {
+        expect(mockGetTodosLosProductos).toHaveBeenCalledWith({ conStock: true });
+      });
+      expect(mockExportarInventarioPdf).toHaveBeenCalledWith(
+        expect.any(Array),
+        expect.objectContaining({ formato: 'cuadre', sedeNombre: 'Sede Centro', filtroLabel: 'Todo el inventario' }),
+      );
+    });
+
+    it('cierra el modal y avisa con el nombre del archivo generado', async () => {
+      renderScreen();
+      fireEvent.click(screen.getByRole('button', { name: /PDF/i }));
+      fireEvent.click(screen.getByRole('button', { name: 'Descargar PDF' }));
+
+      await waitFor(() => {
+        expect(screen.getByText('inventario-cuadre_2026-08-24.pdf')).toBeInTheDocument();
+      });
+      expect(screen.queryByLabelText('Descargar inventario en PDF')).not.toBeInTheDocument();
+    });
+
+    it('avisa si la generación falla y deja el modal abierto para reintentar', async () => {
+      mockGetTodosLosProductos.mockRejectedValueOnce(new Error('sin red'));
+      renderScreen();
+      fireEvent.click(screen.getByRole('button', { name: /PDF/i }));
+      fireEvent.click(screen.getByRole('button', { name: 'Descargar PDF' }));
+
+      await waitFor(() => {
+        expect(screen.getByText('No se pudo generar el PDF')).toBeInTheDocument();
+      });
+      expect(screen.getByLabelText('Descargar inventario en PDF')).toBeInTheDocument();
+    });
+  });
+
+  describe('pestañas (T-50)', () => {
+    it('arranca en productos de venta y puede cambiar al almacén de cocina', () => {
+      renderScreen();
+      expect(screen.getByTestId('producto-table')).toBeInTheDocument();
+
+      fireEvent.click(screen.getByText('Almacén de cocina'));
+
+      expect(screen.getByTestId('almacen-cocina-tab')).toBeInTheDocument();
+      expect(screen.queryByTestId('producto-table')).not.toBeInTheDocument();
+    });
+
+    it('en el almacén no se ofrecen las acciones de productos de venta', () => {
+      renderScreen();
+      fireEvent.click(screen.getByText('Almacén de cocina'));
+
+      expect(screen.queryByRole('button', { name: /PDF/i })).not.toBeInTheDocument();
+      expect(screen.queryByText('Ver mermas')).not.toBeInTheDocument();
     });
   });
 });

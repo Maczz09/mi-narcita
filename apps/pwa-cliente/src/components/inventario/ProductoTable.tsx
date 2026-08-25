@@ -63,7 +63,7 @@ export function ProductoTable({
                   <th>Stock</th>
                   <th>Disponible</th>
                   <th>Reponer</th>
-                  <th>Merma</th>
+                  <th>Acciones</th>
                 </tr>
               </thead>
               <tbody>
@@ -71,12 +71,7 @@ export function ProductoTable({
                   const nivel = stockNivel(producto.stockActual);
                   const rowCls = { out: 'row-out', low: 'row-low' }[nivel as string] ?? '';
                   return (
-                    <tr
-                      key={producto.id}
-                      className={`dt-row-click ${rowCls}`}
-                      onClick={() => onEditar(producto)}
-                      title="Editar producto"
-                    >
+                    <tr key={producto.id} className={rowCls}>
                       <td>
                         <strong>{producto.nombre}</strong>
                         {producto.descripcion && <div className="muted">{producto.descripcion}</div>}
@@ -89,7 +84,7 @@ export function ProductoTable({
                           {nivel === 'low' && <span className="sc-note low">Stock bajo</span>}
                         </div>
                       </td>
-                      <td onClick={(e) => e.stopPropagation()}>
+                      <td>
                         <div className="avail-cell">
                           <button
                             type="button"
@@ -107,7 +102,7 @@ export function ProductoTable({
                           </span>
                         </div>
                       </td>
-                      <td onClick={(e) => e.stopPropagation()}>
+                      <td>
                         <div className="repo-cell">
                           <div className="repo-quick">
                             <button disabled={saving || !online} aria-label={`Reponer 5 de ${producto.nombre}`} onClick={() => onReponerQuick(producto.id, 5)}>+5</button>
@@ -133,15 +128,25 @@ export function ProductoTable({
                           </button>
                         </div>
                       </td>
-                      <td onClick={(e) => e.stopPropagation()}>
-                        <button
-                          className="btn btn-sm btn-ghost"
-                          disabled={saving || !online || (producto.stockActual ?? 0) <= 0}
-                          onClick={() => onRegistrarMerma(producto)}
-                          aria-label={`Registrar merma de ${producto.nombre}`}
-                        >
-                          Merma
-                        </button>
+                      <td>
+                        <div className="row" style={{ gap: 6 }}>
+                          <button
+                            className="btn btn-sm btn-ghost"
+                            disabled={saving || !online || (producto.stockActual ?? 0) <= 0}
+                            onClick={() => onRegistrarMerma(producto)}
+                            aria-label={`Registrar merma de ${producto.nombre}`}
+                          >
+                            Merma
+                          </button>
+                          <button
+                            className="btn btn-sm btn-soft"
+                            disabled={saving || !online}
+                            onClick={() => onEditar(producto)}
+                            aria-label={`Editar ${producto.nombre}`}
+                          >
+                            <Icons.Edit s={14} /> Editar
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   );
@@ -170,7 +175,7 @@ function LoadingRows() {
         <thead>
           <tr>
             <th>Producto</th><th className="num">Precio</th>
-            <th>Stock</th><th>Disponible</th><th>Reponer</th><th>Merma</th>
+            <th>Stock</th><th>Disponible</th><th>Reponer</th><th>Acciones</th>
           </tr>
         </thead>
         <tbody>
@@ -181,7 +186,7 @@ function LoadingRows() {
               <td><div className="skel" style={{ width: 40, height: 16 }} /></td>
               <td><div className="skel" style={{ width: 48, height: 24 }} /></td>
               <td><div className="skel" style={{ width: 150, height: 30 }} /></td>
-              <td><div className="skel" style={{ width: 70, height: 24 }} /></td>
+              <td><div className="skel" style={{ width: 140, height: 24 }} /></td>
             </tr>
           ))}
         </tbody>

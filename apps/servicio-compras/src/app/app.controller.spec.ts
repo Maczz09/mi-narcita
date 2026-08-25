@@ -15,6 +15,8 @@ describe('AppController (servicio-compras)', () => {
   let controller: AppController;
   let proveedores: any;
   let insumos: any;
+  let movimientos: any;
+  let categoriasInsumo: any;
   let ordenes: any;
   let recepciones: any;
   let comprobantes: any;
@@ -22,6 +24,8 @@ describe('AppController (servicio-compras)', () => {
   beforeEach(() => {
     proveedores = { listar: jest.fn(), crear: jest.fn(), actualizar: jest.fn(), eliminar: jest.fn() };
     insumos = { listar: jest.fn(), crear: jest.fn(), actualizar: jest.fn(), eliminar: jest.fn() };
+    movimientos = { registrar: jest.fn(), listar: jest.fn(), obtener: jest.fn(), registrarConteo: jest.fn() };
+    categoriasInsumo = { listar: jest.fn(), crear: jest.fn(), actualizar: jest.fn(), eliminar: jest.fn() };
     ordenes = {
       listar: jest.fn(), obtener: jest.fn(), crear: jest.fn(), actualizar: jest.fn(), eliminar: jest.fn(),
       enviar: jest.fn(), cerrar: jest.fn(), anular: jest.fn(), resumen: jest.fn(),
@@ -29,7 +33,7 @@ describe('AppController (servicio-compras)', () => {
     recepciones = { listarPorOrden: jest.fn(), registrar: jest.fn() };
     comprobantes = { listar: jest.fn(), subir: jest.fn(), obtenerComprobante: jest.fn(), eliminar: jest.fn(), rutaAbsoluta: jest.fn((r: string) => `/data/comprobantes/${r}`) };
 
-    controller = new AppController(proveedores, insumos, ordenes, recepciones, comprobantes);
+    controller = new AppController(proveedores, insumos, categoriasInsumo, movimientos, ordenes, recepciones, comprobantes);
     jest.clearAllMocks();
   });
 
