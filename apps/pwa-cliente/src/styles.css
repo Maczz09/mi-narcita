@@ -2580,3 +2580,72 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 .content > section {
   height: auto !important;
 }
+/* ============================================================
+   SCROLL SEGURO — overlays, modales y comandero
+   ============================================================
+   Los overlays viven sobre una app cuyo <body> no hace scroll. Cada uno
+   necesita, por tanto, un área de desplazamiento explícita y con altura
+   limitada. Esto evita que en iOS/Android una fila automática de grid o un
+   modal más alto que la pantalla deje contenido inaccesible al hacer swipe. */
+.modal-wrap {
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+dialog.modal {
+  max-height: calc(100vh - 40px);
+  max-height: calc(100dvh - 40px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+.drawer-wrap { overflow: hidden; }
+.drawer-body {
+  min-height: 0;
+  overscroll-behavior-y: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Una sola fila acotada es esencial: en un grid con la fila implícita
+   `auto`, el catálogo podía tomar la altura de todos los platos y expulsar
+   a .cmd-grid fuera de la ventana. */
+.cmd-body {
+  grid-template-rows: minmax(0, 1fr);
+  overflow: hidden;
+}
+
+.cmd-catalog,
+.cmd-cart-wrap,
+.cmd-catalog.active,
+.cmd-cart-wrap.active {
+  min-height: 0;
+  height: 100%;
+}
+
+.cmd-grid,
+.cmd-lines {
+  min-block-size: 0;
+  overscroll-behavior-y: contain;
+  touch-action: pan-y;
+}
+
+@media (max-width: 920px) {
+  .cmd-overlay {
+    height: 100vh;
+    height: 100dvh;
+    overflow: hidden;
+  }
+
+  .cmd-body {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr);
+  }
+
+  /* En pantalla pequeña el diálogo es un área de aplicación completa. */
+  dialog.modal {
+    max-height: 100vh;
+    max-height: 100dvh;
+  }
+}
