@@ -300,7 +300,7 @@ export function FacturacionScreen() {
       )}
 
       {!empresasLoading && empresas.length > 0 && (
-        <section className="panel" style={{ marginBottom: 16 }}>
+        <section className="panel" data-guide="billing-companies" style={{ marginBottom: 16 }}>
           <div className="panel-h">
             <h3>Empresas configuradas</h3>
             <span className="spacer" />
@@ -380,7 +380,7 @@ export function FacturacionScreen() {
         )}
       </div>
 
-      <section className="panel" style={{ marginBottom: 16 }}>
+      <section className="panel" data-guide="billing-available" style={{ marginBottom: 16 }}>
         <div className="panel-h">
           <h3>Comprobantes de pago disponibles</h3>
           <span className="spacer" />
@@ -451,7 +451,7 @@ export function FacturacionScreen() {
         )}
       </section>
 
-      <section className="panel">
+      <section className="panel" data-guide="billing-issued">
         <div className="panel-h">
           <h3>Emitidos recientes</h3>
           <span className="spacer" />
