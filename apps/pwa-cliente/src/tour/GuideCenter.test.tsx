@@ -20,7 +20,8 @@ describe('centro de guías', () => {
     render(<MemoryRouter initialEntries={['/app/cocina']}><GuideCenter /></MemoryRouter>);
     fireEvent.click(screen.getByRole('button', { name: 'Abrir guías de uso' }));
     expect(screen.getByRole('dialog', { name: 'Guías de uso' })).toBeInTheDocument();
-    expect(screen.getByText('Impresión de cocina')).toBeInTheDocument();
+    expect(screen.getByText('Inventario')).toBeInTheDocument();
+    expect(screen.queryByText('Servidor local')).not.toBeInTheDocument();
     expect(screen.queryByText('Facturación')).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: /Explicar esta pantalla/ }));
     await waitFor(() => expect(launchModuleGuide).toHaveBeenCalledWith('cocina', 'COCINA', expect.any(Function)));

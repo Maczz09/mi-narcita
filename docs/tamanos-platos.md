@@ -42,7 +42,7 @@ La carta digital reúne los eventos consecutivos en una recarga, 200 ms después
 
 El cliente agrega el prefijo de API configurado y la sede cuando corresponde. El borrado está protegido también por una clave foránea `RESTRICT`. La creación/edición de productos y de menú del día comparte la misma validación de asignación.
 
-## Migración y actualización instalada
+## Migración y despliegue web
 
 La migración `apps/servicio-inventario/prisma/migrations/20260902120000_tamanos_plato/migration.sql` crea el catálogo por sede y extrae solamente sufijos completos conocidos separados por `·` o entre paréntesis. No distingue mayúsculas y normaliza `Mediana` a `Mediano`.
 
@@ -56,13 +56,13 @@ La migración `apps/servicio-inventario/prisma/migrations/20260902120000_tamanos
 
 Los nombres ambiguos se revisan manualmente desde Carta. La migración conserva IDs, precios, stock y disponibilidad; no modifica pedidos históricos. Genera eventos `producto.actualizado` para refrescar las proyecciones sin cambiar esos históricos. El seed de pruebas utiliza ahora nombre base y tamaño separado; no debe ejecutarse para actualizar datos reales.
 
-**Estado de esta entrega:** código y migración preparados. Esta documentación no confirma que la migración esté aplicada en la instalación del restaurante. Actualizar la base real requiere autorización y respaldo previo.
+**Estado de esta entrega:** código y migración preparados en la rama de trabajo. Esta documentación no confirma que la migración esté aplicada en el VPS. Actualizar la base real requiere autorización y respaldo previo.
 
 Para desplegar, después de la autorización:
 
-1. Respaldar Inventario y los archivos instalados que se reemplazarán. Guardar una comparación de los productos antes y después; confirmar que IDs y precios permanecen iguales.
-2. Actualizar los builds de **servicio-inventario**, **servicio-pedidos**, la **PWA** y las migraciones de Inventario del runtime. No basta con sustituir la interfaz.
-3. Reiniciar **La Barra del Ceviche** mediante **Salir** de la bandeja y abrirla otra vez. El runtime aplica las migraciones pendientes antes de iniciar los servicios. Esto reinicia también Inventario y Pedidos.
+1. Respaldar la base de Inventario del VPS. Guardar una comparación de los productos antes y después; confirmar que IDs y precios permanecen iguales.
+2. Aplicar la migración de Prisma a Inventario con el procedimiento de despliegue del VPS. No ejecutar el seed de La Barra sobre datos reales.
+3. Publicar conjuntamente **servicio-inventario**, **servicio-pedidos** y la **PWA**; el frontend nuevo requiere el contrato de tamaños del backend. Reiniciar solo los servicios actualizados mediante el orquestador del VPS.
 4. Verificar salud de servicios, tamaños y precios de la carta; recargar los navegadores de los dispositivos. No crear pedidos, pagos o comprobantes reales para esta validación.
 
 ## Pruebas y evaluaciones
@@ -70,19 +70,17 @@ Para desplegar, después de la autorización:
 Desde la raíz del repositorio:
 
 ```powershell
-npm exec nx run pwa-cliente:test -- --skipNxCache
-npm exec nx run servicio-inventario:test -- --skipNxCache
-npm exec nx run servicio-pedidos:test -- --skipNxCache
-npm exec nx run contracts:test -- --skipNxCache
-npm exec nx run escritorio:eval -- --skipNxCache
-node --test tools/tauri-local/seed-la-barra.test.mjs
+npm exec -- nx run pwa-cliente:test --skipNxCache
+npm exec -- nx run servicio-inventario:test --skipNxCache
+npm exec -- nx run servicio-pedidos:test --skipNxCache
+npm exec -- nx run contracts:test --skipNxCache
 ```
 
-La validación registrada de esta entrega pasó 1061 pruebas de PWA, 183 de Inventario, 140 de Pedidos y 26 de contratos. Las suites incluyen CRUD, aislamiento por sede, tamaño inactivo, filtros, orden, formularios, comanda y precios de carta digital. Los campos de edición del tamaño aceptan omisión, pero rechazan `null` como entrada inválida; `producto.tamanoId: null` sigue siendo válido para quitar una asignación.
+Las suites incluyen CRUD, aislamiento por sede, tamaño inactivo, filtros, orden, formularios, comanda y precios de carta digital. Los campos de edición del tamaño aceptan omisión, pero rechazan `null` como entrada inválida; `producto.tamanoId: null` sigue siendo válido para quitar una asignación.
 
-El build y lint de Inventario pasaron. La evaluación estática de escritorio pasó 89 verificaciones de cableado y recursos; no sustituye una prueba de instalación ni una validación SQL.
+El build local no sustituye una prueba de despliegue web ni una validación SQL contra una base aislada.
 
-La revisión visual en navegador con ancho móvil de 393 px y **datos ficticios** comprobó los grupos Personal, Mediano, Grande y Familiar dentro de Arroces, el filtro Familiar y que el carrito conserva tamaño y precio al volver a categorías. En carta digital se verificaron cuatro precios por plato y el filtro Familiar. No se generaron pedidos ni comprobantes en producción.
+La validación del VPS y de las impresoras del restaurante queda pendiente hasta disponer de acceso y autorización de despliegue. No se han generado pedidos ni comprobantes en producción.
 
 Para ejecutar la migración real contra una **base PostgreSQL de pruebas aislada**, no la del restaurante:
 

@@ -5,8 +5,16 @@
   "nx": {
     "name": "servicio-inventario",
     "targets": {
+      "prisma-generate": {
+        "executor": "nx:run-commands",
+        "options": {
+          "command": "prisma generate --schema apps/servicio-inventario/prisma/schema.prisma",
+          "cwd": "{workspaceRoot}"
+        }
+      },
       "build": {
         "executor": "nx:run-commands",
+        "dependsOn": ["prisma-generate", "^build"],
         "outputs": [
           "{workspaceRoot}/dist/apps/servicio-inventario"
         ],

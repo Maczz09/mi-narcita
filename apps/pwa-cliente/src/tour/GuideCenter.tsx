@@ -79,7 +79,7 @@ export function GuideCenter() {
     setOpen(false);
     const navTarget = window.matchMedia?.('(max-width: 920px)').matches ? '.bottom-nav' : '.sidebar';
     const overview: GuideStep[] = [
-      { title: `Bienvenido, ${user?.nombre ?? 'equipo'}`, description: 'La Barra del Ceviche muestra los módulos permitidos para tu rol. Esta guía solo señala controles; no realiza cambios ni cobros.', target: '.topbar' },
+      { title: `Bienvenido, ${user?.nombre ?? 'equipo'}`, description: 'Mi Narcita muestra los módulos permitidos para tu rol. Esta guía solo señala controles; no realiza cambios ni cobros.', target: '.topbar' },
       { title: 'Navegación', description: 'En la laptop usa el menú lateral. En celular o tablet usa la barra inferior y Más para abrir el resto de módulos.', target: navTarget },
       { title: 'Vista, avisos y sesión', description: 'En la barra superior puedes revisar la conexión, cambiar la apariencia, consultar notificaciones y cerrar sesión.', target: '.topbar' },
       { title: 'Ayuda cuando la necesites', description: 'Vuelve a este botón para iniciar la guía de cualquier pantalla disponible para tu rol.', target: '[data-guide="help"]' },

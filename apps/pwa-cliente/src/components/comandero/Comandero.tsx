@@ -379,7 +379,7 @@ function ComanderoSizeGroups({ productos, cmd, showCategory = true }: Readonly<{
   const grupos = new Map<string, { nombre: string; productos: ProductoCatalogo[] }>();
   for (const producto of [...productos].sort(compararProductosPorTamano)) {
     const id = producto.tamano?.id ?? SIN_TAMANO;
-    const grupo = grupos.get(id) ?? { nombre: producto.tamano?.nombre ?? 'Sin tamaño', productos: [] };
+    const grupo = grupos.get(id) ?? { nombre: producto.tamano?.nombre ?? 'Sin tamaño', productos: [] as ProductoCatalogo[] };
     grupo.productos.push(producto);
     grupos.set(id, grupo);
   }

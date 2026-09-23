@@ -50,11 +50,6 @@ export const GUIDES: Record<RutaApp, Guide> = {
     step('Avisos sonoros', 'Activa y prueba el sonido en esta tablet o laptop para reconocer nuevos tickets y cambios de etapa.', '#contenido [data-guide="sound-alerts"]'),
     step('Pantalla completa', 'Amplía el tablero para la pantalla o tablet de cocina.', '#contenido .page-h button[aria-label="Pantalla completa"]'),
   ] },
-  'impresion-cocina': { route: 'impresion-cocina', title: 'Impresión de cocina', steps: [
-    step('Impresión automática', 'Activa los tickets al llegar un pedido y elige la impresora conectada a la laptop.'),
-    step('Formato', 'Elige papel de 58 u 80 mm y copias; luego pulsa Guardar.', '#contenido .server-form'),
-    step('Cola de tickets', 'Consulta pendientes, impresos y fallidos. Reintentar devuelve un ticket fallido a la cola.', '#contenido .server-grid .panel:last-child'),
-  ] },
   caja: { route: 'caja', title: 'Caja', steps: [
     step('Turno de caja', 'Abre un turno con monto inicial. Al finalizar, revisa el arqueo y cierra.'),
     step('Cobrar cuenta', 'Selecciona mesa, divide la cuenta si corresponde y combina efectivo, tarjeta, Yape, Plin o transferencia.', '#contenido [data-guide="charge-account"]'),
@@ -120,12 +115,6 @@ export const GUIDES: Record<RutaApp, Guide> = {
   'auditoria-anulaciones': { route: 'auditoria-anulaciones', title: 'Auditoría de anulaciones', steps: [
     step('Auditoría', 'Consulta importes, motivos, estados y atenciones relacionadas.'),
     step('Investigar', 'Filtra por tipo, código y fecha; edita observaciones o invalida un registro.', '#contenido .filters'),
-  ] },
-  'servidor-local': { route: 'servidor-local', title: 'Servidor local', steps: [
-    step('Laptop servidor', 'Este panel administra la laptop servidor; las funciones locales no responden desde otro dispositivo.'),
-    step('IP y QR', 'Copia la dirección para el personal. Para conservar el QR, reserva esa IP en el router.', '#contenido .server-hero'),
-    step('Red y servicios', 'Consulta salud de los microservicios, reinicios y equipos conectados.', '#contenido .server-grid .panel:first-child'),
-    step('Impresión y respaldos', 'Configura la impresora, reintenta fallos y crea o consulta respaldos.', '#contenido .server-grid .panel:last-child'),
   ] },
 };
 
