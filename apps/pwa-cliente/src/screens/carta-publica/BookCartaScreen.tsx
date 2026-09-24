@@ -6,13 +6,15 @@ import { obtenerCartaPublica, obtenerSedePublica } from '../../api/cartaPublica.
 import type { SedePublicaDto } from '../../types/cartaPublica.types';
 import type { CategoriaDto, ProductoDto } from '../../types/inventario.types';
 import { useCartaSocket } from './useCartaSocket';
-import { buildBookPages, categoryPageIndex } from './bookModel';
+import { buildBookPages, categoryPageIndex, pageIndexAfterRefresh, type BookPage } from './bookModel';
 import { makePage } from './bookDom';
 import { pageSoundDataUri } from './pageSound';
 import './book-carta.css';
 
 interface Catalog { sede: SedePublicaDto | null; categorias: CategoriaDto[]; productos: ProductoDto[] }
 const REFRESH_MS = 45_000;
+// The installed page-flip bundle exports PageFlip but not its FlippingState enum.
+const isFlipping = (flip: PageFlip) => String(flip.getState()) === 'flipping';
 
 export function BookCartaScreen() {
   const { sedeId } = useParams<{ sedeId: string }>();
@@ -24,7 +26,11 @@ export function BookCartaScreen() {
   const [fullScreen, setFullScreen] = useState(false);
   const wrapperRef = useRef<HTMLDivElement>(null);
   const hostRef = useRef<HTMLDivElement>(null);
+  const engineHostRef = useRef<HTMLDivElement | null>(null);
   const flipRef = useRef<PageFlip | null>(null);
+  const renderedPagesRef = useRef<BookPage[]>([]);
+  const renderedSedeRef = useRef<SedePublicaDto | null>(null);
+  const pendingUpdateRef = useRef<{ pages: BookPage[]; sede: SedePublicaDto } | null>(null);
   const soundRef = useRef<Howl | null>(null);
   const soundOnRef = useRef(false);
   const pageIndexRef = useRef(0);
@@ -63,46 +69,83 @@ export function BookCartaScreen() {
     return () => document.removeEventListener('fullscreenchange', sync);
   }, []);
 
+  const updateBook = useCallback((nextPages: BookPage[], sede: SedePublicaDto) => {
+    const flip = flipRef.current;
+    if (!flip) return;
+    const target = pageIndexAfterRefresh(renderedPagesRef.current, nextPages, pageIndexRef.current);
+    flip.updateFromHtml(nextPages.map((page, index) => makePage(page, sede, index)));
+    flip.turnToPage(target);
+    renderedPagesRef.current = nextPages;
+    renderedSedeRef.current = sede;
+    pageIndexRef.current = target;
+    setPageIndex(target);
+  }, []);
+
   useEffect(() => {
-    if (!catalog?.sede || !hostRef.current) return;
+    const sede = catalog?.sede;
+    if (!sede || !hostRef.current) return;
+    const current = flipRef.current;
+    if (current && renderedSedeRef.current?.id === sede.id) {
+      if (renderedPagesRef.current === pages && renderedSedeRef.current === sede) return;
+      if (isFlipping(current)) pendingUpdateRef.current = { pages, sede };
+      else updateBook(pages, sede);
+      return;
+    }
+    if (current) {
+      current.destroy();
+      engineHostRef.current?.remove();
+      pendingUpdateRef.current = null;
+      pageIndexRef.current = 0;
+    }
     const host = document.createElement('div');
     host.className = 'cb-engine';
-    pages.forEach((page, index) => host.append(makePage(page, catalog.sede!, index)));
+    pages.forEach((page, index) => host.append(makePage(page, sede, index)));
     hostRef.current.append(host);
     const flip = new PageFlip(host, {
       width: 360, height: 560, size: 'stretch' as SizeType, minWidth: 280, maxWidth: 460,
       minHeight: 450, maxHeight: 700, autoSize: false, showCover: true,
       usePortrait: true, drawShadow: true, maxShadowOpacity: 0.4,
-      flippingTime: 650, mobileScrollSupport: false, clickEventForward: true,
+      flippingTime: 650, mobileScrollSupport: true, clickEventForward: true,
     });
+    engineHostRef.current = host;
     flipRef.current = flip;
+    renderedPagesRef.current = pages;
+    renderedSedeRef.current = sede;
     flip.on('flip', (event) => {
       setPageIndex(Number(event.data));
       pageIndexRef.current = Number(event.data);
       if (soundOnRef.current) soundRef.current?.play();
     });
     flip.on('changeState', (event) => {
-      if (event.data !== 'read' || pendingPageRef.current === null) return;
+      if (event.data !== 'read') return;
+      const pendingUpdate = pendingUpdateRef.current;
+      pendingUpdateRef.current = null;
+      if (pendingUpdate) updateBook(pendingUpdate.pages, pendingUpdate.sede);
+      if (pendingPageRef.current === null) return;
       const target = pendingPageRef.current;
       pendingPageRef.current = null;
-      flip.turnToPage(target);
+      flip.turnToPage(Math.min(target, renderedPagesRef.current.length - 1));
     });
     flip.loadFromHTML(Array.from(host.querySelectorAll<HTMLElement>('.cb-page')));
-    const restore = Math.min(pageIndexRef.current, pages.length - 1);
-    if (restore > 0) flip.turnToPage(restore);
-    setPageIndex(restore);
-    return () => {
-      pendingPageRef.current = null;
-      flipRef.current = null;
-      flip.destroy();
-      host.remove();
-    };
-  }, [catalog?.sede, pages]);
+    setPageIndex(0);
+  }, [catalog?.sede, pages, updateBook]);
+
+  useEffect(() => () => {
+    pendingPageRef.current = null;
+    pendingUpdateRef.current = null;
+    const flip = flipRef.current;
+    flipRef.current = null;
+    flip?.destroy();
+    engineHostRef.current?.remove();
+    engineHostRef.current = null;
+    renderedPagesRef.current = [];
+    renderedSedeRef.current = null;
+  }, []);
 
   const go = (index: number) => {
     const flip = flipRef.current;
     if (!flip || index < 0 || index >= pages.length) return;
-    if (flip.getState() === 'flipping') {
+    if (isFlipping(flip)) {
       pendingPageRef.current = index;
       return;
     }

@@ -28,3 +28,20 @@ export function buildBookPages(categories: CategoriaDto[], products: ProductoDto
 export function categoryPageIndex(pages: BookPage[], categoryId: string): number {
   return pages.findIndex((page) => page.kind === 'category' && page.category.id === categoryId);
 }
+
+/** Keep the reader in the same category when availability changes pagination. */
+export function pageIndexAfterRefresh(previous: BookPage[], next: BookPage[], currentIndex: number): number {
+  if (next.length === 0) return 0;
+  const current = previous[currentIndex];
+  if (!current || current.kind === 'cover') return 0;
+  if (current.kind === 'category') {
+    const matches = next
+      .map((page, index) => ({ page, index }))
+      .filter((entry) => entry.page.kind === 'category' && entry.page.category.id === current.category.id);
+    if (matches.length > 0) {
+      const part = Math.min(current.part, matches.length);
+      return matches[part - 1].index;
+    }
+  }
+  return Math.min(Math.max(currentIndex, 0), next.length - 1);
+}

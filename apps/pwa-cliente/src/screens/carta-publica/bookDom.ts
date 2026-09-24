@@ -13,34 +13,38 @@ const money = (value: number) => `S/ ${Number(value).toFixed(2)}`;
 export function makePage(page: BookPage, sede: SedePublicaDto, number: number): HTMLElement {
   const root = element('section', `cb-page cb-${page.kind}`);
   root.setAttribute('aria-label', page.kind === 'category' ? page.category.nombre : page.kind === 'cover' ? 'Portada' : 'Categorías');
+  // PageFlip writes display:block directly on the section while drawing.
+  // Keep the scrolling flex layout in a child it does not mutate.
+  const content = element('div', 'cb-page-content');
+  root.append(content);
   if (page.kind === 'cover') {
     root.dataset.density = 'hard';
     const logo = element('img', 'cb-logo');
     logo.src = '/logo.webp'; logo.alt = 'Mi Narcita';
-    root.append(logo, element('p', 'cb-brand', 'Mi Narcita'), element('h1', 'cb-cover-title', sede.nombre),
+    content.append(logo, element('p', 'cb-brand', 'Mi Narcita'), element('h1', 'cb-cover-title', sede.nombre),
       element('p', 'cb-slogan', 'Picantería y sabor marino criollo'));
     const open = element('button', 'cb-cover-open', 'Abrir menú');
     open.type = 'button'; open.dataset.action = 'open';
-    root.append(open);
+    content.append(open);
     return root;
   }
   const head = element('header', 'cb-page-head');
   const mark = element('img', 'cb-mark'); mark.src = '/logo.webp'; mark.alt = '';
   head.append(mark, element('span', 'cb-page-brand', 'Mi Narcita'));
-  root.append(head);
+  content.append(head);
   if (page.kind === 'index') {
-    root.append(element('h2', 'cb-title', 'Nuestra carta'));
-    if (page.categories.length === 0) root.append(element('p', 'cb-category-description', 'Todavía no hay platos disponibles en esta carta.'));
+    content.append(element('h2', 'cb-title', 'Nuestra carta'));
+    if (page.categories.length === 0) content.append(element('p', 'cb-category-description', 'Todavía no hay platos disponibles en esta carta.'));
     const list = element('div', 'cb-index-list');
     for (const category of page.categories) {
       const button = element('button', 'cb-index-item', category.nombre);
       button.type = 'button'; button.dataset.categoryId = category.id;
       list.append(button);
     }
-    root.append(list);
+    content.append(list);
   } else {
-    root.append(element('h2', 'cb-title', page.category.nombre));
-    if (page.category.descripcion && page.part === 1) root.append(element('p', 'cb-category-description', page.category.descripcion));
+    content.append(element('h2', 'cb-title', page.category.nombre));
+    if (page.category.descripcion && page.part === 1) content.append(element('p', 'cb-category-description', page.category.descripcion));
     const dishes = element('div', 'cb-dishes');
     for (const dish of page.dishes) {
       const article = element('article', 'cb-dish');
@@ -59,10 +63,10 @@ export function makePage(page: BookPage, sede: SedePublicaDto, number: number): 
       }
       dishes.append(article);
     }
-    root.append(dishes);
+    content.append(dishes);
   }
   const foot = element('footer', 'cb-page-foot');
   foot.append(element('span', '', 'Precios incluyen IGV'), element('span', '', String(number + 1)));
-  root.append(foot);
+  content.append(foot);
   return root;
 }

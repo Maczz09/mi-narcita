@@ -40,3 +40,40 @@ for (const viewport of [{ width: 360, height: 740 }, { width: 1280, height: 800 
     expect(await page.locator('.carta-book').evaluate((node) => node.scrollWidth <= node.clientWidth + 1)).toBe(true);
   });
 }
+
+test.describe('índice táctil de la carta', () => {
+  test.use({ hasTouch: true });
+
+  test('permite deslizar hacia abajo la lista de categorías en un celular', async ({ page }) => {
+    await page.setViewportSize({ width: 360, height: 640 });
+    await page.route('**/v1/identidad/auth/me', (route) => route.fulfill({ status: 401, json: { message: 'No autenticado' } }));
+    await page.route('**/v1/identidad/auth/refresh', (route) => route.fulfill({ status: 401, json: { message: 'No autenticado' } }));
+    await page.route('**/v1/identidad/sedes/publica*', (route) => route.fulfill({ json: { sede: { id: 's1', nombre: 'Mi Narcita', direccion: 'Piura', telefono: null } } }));
+    const categorias = Array.from({ length: 9 }, (_, index) => ({ id: `c${index}`, nombre: `Categoría ${index + 1} de pescados y mariscos frescos de nuestra cocina`, area: 'COCINA' }));
+    const productos = categorias.map((categoria, index) => ({ id: `p${index}`, categoriaId: categoria.id, nombre: `Plato ${index + 1}`, precio: 20, disponible: true, stockActual: null }));
+    await page.route('**/v1/inventario/carta-publica*', (route) => route.fulfill({ json: { categorias, productos } }));
+    await page.goto('/carta/s1');
+    await page.getByRole('button', { name: 'Abrir menú' }).click();
+    await expect(page.locator('.cb-controls [aria-live]')).toHaveText('2 / 11');
+    const list = page.locator('.cb-index-list').first();
+    await expect(list).toBeVisible();
+    expect(await list.evaluate((node) => node.scrollHeight > node.clientHeight)).toBe(true);
+    const box = await list.boundingBox();
+    expect(box).not.toBeNull();
+    // Start on the list padding, not a button: the page-flip engine used to
+    // preventDefault() here and block the browser's native vertical scroll.
+    const x = box!.x + 1;
+    const bottom = box!.y + box!.height - 35;
+    const cdp = await page.context().newCDPSession(page);
+    try {
+      await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x, y: bottom }] });
+      for (let offset = 30; offset <= 180; offset += 30) {
+        await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x, y: bottom - offset }] });
+      }
+      await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+    } finally {
+      await cdp.detach();
+    }
+    await expect.poll(() => list.evaluate((node) => node.scrollTop)).toBeGreaterThan(0);
+  });
+});

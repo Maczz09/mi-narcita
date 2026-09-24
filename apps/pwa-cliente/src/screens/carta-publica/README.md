@@ -18,6 +18,13 @@ platos no dispara una consulta por cada evento. El temporizador se cancela al
 desmontar o cambiar de sede, y se usa siempre el callback vigente. La prueba
 incluye ráfagas de 1, 25, 50 y 200 eventos.
 
+En la vista de libro, la lista de categorías y los platos tienen scroll táctil
+propio. `page-flip` cambia el `display` de cada página al dibujarla; el layout
+flexible vive por eso en `.cb-page-content`. Cuando cambia la disponibilidad,
+`updateFromHtml` sustituye las páginas dentro del mismo visor y conserva la
+categoría y la parte que el lector tenía abierta. Si el giro está en curso,
+espera a que termine antes de aplicar los datos nuevos.
+
 Un tamaño nulo explícito significa sin tamaño. Solo las respuestas legadas sin
 ambos campos admiten compatibilidad con sufijos conocidos `· Personal` o
 `(Familiar)`. Los datos explícitos siempre tienen prioridad. Un producto cuyo

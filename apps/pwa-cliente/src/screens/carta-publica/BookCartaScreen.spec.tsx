@@ -4,20 +4,27 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { BookCartaScreen } from './BookCartaScreen';
 import { obtenerCartaPublica, obtenerSedePublica } from '../../api/cartaPublica.api';
 
-const engine = vi.hoisted(() => ({ page: 0, state: 'read', callback: undefined as undefined | ((event: { data: number }) => void), stateCallback: undefined as undefined | ((event: { data: string }) => void) }));
+const engine = vi.hoisted(() => ({ page: 0, state: 'read', creations: 0, updates: 0, destroys: 0, mobileScrollSupport: false, callback: undefined as undefined | ((event: { data: number }) => void), stateCallback: undefined as undefined | ((event: { data: string }) => void) }));
 const socket = vi.hoisted(() => ({ refresh: () => undefined as void }));
 vi.mock('react-router-dom', () => ({ useParams: () => ({ sedeId: 's1' }) }));
 vi.mock('../../api/cartaPublica.api', () => ({ obtenerCartaPublica: vi.fn(), obtenerSedePublica: vi.fn() }));
 vi.mock('./useCartaSocket', () => ({ useCartaSocket: (_id: string, cb: () => void) => { socket.refresh = cb; } }));
 vi.mock('howler', () => ({ Howl: class { play() {} unload() {} } }));
 vi.mock('page-flip', () => ({ PageFlip: class {
+  private host: HTMLElement;
+  constructor(host: HTMLElement, settings: { mobileScrollSupport: boolean }) {
+    this.host = host;
+    engine.creations += 1;
+    engine.mobileScrollSupport = settings.mobileScrollSupport;
+  }
   on(name: string, callback: (event: { data: never }) => void) {
     if (name === 'changeState') engine.stateCallback = callback as (event: { data: string }) => void;
     else engine.callback = callback as (event: { data: number }) => void;
   }
   getState() { return engine.state; }
   loadFromHTML() {}
-  destroy() {}
+  updateFromHtml(items: HTMLElement[]) { engine.updates += 1; this.host.replaceChildren(...items); }
+  destroy() { engine.destroys += 1; }
   flip(index: number) { engine.page = index; engine.callback?.({ data: index }); }
   flipNext() { this.flip(engine.page + 1); }
   flipPrev() { this.flip(Math.max(0, engine.page - 1)); }
@@ -39,6 +46,10 @@ describe('carta libro pública', () => {
   beforeEach(() => {
     engine.page = 0;
     engine.state = 'read';
+    engine.creations = 0;
+    engine.updates = 0;
+    engine.destroys = 0;
+    engine.mobileScrollSupport = false;
     vi.mocked(obtenerSedePublica).mockResolvedValue({ id: 's1', nombre: 'Mi Narcita', direccion: null, telefono: null });
     vi.mocked(obtenerCartaPublica).mockResolvedValue(catalog as any);
     window.matchMedia = vi.fn().mockReturnValue({ matches: false }) as any;
@@ -50,6 +61,7 @@ describe('carta libro pública', () => {
     expect(screen.getAllByAltText('Mi Narcita').length).toBeGreaterThan(0);
     fireEvent.click(screen.getByRole('button', { name: 'Abrir menú' }));
     expect(engine.page).toBe(1);
+    expect(engine.mobileScrollSupport).toBe(true);
   });
 
   it('salta por categoría y conserva los precios por tamaño', async () => {
@@ -78,10 +90,30 @@ describe('carta libro pública', () => {
   it('actualiza disponibilidad por socket y no conserva un precio agotado', async () => {
     render(<BookCartaScreen />);
     await waitFor(() => expect(screen.getByText('S/ 30.00')).toBeDefined());
+    fireEvent.click(screen.getByRole('button', { name: 'Categorías' }));
+    fireEvent.click(within(screen.getByRole('dialog', { name: 'Ir a categoría' })).getByRole('button', { name: 'Ceviches' }));
+    const book = document.querySelector('.cb-engine');
     vi.mocked(obtenerCartaPublica).mockResolvedValue({ ...catalog, productos: catalog.productos.map((p) => p.id === 'p1' ? { ...p, disponible: false } : p) } as any);
     await act(async () => socket.refresh());
     await waitFor(() => expect(screen.queryByText('S/ 30.00')).toBeNull());
     expect(screen.getByText('S/ 40.00')).toBeDefined();
+    expect(document.querySelector('.cb-engine')).toBe(book);
+    expect(engine.creations).toBe(1);
+    expect(engine.updates).toBe(1);
+    expect(engine.destroys).toBe(0);
+    expect(engine.page).toBe(2);
+  });
+
+  it('espera a que termine el giro antes de actualizar disponibilidad en vivo', async () => {
+    render(<BookCartaScreen />);
+    await waitFor(() => expect(screen.getByText('S/ 30.00')).toBeDefined());
+    engine.state = 'flipping';
+    vi.mocked(obtenerCartaPublica).mockResolvedValue({ ...catalog, productos: catalog.productos.map((p) => p.id === 'p1' ? { ...p, disponible: false } : p) } as any);
+    await act(async () => socket.refresh());
+    expect(engine.updates).toBe(0);
+    act(() => { engine.state = 'read'; engine.stateCallback?.({ data: 'read' }); });
+    expect(engine.updates).toBe(1);
+    expect(screen.queryByText('S/ 30.00')).toBeNull();
   });
 
   it('muestra error recuperable de red', async () => {
