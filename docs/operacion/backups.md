@@ -3,10 +3,11 @@
 ## Qué hace
 
 El servicio `db-backup` (en `infra/docker-compose.prod.yml`) corre
-`scripts/backup-postgres.sh` cada 24h: hace `pg_dump` de las 9 bases
+`scripts/backup-postgres.sh` cada 24h: hace `pg_dump` de las 11 bases
 (`reservas`, `mesas`, `pedidos`, `cuentas`, `inventario`, `caja`, `reportes`,
-`identidad`, `notificaciones`), las comprime en `nachopps-backups:/backups` y
+`identidad`, `notificaciones`, `facturacion`, `compras`), las comprime en `nachopps-backups:/backups` y
 purga las que superan `BACKUP_RETENTION_DAYS` (default 7).
+Cada volcado se verifica con `gzip -t` antes de publicarse como `.sql.gz`.
 
 Variables: `DB_USER`, `DB_PASS` (obligatoria), `BACKUP_RETENTION_DAYS`.
 
@@ -17,9 +18,9 @@ Variables: `DB_USER`, `DB_PASS` (obligatoria), `BACKUP_RETENTION_DAYS`.
 ## Ejecutar un backup manual
 
 ```sh
-docker compose -f infra/docker-compose.prod.yml exec db-backup sh /usr/local/bin/backup.sh
+docker compose -f infra/docker-compose.prod.yml exec -e APPLY_RETENTION=false db-backup sh /usr/local/bin/backup.sh
 # o desde un host con psql-tools y acceso a las BDs:
-DB_PASS=... BACKUP_DIR=./backups sh scripts/backup-postgres.sh
+DB_PASS=... APPLY_RETENTION=false BACKUP_DIR=./backups sh scripts/backup-postgres.sh
 ```
 
 ## Restaurar una base
@@ -43,6 +44,6 @@ Para una restauración limpia, recrear la BD antes de aplicar el dump
 
 ## Verificación periódica
 
-- Confirmar que aparecen 9 `.sql.gz` nuevos por día en `/backups`.
+- Confirmar que aparecen 11 `.sql.gz` nuevos por día en `/backups`.
 - Probar una restauración en un entorno de staging al menos una vez por trimestre
   (un backup no probado no es un backup).

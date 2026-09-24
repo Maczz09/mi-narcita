@@ -774,7 +774,7 @@ services:
       - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
       - grafana_data:/var/lib/grafana
 
-  # Backups de las 9 BDs (plan 3.5): pg_dump diario + retención. Para almacenar
+  # Backups de las 11 BDs (plan 3.5): pg_dump diario + retención. Para almacenar
   # fuera del host, montar un bind a un volumen de red/objeto o sincronizar
   # nachopps-backups a S3 con un job aparte.
   db-backup:
