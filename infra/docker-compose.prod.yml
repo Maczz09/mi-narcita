@@ -228,6 +228,8 @@ services:
       SERVICE_AUD_ENFORCE: 'true'
       RABBITMQ_URI: 'amqp://${RABBITMQ_USER:-nachopps}:${RABBITMQ_PASS:?RABBITMQ_PASS es obligatorio en produccion}@rabbitmq:5672'
       OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-http://otel-collector:4318}
+      OTEL_TRACES_SAMPLER: ${OTEL_TRACES_SAMPLER:-parentbased_traceidratio}
+      OTEL_TRACES_SAMPLER_ARG: ${OTEL_TRACES_SAMPLER_ARG:-0.1}
       JWT_PUBLIC_KEY: ${JWT_PUBLIC_KEY:?JWT_PUBLIC_KEY es obligatorio (PEM RS256, \n literales)}
       SERVICE_JWT_SECRET: ${SERVICE_JWT_SECRET:?SERVICE_JWT_SECRET es obligatorio (tokens S2S internos)}
       NODE_ENV: 'production'
@@ -262,6 +264,8 @@ services:
       SERVICE_AUD_ENFORCE: 'true'
       RABBITMQ_URI: 'amqp://${RABBITMQ_USER:-nachopps}:${RABBITMQ_PASS:?RABBITMQ_PASS es obligatorio en produccion}@rabbitmq:5672'
       OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-http://otel-collector:4318}
+      OTEL_TRACES_SAMPLER: ${OTEL_TRACES_SAMPLER:-parentbased_traceidratio}
+      OTEL_TRACES_SAMPLER_ARG: ${OTEL_TRACES_SAMPLER_ARG:-0.1}
       JWT_PUBLIC_KEY: ${JWT_PUBLIC_KEY:?JWT_PUBLIC_KEY es obligatorio (PEM RS256, \n literales)}
       SERVICE_JWT_SECRET: ${SERVICE_JWT_SECRET:?SERVICE_JWT_SECRET es obligatorio (tokens S2S internos)}
       NODE_ENV: 'production'
@@ -293,6 +297,8 @@ services:
       SERVICE_AUD_ENFORCE: 'true'
       RABBITMQ_URI: 'amqp://${RABBITMQ_USER:-nachopps}:${RABBITMQ_PASS:?RABBITMQ_PASS es obligatorio en produccion}@rabbitmq:5672'
       OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-http://otel-collector:4318}
+      OTEL_TRACES_SAMPLER: ${OTEL_TRACES_SAMPLER:-parentbased_traceidratio}
+      OTEL_TRACES_SAMPLER_ARG: ${OTEL_TRACES_SAMPLER_ARG:-0.1}
       INVENTARIO_SERVICE_URL: 'http://servicio-inventario:3000/api'
       MESAS_SERVICE_URL: 'http://servicio-mesas:3000/api'
       JWT_PUBLIC_KEY: ${JWT_PUBLIC_KEY:?JWT_PUBLIC_KEY es obligatorio (PEM RS256, \n literales)}
@@ -326,6 +332,8 @@ services:
       SERVICE_AUD_ENFORCE: 'true'
       RABBITMQ_URI: 'amqp://${RABBITMQ_USER:-nachopps}:${RABBITMQ_PASS:?RABBITMQ_PASS es obligatorio en produccion}@rabbitmq:5672'
       OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-http://otel-collector:4318}
+      OTEL_TRACES_SAMPLER: ${OTEL_TRACES_SAMPLER:-parentbased_traceidratio}
+      OTEL_TRACES_SAMPLER_ARG: ${OTEL_TRACES_SAMPLER_ARG:-0.1}
       PEDIDOS_SERVICE_URL: 'http://servicio-pedidos:3000/api'
       MESAS_SERVICE_URL: 'http://servicio-mesas:3000/api'
       JWT_PUBLIC_KEY: ${JWT_PUBLIC_KEY:?JWT_PUBLIC_KEY es obligatorio (PEM RS256, \n literales)}
@@ -359,6 +367,8 @@ services:
       SERVICE_AUD_ENFORCE: 'true'
       RABBITMQ_URI: 'amqp://${RABBITMQ_USER:-nachopps}:${RABBITMQ_PASS:?RABBITMQ_PASS es obligatorio en produccion}@rabbitmq:5672'
       OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-http://otel-collector:4318}
+      OTEL_TRACES_SAMPLER: ${OTEL_TRACES_SAMPLER:-parentbased_traceidratio}
+      OTEL_TRACES_SAMPLER_ARG: ${OTEL_TRACES_SAMPLER_ARG:-0.1}
       JWT_PUBLIC_KEY: ${JWT_PUBLIC_KEY:?JWT_PUBLIC_KEY es obligatorio (PEM RS256, \n literales)}
       SERVICE_JWT_SECRET: ${SERVICE_JWT_SECRET:?SERVICE_JWT_SECRET es obligatorio (tokens S2S internos)}
       NODE_ENV: 'production'
@@ -390,6 +400,8 @@ services:
       SERVICE_AUD_ENFORCE: 'true'
       RABBITMQ_URI: 'amqp://${RABBITMQ_USER:-nachopps}:${RABBITMQ_PASS:?RABBITMQ_PASS es obligatorio en produccion}@rabbitmq:5672'
       OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-http://otel-collector:4318}
+      OTEL_TRACES_SAMPLER: ${OTEL_TRACES_SAMPLER:-parentbased_traceidratio}
+      OTEL_TRACES_SAMPLER_ARG: ${OTEL_TRACES_SAMPLER_ARG:-0.1}
       JWT_PUBLIC_KEY: ${JWT_PUBLIC_KEY:?JWT_PUBLIC_KEY es obligatorio (PEM RS256, \n literales)}
       SERVICE_JWT_SECRET: ${SERVICE_JWT_SECRET:?SERVICE_JWT_SECRET es obligatorio (tokens S2S internos)}
       NODE_ENV: 'production'
@@ -418,9 +430,13 @@ services:
       PORT: '3000'
       DATABASE_URL: 'postgresql://${DB_USER:-nachopps}:${DB_PASS:?DB_PASS es obligatorio en produccion}@db-notificaciones:5432/notificaciones_db?schema=public'
       SERVICE_NAME: 'servicio-notificaciones'
+      PRINT_AGENT_KEY: ${PRINT_AGENT_KEY:-}
+      PRINT_AGENT_ID: ${PRINT_AGENT_ID:-restaurante}
       SERVICE_AUD_ENFORCE: 'true'
       RABBITMQ_URI: 'amqp://${RABBITMQ_USER:-nachopps}:${RABBITMQ_PASS:?RABBITMQ_PASS es obligatorio en produccion}@rabbitmq:5672'
       OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-http://otel-collector:4318}
+      OTEL_TRACES_SAMPLER: ${OTEL_TRACES_SAMPLER:-parentbased_traceidratio}
+      OTEL_TRACES_SAMPLER_ARG: ${OTEL_TRACES_SAMPLER_ARG:-0.1}
       JWT_PUBLIC_KEY: ${JWT_PUBLIC_KEY:?JWT_PUBLIC_KEY es obligatorio (PEM RS256, \n literales)}
       SERVICE_JWT_SECRET: ${SERVICE_JWT_SECRET:?SERVICE_JWT_SECRET es obligatorio (tokens S2S internos)}
       NODE_ENV: 'production'
@@ -452,6 +468,8 @@ services:
       SERVICE_AUD_ENFORCE: 'true'
       RABBITMQ_URI: 'amqp://${RABBITMQ_USER:-nachopps}:${RABBITMQ_PASS:?RABBITMQ_PASS es obligatorio en produccion}@rabbitmq:5672'
       OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-http://otel-collector:4318}
+      OTEL_TRACES_SAMPLER: ${OTEL_TRACES_SAMPLER:-parentbased_traceidratio}
+      OTEL_TRACES_SAMPLER_ARG: ${OTEL_TRACES_SAMPLER_ARG:-0.1}
       CUENTAS_SERVICE_URL: 'http://servicio-cuentas:3000/api'
       JWT_PUBLIC_KEY: ${JWT_PUBLIC_KEY:?JWT_PUBLIC_KEY es obligatorio (PEM RS256, \n literales)}
       SERVICE_JWT_SECRET: ${SERVICE_JWT_SECRET:?SERVICE_JWT_SECRET es obligatorio (tokens S2S internos)}
@@ -484,6 +502,8 @@ services:
       SERVICE_AUD_ENFORCE: 'true'
       RABBITMQ_URI: 'amqp://${RABBITMQ_USER:-nachopps}:${RABBITMQ_PASS:?RABBITMQ_PASS es obligatorio en produccion}@rabbitmq:5672'
       OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-http://otel-collector:4318}
+      OTEL_TRACES_SAMPLER: ${OTEL_TRACES_SAMPLER:-parentbased_traceidratio}
+      OTEL_TRACES_SAMPLER_ARG: ${OTEL_TRACES_SAMPLER_ARG:-0.1}
       JWT_PUBLIC_KEY: ${JWT_PUBLIC_KEY:?JWT_PUBLIC_KEY es obligatorio (PEM RS256, \n literales)}
       SERVICE_JWT_SECRET: ${SERVICE_JWT_SECRET:?SERVICE_JWT_SECRET es obligatorio (tokens S2S internos)}
       NODE_ENV: 'production'
@@ -515,6 +535,8 @@ services:
       SERVICE_AUD_ENFORCE: 'true'
       RABBITMQ_URI: 'amqp://${RABBITMQ_USER:-nachopps}:${RABBITMQ_PASS:?RABBITMQ_PASS es obligatorio en produccion}@rabbitmq:5672'
       OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-http://otel-collector:4318}
+      OTEL_TRACES_SAMPLER: ${OTEL_TRACES_SAMPLER:-parentbased_traceidratio}
+      OTEL_TRACES_SAMPLER_ARG: ${OTEL_TRACES_SAMPLER_ARG:-0.1}
       JWT_PUBLIC_KEY: ${JWT_PUBLIC_KEY:?JWT_PUBLIC_KEY es obligatorio (PEM RS256, \n literales)}
       SERVICE_JWT_SECRET: ${SERVICE_JWT_SECRET:?SERVICE_JWT_SECRET es obligatorio (tokens S2S internos)}
       NODE_ENV: 'production'
@@ -567,6 +589,8 @@ services:
       SERVICE_AUD_ENFORCE: 'true'
       RABBITMQ_URI: 'amqp://${RABBITMQ_USER:-nachopps}:${RABBITMQ_PASS:?RABBITMQ_PASS es obligatorio en produccion}@rabbitmq:5672'
       OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-http://otel-collector:4318}
+      OTEL_TRACES_SAMPLER: ${OTEL_TRACES_SAMPLER:-parentbased_traceidratio}
+      OTEL_TRACES_SAMPLER_ARG: ${OTEL_TRACES_SAMPLER_ARG:-0.1}
       JWT_PUBLIC_KEY: ${JWT_PUBLIC_KEY:?JWT_PUBLIC_KEY es obligatorio (PEM RS256, \n literales)}
       SERVICE_JWT_SECRET: ${SERVICE_JWT_SECRET:?SERVICE_JWT_SECRET es obligatorio (tokens S2S internos)}
       NODE_ENV: 'production'
@@ -687,7 +711,7 @@ services:
   # Backend de trazas persistente (Badger en volumen). UI 16686 solo por red
   # interna / túnel SSH (sin publicar al host en prod).
   jaeger:
-    image: jaegertracing/all-in-one:latest
+    image: jaegertracing/all-in-one:1.76.0
     container_name: nachopps-jaeger
     depends_on:
       jaeger-init:
@@ -700,9 +724,10 @@ services:
     volumes:
       - jaeger_data:/badger
     restart: unless-stopped
-    # Badger reserva ~256m solo de BlockCache + tablas al abrir; con 512m
-    # entraba en OOM-loop (exit 137) en dev. 1g es el mínimo probado.
-    mem_limit: 1g
+    # En el VPS real, 1g provocó OOMKilled y >176 mil reinicios al abrir
+    # cientos de tablas Badger. Reservar margen sin quitar el límite: medir
+    # memoria/carga luego de reactivar; no desplegar sin respaldo del volumen.
+    mem_limit: 2g
 
   prometheus:
     image: prom/prometheus:latest

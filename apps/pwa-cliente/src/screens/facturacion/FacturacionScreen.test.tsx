@@ -61,12 +61,12 @@ const sedesMock = [
 ];
 
 const disponible = {
-  id: 'cp1', cuentaId: 'c1', sedeId: 's1', mesaId: 'm1', total: '15.00',
+  id: 'cp1', cuentaId: 'c1', sedeId: 'sede-1', mesaId: 'm1', total: '15.00',
   items: [], meseroNombre: 'Pepe', estado: 'DISPONIBLE', fecha: '2026-08-12T10:00:00.000Z',
 };
 
 const disponibleConItems = {
-  id: 'cp4', cuentaId: 'c4', sedeId: 's1', mesaId: 'm4', total: '55.00',
+  id: 'cp4', cuentaId: 'c4', sedeId: 'sede-1', mesaId: 'm4', total: '55.00',
   items: [
     { productoId: 'p1', nombre: 'Ceviche de Caballa', cantidad: 1, precioUnitario: 40 },
     { productoId: 'p2', nombre: 'Cristal', cantidad: 3, precioUnitario: 5 },
@@ -75,7 +75,7 @@ const disponibleConItems = {
 };
 
 const emitido = {
-  id: 'cp2', cuentaId: 'c2', sedeId: 's1', mesaId: 'm1', total: '30.00',
+  id: 'cp2', cuentaId: 'c2', sedeId: 'sede-1', mesaId: 'm1', total: '30.00',
   items: [], meseroNombre: 'Ana', estado: 'EMITIDO', fecha: '2026-08-12T09:00:00.000Z',
   comprobante: {
     id: 'cb1', tipo: 'BOLETA', serie: 'B001', correlativo: 5, clienteRuc: null, clienteDni: null,
@@ -86,7 +86,7 @@ const emitido = {
 };
 
 const emitidoFactura = {
-  id: 'cp3', cuentaId: 'c3', sedeId: 's1', mesaId: 'm1', total: '100.00',
+  id: 'cp3', cuentaId: 'c3', sedeId: 'sede-1', mesaId: 'm1', total: '100.00',
   items: [], meseroNombre: 'Ana', estado: 'EMITIDO', fecha: '2026-07-01T09:00:00.000Z',
   comprobante: {
     id: 'cb2', tipo: 'FACTURA', serie: 'F001', correlativo: 2, clienteRuc: '20123456789', clienteDni: null,
@@ -228,7 +228,7 @@ describe('FacturacionScreen', () => {
       render(<FacturacionScreen />);
 
       fireEvent.click(screen.getByRole('button', { name: 'Emitir' }));
-      expect(screen.getByText(/Emisor: QUISPE MORALES YUSLUNY YANET/)).toBeInTheDocument();
+      expect(screen.getByLabelText('RUC emisor')).toHaveValue('10417758432');
 
       fireEvent.click(screen.getByRole('button', { name: 'Emitir boleta' }));
 
@@ -241,6 +241,35 @@ describe('FacturacionScreen', () => {
           clienteDni: undefined,
           clienteNombre: undefined,
         });
+      });
+    });
+
+    it('con dos RUC deja elegir el emisor de la misma sede', async () => {
+      const emitirComprobante = vi.fn().mockResolvedValue(undefined);
+      const empresa2 = { ...empresa, id: 'e2', slot: 2, ruc: '20999999999', razonSocial: 'SEGUNDO EMISOR S.A.C.' };
+      vi.mocked(useFacturacionQuery).mockReturnValue(baseMock({ emitirComprobante, empresas: [empresa, empresa2] }) as any);
+      render(<FacturacionScreen />);
+
+      fireEvent.click(screen.getByRole('button', { name: 'Emitir' }));
+      fireEvent.change(screen.getByLabelText('RUC emisor'), { target: { value: '20999999999' } });
+      fireEvent.click(screen.getByRole('button', { name: 'Emitir boleta' }));
+
+      await waitFor(() => expect(emitirComprobante).toHaveBeenCalledWith('c1', expect.objectContaining({
+        empresaRuc: '20999999999',
+      })));
+    });
+
+    describe('eval: elección de emisor sin fuga entre sedes', () => {
+      it('ofrece solo RUC activos de la sede de la venta', () => {
+        const rucOtraSede = { ...empresa, id: 'e2', slot: 2, sedeId: 'sede-2', ruc: '20999999999' };
+        const rucInactivo = { ...empresa, id: 'e3', slot: 3, ruc: '20111111111', activo: false };
+        vi.mocked(useFacturacionQuery).mockReturnValue(baseMock({ empresas: [empresa, rucOtraSede, rucInactivo] }) as any);
+        render(<FacturacionScreen />);
+
+        fireEvent.click(screen.getByRole('button', { name: 'Emitir' }));
+        const emisor = screen.getByRole('combobox', { name: 'RUC emisor' });
+        expect(within(emisor).getAllByRole('option').map((opcion) => (opcion as HTMLOptionElement).value))
+          .toEqual(['10417758432']);
       });
     });
 
@@ -412,7 +441,7 @@ describe('FacturacionScreen', () => {
       const dialog = screen.getByRole('dialog', { name: 'Detalle del comprobante' });
       fireEvent.click(within(dialog).getByRole('button', { name: 'Emitir' }));
 
-      expect(screen.getByText(/Emisor: QUISPE MORALES YUSLUNY YANET/)).toBeInTheDocument();
+      expect(screen.getByLabelText('RUC emisor')).toHaveValue('10417758432');
     });
   });
 

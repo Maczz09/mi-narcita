@@ -3,7 +3,7 @@ import { Cron, CronExpression } from '@nestjs/schedule';
 import { PrismaService } from '../prisma/prisma.service';
 import { SunatSoapClient } from './sunat-soap.client';
 import { SunatConfigService } from './sunat-config.service';
-import { RoutingKeys } from '@org/contracts';
+import { RoutingKeys, type AcceptedReceiptPrintPayload } from '@org/contracts';
 
 // Catálogo 01 SUNAT (tipo de documento) — usado en el nombre de archivo del
 // envío (RUC-tipo-serie-correlativo), no dentro del XML mismo.
@@ -22,7 +22,34 @@ interface ComprobantePendiente {
   correlativo: number;
   xmlFirmado: string;
   intentos: number;
-  empresa: { ruc: string; slot: number };
+  createdAt: Date;
+  clienteRuc: string | null;
+  clienteDni: string | null;
+  clienteRazonSocial: string | null;
+  clienteNombre: string | null;
+  subtotal: { toString(): string };
+  igv: { toString(): string };
+  total: { toString(): string };
+  empresa: { ruc: string; slot: number; razonSocial: string; nombreComercial: string | null; direccion: string | null };
+  comprobantePago: { sedeId: string; items: unknown } | null;
+}
+
+function receiptPayload(comprobante: ComprobantePendiente): AcceptedReceiptPrintPayload | null {
+  if ((comprobante.tipo !== 'BOLETA' && comprobante.tipo !== 'FACTURA') || !comprobante.comprobantePago?.sedeId) return null;
+  const rawItems = Array.isArray(comprobante.comprobantePago.items) ? comprobante.comprobantePago.items : [];
+  const items = rawItems.filter((item): item is Record<string, unknown> => item !== null && typeof item === 'object')
+    .map((item) => ({ nombre: String(item.nombre ?? ''), cantidad: Number(item.cantidad), precioUnitario: Number(item.precioUnitario) }))
+    .filter((item) => item.nombre && Number.isFinite(item.cantidad) && item.cantidad > 0 && Number.isFinite(item.precioUnitario));
+  return {
+    comprobanteId: comprobante.id, sedeId: comprobante.comprobantePago.sedeId,
+    tipo: comprobante.tipo, serie: comprobante.serie, correlativo: comprobante.correlativo,
+    createdAt: comprobante.createdAt.toISOString(),
+    emisor: { ruc: comprobante.empresa.ruc, razonSocial: comprobante.empresa.razonSocial,
+      nombreComercial: comprobante.empresa.nombreComercial, direccion: comprobante.empresa.direccion },
+    cliente: { ruc: comprobante.clienteRuc, dni: comprobante.clienteDni,
+      razonSocial: comprobante.clienteRazonSocial, nombre: comprobante.clienteNombre },
+    items, subtotal: Number(comprobante.subtotal), igv: Number(comprobante.igv), total: Number(comprobante.total),
+  };
 }
 
 /**
@@ -50,7 +77,7 @@ export class EnvioProcessor {
     try {
       const pendientes = await this.prisma.comprobante.findMany({
         where: { estado: 'FIRMADO', intentos: { lt: 5 } },
-        include: { empresa: true },
+        include: { empresa: true, comprobantePago: true },
         take: 20,
       });
 
@@ -82,30 +109,34 @@ export class EnvioProcessor {
         xmlFirmado: comprobante.xmlFirmado,
       });
 
-      await this.prisma.comprobante.update({
-        where: { id: comprobante.id },
-        data: {
-          estado: resultado.cdrBase64 ? 'ACEPTADO' : 'ENVIADO',
-          cdrXml: resultado.cdrBase64 ?? null,
-          intentos: { increment: 1 },
-        },
-      });
-
-      if (resultado.cdrBase64) {
-        await this.prisma.outboxEvent.create({
+      // The accepted state and its outbox event must commit together; otherwise
+      // a transient DB error could permanently lose the automatic receipt.
+      await this.prisma.$transaction(async (tx) => {
+        await tx.comprobante.update({
+          where: { id: comprobante.id },
           data: {
-            routingKey: RoutingKeys.ComprobanteEmitido,
-            payload: JSON.stringify({
-              comprobanteId: comprobante.id,
-              empresaRuc: comprobante.empresa.ruc,
-              tipo: comprobante.tipo,
-              serie: comprobante.serie,
-              correlativo: comprobante.correlativo,
-            }),
-            status: 'PENDING',
+            estado: resultado.cdrBase64 ? 'ACEPTADO' : 'ENVIADO',
+            cdrXml: resultado.cdrBase64 ?? null,
+            intentos: { increment: 1 },
           },
         });
-      }
+        if (resultado.cdrBase64) {
+          await tx.outboxEvent.create({
+            data: {
+              routingKey: RoutingKeys.ComprobanteEmitido,
+              payload: JSON.stringify({
+                comprobanteId: comprobante.id,
+                empresaRuc: comprobante.empresa.ruc,
+                tipo: comprobante.tipo,
+                serie: comprobante.serie,
+                correlativo: comprobante.correlativo,
+                ...receiptPayload(comprobante),
+              }),
+              status: 'PENDING',
+            },
+          });
+        }
+      });
 
       this.logger.log(
         `Comprobante ${nombreArchivo} enviado a SUNAT (${resultado.cdrBase64 ? 'ACEPTADO' : 'ENVIADO, pendiente de CDR'})`,

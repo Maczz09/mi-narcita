@@ -1,0 +1,9 @@
+{
+  "name": "@org/agente-impresion",
+  "version": "0.0.1",
+  "private": true,
+  "main": "../../dist/apps/agente-impresion/apps/agente-impresion/src/main.js",
+  "dependencies": {
+    "@org/contracts": "^0.0.1"
+  }
+}

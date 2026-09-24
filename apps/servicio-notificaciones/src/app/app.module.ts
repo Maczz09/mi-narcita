@@ -12,6 +12,8 @@ import { RabbitMQModule } from '@org/shared-rabbitmq';
 import { IdempotencyPurgeModule } from '@org/resiliencia';
 import { SharedAuthModule, JwtAuthGuard } from '@org/shared-auth';
 import { RoutingKeys } from '@org/contracts';
+import { PrintController } from './printing/print.controller';
+import { PrintQueueService } from './printing/print-queue.service';
 
 @Module({
   imports: [
@@ -32,6 +34,7 @@ import { RoutingKeys } from '@org/contracts';
         RoutingKeys.CuentaAbierta,
         RoutingKeys.CuentaCerrada,
         RoutingKeys.TicketGenerado,
+        RoutingKeys.ComprobanteEmitido,
         RoutingKeys.MesaActualizada,
         RoutingKeys.ReservaCreada,
         RoutingKeys.ReservaCancelada,
@@ -39,9 +42,10 @@ import { RoutingKeys } from '@org/contracts';
       ],
     }),
   ],
-  controllers: [AppController],
+  controllers: [AppController, PrintController],
   providers: [
     AppService,
+    PrintQueueService,
     NotificationsGateway,
     CartaGateway,
     { provide: APP_GUARD, useClass: JwtAuthGuard },

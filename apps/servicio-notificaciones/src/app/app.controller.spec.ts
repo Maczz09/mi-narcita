@@ -5,6 +5,7 @@ import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { NotificationsGateway } from './notifications.gateway';
 import { CartaGateway } from './carta.gateway';
+import { PrintQueueService } from './printing/print-queue.service';
 
 // Contexto RMQ simulado con la cabecera x-event-id que el publisher propaga.
 const mkCtx = (eventId?: string) => ({
@@ -16,6 +17,7 @@ describe('AppController - Notificaciones', () => {
   let appService: { obtenerNotificaciones: ReturnType<typeof jest.fn>; registrarNotificacion: ReturnType<typeof jest.fn> };
   let gateway: { emitPedidoUpdate: ReturnType<typeof jest.fn> };
   let cartaGateway: { emitDisponibilidadCambiada: ReturnType<typeof jest.fn> };
+  let printQueue: { enqueueOrder: ReturnType<typeof jest.fn>; enqueueReceipt: ReturnType<typeof jest.fn> };
 
   beforeEach(() => {
     appService = {
@@ -24,10 +26,12 @@ describe('AppController - Notificaciones', () => {
     };
     gateway = { emitPedidoUpdate: jest.fn() };
     cartaGateway = { emitDisponibilidadCambiada: jest.fn() };
+    printQueue = { enqueueOrder: jest.fn(), enqueueReceipt: jest.fn() };
     controller = new AppController(
       appService as unknown as AppService,
       gateway as unknown as NotificationsGateway,
       cartaGateway as unknown as CartaGateway,
+      printQueue as unknown as PrintQueueService,
     );
   });
 
@@ -53,6 +57,7 @@ describe('AppController - Notificaciones', () => {
       await controller.handlePedidoCreado(payload as any, mkCtx('evt-1') as any);
 
       expect(appService.registrarNotificacion).toHaveBeenCalledWith(RoutingKeys.PedidoCreado, payload, 'evt-1');
+      expect(printQueue.enqueueOrder).toHaveBeenCalledWith(payload.pedido, 'evt-1');
       expect(gateway.emitPedidoUpdate).toHaveBeenCalledWith({
         pattern: RoutingKeys.PedidoCreado,
         data: { ...payload, notificacionId: 'notif-1', contenido: 'Nuevo pedido' },
@@ -63,6 +68,7 @@ describe('AppController - Notificaciones', () => {
       appService.registrarNotificacion.mockResolvedValue(null);
       await controller.handlePedidoCreado({ estado: 'TEST' } as any, mkCtx('evt-dup') as any);
       expect(gateway.emitPedidoUpdate).not.toHaveBeenCalled();
+      expect(printQueue.enqueueOrder).toHaveBeenCalled();
     });
 
     it('sin cabecera x-event-id pasa eventId=undefined al servicio', async () => {
@@ -70,6 +76,13 @@ describe('AppController - Notificaciones', () => {
       await controller.handlePedidoCreado({ estado: 'TEST' } as any, mkCtx() as any);
       expect(appService.registrarNotificacion).toHaveBeenCalledWith(RoutingKeys.PedidoCreado, expect.any(Object), undefined);
     });
+  });
+
+  it('comprobante SUNAT aceptado va a la estación independiente COMPROBANTES', async () => {
+    const receipt = { comprobanteId: 'c1', sedeId: 's1', tipo: 'BOLETA' };
+    await controller.handleComprobanteEmitido(receipt as any);
+    expect(printQueue.enqueueReceipt).toHaveBeenCalledWith(receipt);
+    expect(printQueue.enqueueOrder).not.toHaveBeenCalled();
   });
 
   describe('handlePedidoActualizado', () => {

@@ -116,6 +116,11 @@ export const GUIDES: Record<RutaApp, Guide> = {
     step('Auditoría', 'Consulta importes, motivos, estados y atenciones relacionadas.'),
     step('Investigar', 'Filtra por tipo, código y fecha; edita observaciones o invalida un registro.', '#contenido .filters'),
   ] },
+  impresion: { route: 'impresion', title: 'Impresión', steps: [
+    step('Impresoras por estación', 'Configura por separado las impresoras de cocina, barra y comprobantes de 80 mm.'),
+    step('Destino', 'Elige red o USB, ancho y copias. La laptop puente debe estar encendida.', '#contenido .panel:first-of-type'),
+    step('Trabajos', 'Consulta cada impresión y reintenta las fallidas.', '#contenido .panel:last-of-type'),
+  ] },
 };
 
 export function guidesForRole(role: string | null | undefined): Guide[] {

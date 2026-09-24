@@ -55,6 +55,7 @@ const SEDE_SCOPED_PATH_PREFIXES = [
   '/caja',
   '/reservas',
   '/compras',
+  '/notificaciones/impresion',
   '/identidad/sedes/actual',
 ];
 

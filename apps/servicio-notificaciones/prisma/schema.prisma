@@ -24,3 +24,42 @@ model IdempotencyKey {
 
   @@map("idempotency_keys")
 }
+
+model PrinterDestination {
+  id          String   @id @default(uuid())
+  sedeId      String
+  station     String
+  agentId     String
+  transport   String
+  printerName String?
+  host        String?
+  port        Int?
+  paperWidth  Int      @default(80)
+  copies      Int      @default(1)
+  enabled     Boolean  @default(false)
+  jobs        PrintJob[]
+
+  @@unique([sedeId, station])
+  @@index([agentId, enabled])
+}
+
+model PrintJob {
+  id            String   @id @default(uuid())
+  sourceKey     String   @unique
+  sedeId        String
+  station       String
+  destinationId String
+  destination   PrinterDestination @relation(fields: [destinationId], references: [id])
+  payloadBase64 String
+  status        String   @default("PENDING")
+  attempts      Int      @default(0)
+  leaseToken    String?
+  leaseUntil    DateTime?
+  nextAttemptAt DateTime @default(now())
+  lastError     String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([status, nextAttemptAt, createdAt])
+  @@index([destinationId, status])
+}

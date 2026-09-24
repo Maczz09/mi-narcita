@@ -20,6 +20,7 @@ const CategoriasScreen = lazy(() => import('../screens/categorias/CategoriasScre
 const ReportesScreen = lazy(() => import('../screens/reportes/ReportesScreen').then(m => ({ default: m.ReportesScreen })));
 const UsuariosScreen = lazy(() => import('../screens/admin/UsuariosScreen').then(m => ({ default: m.UsuariosScreen })));
 const AuditoriaAnulacionesScreen = lazy(() => import('../screens/admin/AuditoriaAnulacionesScreen').then(m => ({ default: m.AuditoriaAnulacionesScreen })));
+const ImpresionScreen = lazy(() => import('../screens/admin/ImpresionScreen').then(m => ({ default: m.ImpresionScreen })));
 const SedesScreen = lazy(() => import('../screens/sedes/SedesScreen').then(m => ({ default: m.SedesScreen })));
 const CartaScreen = lazy(() => import('../screens/carta/CartaScreen').then(m => ({ default: m.CartaScreen })));
 const ComprasScreen = lazy(() => import('../screens/compras/ComprasScreen').then(m => ({ default: m.ComprasScreen })));
@@ -27,7 +28,7 @@ const FacturacionScreen = lazy(() => import('../screens/facturacion/FacturacionS
 const TicketPrintPage = lazy(() => import('../screens/print/TicketPrintPage').then(m => ({ default: m.TicketPrintPage })));
 const ComprobantePrintPage = lazy(() => import('../screens/print/ComprobantePrintPage').then(m => ({ default: m.ComprobantePrintPage })));
 const ZTicketPrintPage = lazy(() => import('../screens/print/ZTicketPrintPage').then(m => ({ default: m.ZTicketPrintPage })));
-const PublicCartaScreen = lazy(() => import('../screens/carta-publica/PublicCartaScreen').then(m => ({ default: m.PublicCartaScreen })));
+const PublicCartaScreen = lazy(() => import('../screens/carta-publica/BookCartaScreen').then(m => ({ default: m.BookCartaScreen })));
 import { Shell } from '../components/layout/Shell';
 import { ErrorBoundary } from '../components/ui/ErrorBoundary';
 
@@ -74,16 +75,16 @@ function ScreenLoading() {
         <div className="skel loading-action" />
       </div>
       <div className="loading-grid">
-        {Array.from({ length: 4 }).map((_) => (
-          <div className="stat" key={crypto.randomUUID()}>
+        {Array.from({ length: 4 }).map((_, index) => (
+          <div className="stat" key={`loading-stat-${index}`}>
             <div className="skel stat-skel-title" />
             <div className="skel stat-skel-value" />
           </div>
         ))}
       </div>
       <div className="panel loading-panel">
-        {Array.from({ length: 5 }).map((_) => (
-          <div className="skeleton-row" key={crypto.randomUUID()}>
+        {Array.from({ length: 5 }).map((_, index) => (
+          <div className="skeleton-row" key={`loading-row-${index}`}>
             <div className="skel" />
           </div>
         ))}
@@ -142,6 +143,7 @@ export function AppRouter() {
           <Route path="reportes" element={<RutaPorRol ruta="reportes"><ScreenBoundary modulo="Reportes"><ReportesScreen /></ScreenBoundary></RutaPorRol>} />
           <Route path="usuarios" element={<RutaPorRol ruta="usuarios"><ScreenBoundary modulo="Usuarios"><UsuariosScreen /></ScreenBoundary></RutaPorRol>} />
           <Route path="auditoria-anulaciones" element={<RutaPorRol ruta="auditoria-anulaciones"><ScreenBoundary modulo="Auditoría de anulaciones"><AuditoriaAnulacionesScreen /></ScreenBoundary></RutaPorRol>} />
+          <Route path="impresion" element={<RutaPorRol ruta="impresion"><ScreenBoundary modulo="Impresión"><ImpresionScreen /></ScreenBoundary></RutaPorRol>} />
           <Route path="sedes" element={<RutaPorRol ruta="sedes"><ScreenBoundary modulo="Sedes"><SedesScreen /></ScreenBoundary></RutaPorRol>} />
           <Route path="carta" element={<RutaPorRol ruta="carta"><ScreenBoundary modulo="Carta"><CartaScreen /></ScreenBoundary></RutaPorRol>} />
           <Route path="compras" element={<RutaPorRol ruta="compras"><ScreenBoundary modulo="Compras"><ComprasScreen /></ScreenBoundary></RutaPorRol>} />

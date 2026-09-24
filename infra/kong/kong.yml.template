@@ -371,6 +371,20 @@ services:
         strip_path: true
 
   # Carta pública/QR (T-XX): WebSocket de disponibilidad sin JWT — path
+  # Laptop puente ESC/POS: sin JWT de usuario, con clave larga propia validada
+  # por el servicio. Puerto entrante en la laptop NO es necesario.
+  - name: servicio-notificaciones-agente-impresion
+    url: http://servicio-notificaciones:3000/api/impresion/agente
+    connect_timeout: 2000
+    read_timeout: 10000
+    write_timeout: 10000
+    retries: 0
+    routes:
+      - name: agente-impresion
+        paths: [/agente-impresion]
+        strip_path: true
+
+  # Carta pública/QR (T-XX): WebSocket de disponibilidad sin JWT — path
   # propio (no un namespace del socket.io de arriba, que SÍ exige jwt a
   # nivel de todo el route) para que Kong pueda diferenciarlo por path
   # literal, igual que /sedes/publica y /carta-publica. read/write_timeout

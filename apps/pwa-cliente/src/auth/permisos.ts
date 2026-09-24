@@ -28,6 +28,7 @@ export const TODAS_LAS_RUTAS = [
   'sedes',
   'facturacion',
   'auditoria-anulaciones',
+  'impresion',
 ] as const;
 
 export type RutaApp = (typeof TODAS_LAS_RUTAS)[number];
@@ -45,7 +46,7 @@ export const ACCESO_POR_ROL: Record<RolUsuario, AccesoRol> = {
   SISTEMA: { home: 'usuarios', rutas: TODAS_LAS_RUTAS },
   GERENCIA: {
     home: 'reportes',
-    rutas: ['reportes', 'inventario', 'mermas', 'categorias', 'compras', 'carta', 'reservas', 'usuarios', 'auditoria-anulaciones'],
+    rutas: ['reportes', 'inventario', 'mermas', 'categorias', 'compras', 'carta', 'reservas', 'usuarios', 'auditoria-anulaciones', 'impresion'],
   },
   CAJERO: { home: 'caja', rutas: ['caja', 'mesas', 'pedidos'] },
   // T-50: `inventario` para el almacén de cocina (registrar consumos y mermas

@@ -1,0 +1,30 @@
+{
+  "name": "agente-impresion",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "apps/agente-impresion/src",
+  "projectType": "application",
+  "tags": ["backend", "printing", "windows"],
+  "targets": {
+    "build": {
+      "executor": "nx:run-commands",
+      "outputs": ["{workspaceRoot}/dist/apps/agente-impresion"],
+      "options": {
+        "command": "tsc -p apps/agente-impresion/tsconfig.app.json"
+      }
+    },
+    "serve": {
+      "executor": "nx:run-commands",
+      "dependsOn": ["build"],
+      "continuous": true,
+      "options": {
+        "command": "node dist/apps/agente-impresion/apps/agente-impresion/src/main.js"
+      }
+    },
+    "test": {
+      "executor": "@nx/jest:jest",
+      "options": {
+        "jestConfig": "apps/agente-impresion/jest.config.ts"
+      }
+    }
+  }
+}

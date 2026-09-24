@@ -12,6 +12,7 @@ import {
   ReservaCanceladaPayload,
   ReservaCreadaPayload,
   ProductoActualizadoPayload,
+  AcceptedReceiptPrintPayload,
   RoutingKeys,
 } from '@org/contracts';
 import { RabbitMQRetryInterceptor } from '@org/resiliencia';
@@ -19,6 +20,7 @@ import { OperableLog } from '@org/observabilidad';
 import { AppService } from './app.service';
 import { NotificationsGateway } from './notifications.gateway';
 import { CartaGateway } from './carta.gateway';
+import { PrintQueueService } from './printing/print-queue.service';
 
 @UseInterceptors(RabbitMQRetryInterceptor)
 @Controller()
@@ -29,6 +31,7 @@ export class AppController {
     private readonly appService: AppService,
     private readonly gateway: NotificationsGateway,
     private readonly cartaGateway: CartaGateway,
+    private readonly printQueue: PrintQueueService,
   ) {}
 
   @Get()
@@ -42,6 +45,9 @@ export class AppController {
     @Ctx() ctx: RmqContext,
   ) {
     await this.handleEvent(RoutingKeys.PedidoCreado, payload, ctx);
+    // La cola es idempotente y se intenta incluso si la notificación ya estaba
+    // registrada: un redelivery puede recuperar un fallo entre ambas escrituras.
+    await this.printQueue.enqueueOrder(payload.pedido, this.extractEventId(ctx));
   }
 
   @EventPattern(RoutingKeys.PedidoActualizado)
@@ -74,6 +80,11 @@ export class AppController {
     @Ctx() ctx: RmqContext,
   ) {
     await this.handleEvent(RoutingKeys.TicketGenerado, payload, ctx);
+  }
+
+  @EventPattern(RoutingKeys.ComprobanteEmitido)
+  async handleComprobanteEmitido(@Payload() payload: AcceptedReceiptPrintPayload) {
+    await this.printQueue.enqueueReceipt(payload);
   }
 
   @EventPattern(RoutingKeys.CuentaAbierta)
